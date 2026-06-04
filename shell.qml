@@ -8,6 +8,7 @@ import "Widgets/Bar"
 import "Widgets/Music"
 import "Widgets/Notifications"
 import "Widgets/LockScreen"
+import "Widgets/ThemeSwitcher"
 
 Scope {
     Variants {
@@ -78,6 +79,38 @@ Scope {
                 id: musicHideTimer
                 interval: 300
                 onTriggered: root.wantsMusic = false
+            }
+
+            PopupWindow {
+                id: themePopup
+                grabFocus: true
+                color: "transparent"
+                implicitWidth: 380
+                implicitHeight: 520
+
+                anchor {
+                    window: root
+                    rect.x: root.width - 396
+                    rect.y: root.height
+                }
+
+                // Sync back to button state when closed by clicking outside
+                onVisibleChanged: {
+                    if (!visible) trayWidget.wantsThemeSwitcher = false;
+                }
+
+                ThemeSwitcherPopup {
+                    anchors.fill: parent
+                    active: themePopup.visible
+                }
+            }
+
+            // Drive popup visibility imperatively so grabFocus close doesn't break the binding
+            Connections {
+                target: trayWidget
+                function onWantsThemeSwitcherChanged() {
+                    themePopup.visible = trayWidget.wantsThemeSwitcher;
+                }
             }
 
             PopupWindow {

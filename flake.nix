@@ -14,6 +14,7 @@
         packages = with pkgs; [
           quickshell
           clang-tools
+          imagemagick
         ];
 
         QML_IMPORT_PATH = pkgs.lib.concatStringsSep ":" [

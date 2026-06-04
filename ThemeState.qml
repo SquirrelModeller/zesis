@@ -43,7 +43,7 @@ Singleton {
         applyProcess._wallpaperPath = wallpaperPath;
         applyProcess.command = [
             "bash", "-c",
-            "swww img \"$1\" --transition-type fade --transition-duration 1 && wallust run \"$1\" -p \"$2\" && hyprctl reload",
+            "awww img \"$1\" --transition-type fade --transition-duration 1; wallust run \"$1\" -p \"$2\" && hyprctl reload",
             "--", wallpaperPath, root.palette
         ];
         applyProcess.running = true;
@@ -69,9 +69,8 @@ Singleton {
         var json = JSON.stringify({ palette: root.palette, lastWallpaper: root.lastWallpaper });
         saveProcess.command = [
             "bash", "-c",
-            "printf '%s' \"$1\" > \"$2\" && printf '%s\\n' \"$3\" > \"$4\"",
-            "--", json, root._stateFile,
-            root.lastWallpaper, root._cacheDir + "/wallpaper"
+            "printf '%s' \"$1\" > \"$2\"",
+            "--", json, root._stateFile
         ];
         saveProcess.running = true;
     }

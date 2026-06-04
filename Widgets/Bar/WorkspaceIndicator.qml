@@ -145,7 +145,7 @@ Item {
                 Rectangle {
                     anchors.fill: parent
                     radius: parent.width / 2
-                    color: wsItem.isActive ? Colors.accent : (wsItem.hasWindows ? Colors.muted : Colors.surfaceHigh)
+                    color: wsItem.isActive ? Colors.accent : (wsItem.hasWindows ? Colors.withAlpha(Colors.accent, 0.4) : Colors.surfaceHigh)
                     border.color: wsItem.isActive ? "#FCCD94" : Colors.withAlpha(Colors.accent, 0.2)
                     border.width: 1
                     Behavior on color {

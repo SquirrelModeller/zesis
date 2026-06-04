@@ -9,10 +9,33 @@ import "../../"
 Item {
     id: root
 
-    // Set to true when the popup becomes visible to trigger a scan
     property bool active: false
+    property bool showSettings: false
 
     readonly property string _wallpapersDir: Quickshell.env("HOME") + "/Pictures/Wallpapers"
+
+    readonly property var presets: [
+        {
+            name: "Harmonious",
+            desc: "Blends similar colors - great for atmospheric images",
+            args: "-b fastresize -c labmixed -k"
+        },
+        {
+            name: "Vivid",
+            desc: "Picks colors that visually pop from the background",
+            args: "-b thumb -c salience -k"
+        },
+        {
+            name: "Balanced",
+            desc: "Perceptual LCH colorspace, good middle ground",
+            args: "-b resized -c lch -k"
+        },
+        {
+            name: "Soft",
+            desc: "LCH with color mixing for softer palettes",
+            args: "-b thumb -c lchmixed -k"
+        },
+    ]
 
     onActiveChanged: {
         if (active) {
@@ -25,7 +48,6 @@ Item {
         id: wallpapers
     }
 
-    // Scan wallpapers dir, write paths to temp file, read back on exit
     Process {
         id: scanner
         command: ["bash", "-c", "find \"$1\" -maxdepth 1 -type f \\( -iname '*.jpg' -o -iname '*.jpeg' -o -iname '*.png' -o -iname '*.webp' \\) 2>/dev/null | sort > \"$2\"", "--", root._wallpapersDir, Quickshell.env("HOME") + "/.cache/zesis/wallpapers.txt"]
@@ -49,7 +71,6 @@ Item {
         }
     }
 
-    // Background card
     Rectangle {
         anchors.fill: parent
         radius: 12
@@ -139,88 +160,199 @@ Item {
                     cursorShape: Qt.PointingHandCursor
                     onClicked: {
                         ThemeState.palette = ThemeState.palette === "dark" ? "light" : "dark";
-                        if (ThemeState.lastWallpaper !== "") {
+                        if (ThemeState.lastWallpaper !== "")
                             ThemeState.apply(ThemeState.lastWallpaper);
-                        }
                     }
                 }
             }
-        }
 
-        // Search field
-        Rectangle {
-            Layout.fillWidth: true
-            Layout.preferredHeight: 36
-            radius: 8
-            color: Colors.surface
-            border.color: searchField.activeFocus ? Colors.accent : Colors.outline
-            border.width: 1
-            Behavior on border.color {
-                ColorAnimation {
-                    duration: 150
+            // Gear button
+            Rectangle {
+                Layout.preferredWidth: 32
+                Layout.preferredHeight: 32
+                radius: 8
+                color: root.showSettings ? Colors.withAlpha(Colors.accent, 0.15) : "transparent"
+                Behavior on color {
+                    ColorAnimation {
+                        duration: 150
+                    }
                 }
-            }
-
-            TextInput {
-                id: searchField
-                anchors {
-                    left: parent.left
-                    right: parent.right
-                    verticalCenter: parent.verticalCenter
-                    leftMargin: 12
-                    rightMargin: 12
-                }
-                color: Colors.text
-                font.pixelSize: 13
-                clip: true
-                selectionColor: Qt.rgba(Colors.accent.r, Colors.accent.g, Colors.accent.b, 0.35)
 
                 Text {
+                    anchors.centerIn: parent
+                    text: "⚙"
+                    font.pixelSize: 16
+                    color: root.showSettings ? Colors.accent : Colors.textDim
+                    Behavior on color {
+                        ColorAnimation {
+                            duration: 150
+                        }
+                    }
+                }
+
+                MouseArea {
                     anchors.fill: parent
-                    verticalAlignment: Text.AlignVCenter
-                    text: "Search wallpapers..."
-                    color: Colors.textDim
-                    font.pixelSize: 13
-                    visible: searchField.text === ""
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: root.showSettings = !root.showSettings
                 }
             }
         }
 
-        // Wallpaper list
-        ListView {
-            id: listView
+        // Content area, switches between wallpaper list and settings panel
+        Item {
             Layout.fillWidth: true
             Layout.fillHeight: true
-            spacing: 4
-            clip: true
-            model: wallpapers
 
-            ScrollBar.vertical: ScrollBar {
-                policy: ScrollBar.AsNeeded
-            }
+            // Wallpaper section
+            ColumnLayout {
+                anchors.fill: parent
+                spacing: 12
+                visible: !root.showSettings
 
-            WheelHandler {
-                onWheel: event => {
-                    listView.contentY = Math.max(listView.originY, Math.min(listView.originY + listView.contentHeight - listView.height, listView.contentY - event.angleDelta.y * 0.5));
+                Rectangle {
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: 36
+                    radius: 8
+                    color: Colors.surface
+                    border.color: searchField.activeFocus ? Colors.accent : Colors.outline
+                    border.width: 1
+                    Behavior on border.color {
+                        ColorAnimation {
+                            duration: 150
+                        }
+                    }
+
+                    TextInput {
+                        id: searchField
+                        anchors {
+                            left: parent.left
+                            right: parent.right
+                            verticalCenter: parent.verticalCenter
+                            leftMargin: 12
+                            rightMargin: 12
+                        }
+                        color: Colors.text
+                        font.pixelSize: 13
+                        clip: true
+                        selectionColor: Qt.rgba(Colors.accent.r, Colors.accent.g, Colors.accent.b, 0.35)
+
+                        Text {
+                            anchors.fill: parent
+                            verticalAlignment: Text.AlignVCenter
+                            text: "Search wallpapers..."
+                            color: Colors.textDim
+                            font.pixelSize: 13
+                            visible: searchField.text === ""
+                        }
+                    }
+                }
+
+                ListView {
+                    id: listView
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+                    spacing: 4
+                    clip: true
+                    model: wallpapers
+
+                    ScrollBar.vertical: ScrollBar {
+                        policy: ScrollBar.AsNeeded
+                    }
+
+                    WheelHandler {
+                        onWheel: event => {
+                            listView.contentY = Math.max(listView.originY, Math.min(listView.originY + listView.contentHeight - listView.height, listView.contentY - event.angleDelta.y * 0.5));
+                        }
+                    }
+
+                    delegate: WallpaperItem {
+                        required property string path
+                        wallpaperPath: path
+                        width: listView.width - 8
+                        visible: searchField.text === "" || path.toLowerCase().includes(searchField.text.toLowerCase())
+                        height: visible ? implicitHeight : 0
+                    }
+
+                    Text {
+                        anchors.centerIn: parent
+                        visible: wallpapers.count === 0 && !scanner.running
+                        text: "No wallpapers found in\n~/Pictures/Wallpapers"
+                        color: Colors.textDim
+                        font.pixelSize: 13
+                        horizontalAlignment: Text.AlignHCenter
+                    }
                 }
             }
 
-            delegate: WallpaperItem {
-                required property string path
-                wallpaperPath: path
-                width: listView.width - 8
-                visible: searchField.text === "" || path.toLowerCase().includes(searchField.text.toLowerCase())
-                height: visible ? implicitHeight : 0
-            }
+            // Settings panel
+            Column {
+                anchors.fill: parent
+                spacing: 6
+                visible: root.showSettings
 
-            // Empty state
-            Text {
-                anchors.centerIn: parent
-                visible: wallpapers.count === 0 && !scanner.running
-                text: "No wallpapers found in\n~/Pictures/Wallpapers"
-                color: Colors.textDim
-                font.pixelSize: 13
-                horizontalAlignment: Text.AlignHCenter
+                Repeater {
+                    model: root.presets
+                    delegate: Rectangle {
+                        id: presetItem
+                        required property var modelData
+                        required property int index
+
+                        width: parent.width
+                        height: 64
+                        radius: 8
+                        color: ThemeState.wallustArgs === presetItem.modelData.args ? Colors.withAlpha(Colors.accent, 0.12) : presetHover.hovered ? Colors.surface : Colors.withAlpha(Colors.surface, 0.5)
+                        border.color: ThemeState.wallustArgs === presetItem.modelData.args ? Colors.withAlpha(Colors.accent, 0.5) : "transparent"
+                        border.width: 1
+                        Behavior on color {
+                            ColorAnimation {
+                                duration: 120
+                            }
+                        }
+
+                        Column {
+                            anchors {
+                                left: parent.left
+                                right: parent.right
+                                verticalCenter: parent.verticalCenter
+                                leftMargin: 12
+                                rightMargin: 12
+                            }
+                            spacing: 3
+
+                            Text {
+                                text: presetItem.modelData.name
+                                color: ThemeState.wallustArgs === presetItem.modelData.args ? Colors.accent : Colors.text
+                                font.pixelSize: 13
+                                font.weight: Font.Medium
+                                Behavior on color {
+                                    ColorAnimation {
+                                        duration: 120
+                                    }
+                                }
+                            }
+
+                            Text {
+                                width: parent.width
+                                text: presetItem.modelData.desc
+                                color: Colors.textDim
+                                font.pixelSize: 11
+                                wrapMode: Text.WordWrap
+                            }
+                        }
+
+                        HoverHandler {
+                            id: presetHover
+                        }
+
+                        TapHandler {
+                            onTapped: {
+                                ThemeState.wallustArgs = presetItem.modelData.args;
+                                if (ThemeState.lastWallpaper !== "")
+                                    ThemeState.apply(ThemeState.lastWallpaper);
+                            }
+                        }
+                    }
+                }
             }
         }
     }

@@ -15,6 +15,7 @@ Singleton {
 
     property string palette: "dark"
     property string lastWallpaper: ""
+    property string wallustArgs: "-b fastresize -c labmixed -k"
     property bool applying: false
 
     Process {
@@ -26,6 +27,7 @@ Singleton {
         id: stateData
         property string palette: "dark"
         property string lastWallpaper: ""
+        property string wallustArgs: "-b fastresize -c labmixed -k"
     }
 
     FileView {
@@ -34,18 +36,16 @@ Singleton {
         onLoaded: {
             root.palette = stateData.palette;
             root.lastWallpaper = stateData.lastWallpaper;
+            root.wallustArgs = stateData.wallustArgs;
         }
     }
 
     function apply(wallpaperPath) {
-        if (root.applying) return;
+        if (root.applying)
+            return;
         root.applying = true;
         applyProcess._wallpaperPath = wallpaperPath;
-        applyProcess.command = [
-            "bash", "-c",
-            "awww img \"$1\" --transition-type fade --transition-duration 1; wallust run \"$1\" -p \"$2\" && hyprctl reload",
-            "--", wallpaperPath, root.palette
-        ];
+        applyProcess.command = ["bash", "-c", "awww img \"$1\" --transition-type fade --transition-duration 1; wallust run \"$1\" " + root.wallustArgs + " -p \"$2\" && hyprctl reload", "--", wallpaperPath, root.palette];
         applyProcess.running = true;
     }
 
@@ -66,12 +66,12 @@ Singleton {
     }
 
     function _persistState() {
-        var json = JSON.stringify({ palette: root.palette, lastWallpaper: root.lastWallpaper });
-        saveProcess.command = [
-            "bash", "-c",
-            "printf '%s' \"$1\" > \"$2\"",
-            "--", json, root._stateFile
-        ];
+        var json = JSON.stringify({
+            palette: root.palette,
+            lastWallpaper: root.lastWallpaper,
+            wallustArgs: root.wallustArgs
+        });
+        saveProcess.command = ["bash", "-c", "printf '%s' \"$1\" > \"$2\"", "--", json, root._stateFile];
         saveProcess.running = true;
     }
 }

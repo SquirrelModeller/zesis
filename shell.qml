@@ -1,19 +1,23 @@
+//@ pragma UseQApplication
 import QtQuick
 import QtQuick.Layouts
 import Quickshell
 import Quickshell.Wayland
+import Quickshell.Services.Mpris
+import "Widgets/Bar"
 import "Widgets/Music"
-import "Widgets/Simulation"
+import "Widgets/Notifications"
+import "Widgets/LockScreen"
 
 Scope {
     Variants {
         model: Quickshell.screens
-        delegate: WlrLayershell {
+        delegate: PanelWindow {
             id: root
 
             required property ShellScreen modelData
 
-            layer: WlrLayer.Top
+            WlrLayershell.layer: WlrLayer.Top
             screen: modelData
 
             implicitHeight: 60
@@ -26,20 +30,7 @@ Scope {
 
             color: "transparent"
 
-            RowLayout {
-                id: workspacePicker
-                anchors {
-                    leftMargin: 20
-                    topMargin: 10
-                }
-                spacing: 0
-                layoutDirection: Qt.LeftToRight
-                anchors.left: parent.left
-                anchors.top: parent.top
-                anchors.bottom: parent.bottom
-
-                WorkspaceIndicator {}
-            }
+            property bool wantsMusic: false
 
             RowLayout {
                 id: sysTray
@@ -54,40 +45,129 @@ Scope {
                 anchors.top: parent.top
                 anchors.bottom: parent.bottom
 
-                SysTray {}
+                SysTray {
+                    id: trayWidget
+                }
+
+                IdleInhibitor {
+                    enabled: trayWidget.candleLit
+                    window: root
+                }
+            }
+
+            Item {
+                id: centerHoverZone
+                anchors.horizontalCenter: parent.horizontalCenter
+                anchors.top: parent.top
+                anchors.bottom: parent.bottom
+                width: 300
+
+                HoverHandler {
+                    id: barCenter
+                    onHoveredChanged: {
+                        if (hovered) {
+                            root.wantsMusic = true;
+                        } else if (!popupHover.hovered) {
+                            musicHideTimer.restart();
+                        }
+                    }
+                }
+            }
+
+            Timer {
+                id: musicHideTimer
+                interval: 300
+                onTriggered: root.wantsMusic = false
+            }
+
+            PopupWindow {
+                id: musicPopup
+                visible: root.wantsMusic && Mpris.players.values.length > 0
+                grabFocus: false
+                color: "transparent"
+                implicitWidth: 400
+                implicitHeight: 260
+
+                anchor {
+                    window: root
+                    rect.x: root.width / 2 - 200
+                    rect.y: root.height
+                }
+
+                HoverHandler {
+                    id: popupHover
+                    onHoveredChanged: {
+                        if (hovered) {
+                            musicHideTimer.stop();
+                        } else if (!barCenter.hovered) {
+                            musicHideTimer.restart();
+                        }
+                    }
+                }
+
+                MusicController {
+                    anchors.fill: parent
+                }
             }
         }
     }
 
-    // PanelWindow {
-    //     exclusionMode: ExclusionMode.Ignore
-    //     anchors {
-    //         top: true
-    //     }
+    PanelWindow {
+        WlrLayershell.layer: WlrLayer.Top
+        anchors {
+            top: true
+            left: true
+        }
+        exclusiveZone: -1
+        implicitWidth: 202
+        implicitHeight: 202
+        color: "transparent"
 
-    //     implicitWidth: 400
-    //     implicitHeight: 240
+        mask: Region {
+            shape: RegionShape.Ellipse
+            x: indicator.visualDiscCX - indicator.discRadius
+            y: indicator.visualDiscCY - indicator.discRadius
+            width: indicator.discRadius * 2
+            height: indicator.discRadius * 2
+        }
 
-    //     color: "transparent"
+        WorkspaceIndicator {
+            id: indicator
+            anchors.fill: parent
+        }
+    }
 
-    //     //MusicController {}
-    // }
+    LockScreen {}
 
-    // PanelWindow {
-    //     implicitHeight: 600
-    //     implicitWidth: 600
-    //     anchors {
-    //         bottom: true
-    //         right: true
-    //     }
+    // Notification toasts, top-right overlay, stacks below the bar
+    PanelWindow {
+        WlrLayershell.layer: WlrLayer.Overlay
+        anchors {
+            top: true
+            right: true
+        }
+        exclusiveZone: 0
+        implicitWidth: 360
+        implicitHeight: 600
+        color: "transparent"
+        visible: NotifServer.count > 0
 
-    //     Simulation {}
-    // }
+        Column {
+            anchors.top: parent.top
+            anchors.right: parent.right
+            anchors.topMargin: 70
+            anchors.rightMargin: 16
+            spacing: 8
+            width: 340
 
-    // function dub(x: int): int {
-    //     for (var i = 0; i < 10; i += 1) {
-    //         console.log("hi");
-    //     }
-    //     return x * 2;
-    // }
+            Repeater {
+                model: NotifServer.notifications
+                delegate: NotifItem {
+                    required property var modelData
+                    notification: modelData
+                    width: 340
+                }
+            }
+        }
+    }
 }

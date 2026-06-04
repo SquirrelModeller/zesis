@@ -1,6 +1,6 @@
-import QtQuick 2.15
+import QtQuick
 import Quickshell.Hyprland
-import "./visual/Theme.js" as Theme
+import "../../"
 
 Rectangle {
     color: "transparent"
@@ -13,8 +13,8 @@ Rectangle {
 
         anchors.centerIn: parent
         text: lastEventText
-        color: "white"
-        font.pixelSize: Theme.textSizeNormal
+        color: Colors.text
+        font.pixelSize: 20
         font.bold: true
 
         function updateEventText(newText) {

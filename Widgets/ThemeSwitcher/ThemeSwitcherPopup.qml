@@ -9,7 +9,6 @@ import "../../"
 Item {
     id: root
 
-    property bool active: false
     property bool showSettings: false
 
     readonly property string _wallpapersDir: Quickshell.env("HOME") + "/Pictures/Wallpapers"
@@ -37,12 +36,7 @@ Item {
         },
     ]
 
-    onActiveChanged: {
-        if (active) {
-            wallpapers.clear();
-            scanner.running = true;
-        }
-    }
+    Component.onCompleted: scanner.running = true
 
     ListModel {
         id: wallpapers

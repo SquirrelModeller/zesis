@@ -36,6 +36,7 @@ Scope {
 
             property bool wantsMusic: false
 
+            // This casues 2% GPU usage, optimze
             RowLayout {
                 id: sysTray
 
@@ -103,9 +104,10 @@ Scope {
                         trayWidget.wantsThemeSwitcher = false;
                 }
 
-                ThemeSwitcherPopup {
+                Loader {
                     anchors.fill: parent
                     active: themePopup.visible
+                    sourceComponent: ThemeSwitcherPopup {}
                 }
             }
 
@@ -127,8 +129,10 @@ Scope {
                         SysMonService.popupOpen = false;
                 }
 
-                SysMonPopup {
+                Loader {
                     anchors.fill: parent
+                    active: sysMonPopup.visible
+                    sourceComponent: SysMonPopup {}
                 }
             }
 
@@ -174,8 +178,10 @@ Scope {
                     }
                 }
 
-                MusicController {
+                Loader {
                     anchors.fill: parent
+                    active: Mpris.players.values.length > 0
+                    sourceComponent: MusicController {}
                 }
             }
         }
@@ -224,9 +230,6 @@ Scope {
         color: "transparent"
         visible: KeybindService.popupOpen
 
-        onVisibleChanged: if (visible)
-            keybindContent.focusSearch()
-
         Rectangle {
             anchors.fill: parent
             color: Qt.rgba(0, 0, 0, 0.45)
@@ -235,11 +238,14 @@ Scope {
             }
         }
 
-        KeybindPopup {
-            id: keybindContent
+        Loader {
+            id: keybindLoader
+            active: keybindOverlay.visible
             anchors.centerIn: parent
             width: Math.min(parent.width - 80, 1100)
             height: Math.min(parent.height - 80, 820)
+            sourceComponent: KeybindPopup {}
+            onLoaded: item.focusSearch() // qmllint disable missing-property
         }
     }
 

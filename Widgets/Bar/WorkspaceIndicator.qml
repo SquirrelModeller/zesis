@@ -185,7 +185,6 @@ Item {
                     anchor.adjustment: PopupAdjustment.All
                     anchor.margins.left: 8
 
-                    property var wsWindows: Hyprland.toplevels.values.filter(t => t.workspace && parseInt(t.workspace.name) === wsItem.wsIndex)
                     property var wsMonitor: {
                         var ws = Hyprland.workspaces.values.find(w => parseInt(w.name) === wsItem.wsIndex);
                         return (ws && ws.monitor) ? ws.monitor : Hyprland.focusedMonitor;
@@ -203,48 +202,51 @@ Item {
                     onVisibleChanged: if (visible)
                         Hyprland.refreshToplevels()
 
-                    Rectangle {
+                    Loader {
+                        active: wsPopup.visible
                         anchors.fill: parent
-                        color: Colors.bg
-                        border.color: Colors.withAlpha(Colors.accent, 0.35)
-                        border.width: 1
-                        radius: 6
-                        clip: true
-
-                        Item {
-                            x: 1
-                            y: 1
-                            width: wsPopup.thumbW
-                            height: wsPopup.thumbH
+                        sourceComponent: Rectangle {
+                            color: Colors.bg
+                            border.color: Colors.withAlpha(Colors.accent, 0.35)
+                            border.width: 1
+                            radius: 6
                             clip: true
 
-                            Repeater {
-                                model: wsPopup.wsWindows
-                                delegate: Item {
-                                    id: winItem
-                                    required property var modelData
+                            Item {
+                                x: 1
+                                y: 1
+                                width: wsPopup.thumbW
+                                height: wsPopup.thumbH
+                                clip: true
 
-                                    x: {
-                                        var at = winItem.modelData.lastIpcObject["at"];
-                                        return at ? (at[0] - wsPopup.monOffX) * wsPopup.thumbScale : 0;
-                                    }
-                                    y: {
-                                        var at = winItem.modelData.lastIpcObject["at"];
-                                        return at ? (at[1] - wsPopup.monOffY) * wsPopup.thumbScale : 0;
-                                    }
-                                    width: {
-                                        var sz = winItem.modelData.lastIpcObject["size"];
-                                        return sz ? sz[0] * wsPopup.thumbScale : 50;
-                                    }
-                                    height: {
-                                        var sz = winItem.modelData.lastIpcObject["size"];
-                                        return sz ? sz[1] * wsPopup.thumbScale : 50;
-                                    }
+                                Repeater {
+                                    model: Hyprland.toplevels.values.filter(t => t.workspace && parseInt(t.workspace.name) === wsItem.wsIndex)
+                                    delegate: Item {
+                                        id: winItem
+                                        required property var modelData
 
-                                    ScreencopyView {
-                                        anchors.fill: parent
-                                        captureSource: winItem.modelData.wayland
-                                        live: true
+                                        x: {
+                                            var at = winItem.modelData.lastIpcObject["at"];
+                                            return at ? (at[0] - wsPopup.monOffX) * wsPopup.thumbScale : 0;
+                                        }
+                                        y: {
+                                            var at = winItem.modelData.lastIpcObject["at"];
+                                            return at ? (at[1] - wsPopup.monOffY) * wsPopup.thumbScale : 0;
+                                        }
+                                        width: {
+                                            var sz = winItem.modelData.lastIpcObject["size"];
+                                            return sz ? sz[0] * wsPopup.thumbScale : 50;
+                                        }
+                                        height: {
+                                            var sz = winItem.modelData.lastIpcObject["size"];
+                                            return sz ? sz[1] * wsPopup.thumbScale : 50;
+                                        }
+
+                                        ScreencopyView {
+                                            anchors.fill: parent
+                                            captureSource: winItem.modelData.wayland
+                                            live: true
+                                        }
                                     }
                                 }
                             }

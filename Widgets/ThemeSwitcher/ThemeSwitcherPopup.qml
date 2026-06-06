@@ -11,6 +11,23 @@ Item {
 
     property bool showSettings: false
 
+    scale: 0.88
+    opacity: 0
+    transformOrigin: Item.TopRight
+
+    NumberAnimation on scale {
+        from: 0.88; to: 1.0
+        duration: 180; easing.type: Easing.OutCubic
+        running: true
+    }
+    NumberAnimation on opacity {
+        from: 0; to: 1
+        duration: 150; easing.type: Easing.OutCubic
+        running: true
+    }
+
+    Component.onCompleted: scanner.running = true
+
     readonly property string _wallpapersDir: Quickshell.env("HOME") + "/Pictures/Wallpapers"
 
     readonly property var presets: [
@@ -35,8 +52,6 @@ Item {
             args: "-b thumb -c lchmixed -k"
         },
     ]
-
-    Component.onCompleted: scanner.running = true
 
     ListModel {
         id: wallpapers

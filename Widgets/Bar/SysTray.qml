@@ -22,6 +22,10 @@ Rectangle {
         anchors.centerIn: parent
         spacing: 4
 
+        SysInfo {
+            Layout.alignment: Qt.AlignVCenter
+        }
+
         Repeater {
             model: SystemTray.items
             delegate: TrayIcon {

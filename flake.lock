@@ -1,12 +1,32 @@
 {
   "nodes": {
+    "athroisma": {
+      "inputs": {
+        "nixpkgs": [
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1780762642,
+        "narHash": "sha256-EWZOLDqyq+0mSO0qMKoBwhEjaCvHs/lwNQUHx0ktC3Q=",
+        "owner": "SquirrelModeller",
+        "repo": "athroisma",
+        "rev": "f0429ea4a54937e6195c8d90cbc429c5e2766c0a",
+        "type": "github"
+      },
+      "original": {
+        "owner": "SquirrelModeller",
+        "repo": "athroisma",
+        "type": "github"
+      }
+    },
     "nixpkgs": {
       "locked": {
-        "lastModified": 1779560665,
-        "narHash": "sha256-tpyBcxPpcQb8ukyNF7DoCwfSY3VPsxHoYwj00Cayv5o=",
+        "lastModified": 1780243769,
+        "narHash": "sha256-x5UQuRsH3MqI0U9afaXSNqzTPSeZlRLvFAav2Ux1pNw=",
         "owner": "NixOS",
         "repo": "nixpkgs",
-        "rev": "64c08a7ca051951c8eae34e3e3cb1e202fe36786",
+        "rev": "331800de5053fcebacf6813adb5db9c9dca22a0c",
         "type": "github"
       },
       "original": {
@@ -18,6 +38,7 @@
     },
     "root": {
       "inputs": {
+        "athroisma": "athroisma",
         "nixpkgs": "nixpkgs"
       }
     }

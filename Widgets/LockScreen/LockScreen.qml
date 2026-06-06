@@ -15,6 +15,10 @@ Scope {
         }
     }
 
+    function triggerLock() {
+        lockTimer.start();
+    }
+
     IpcHandler {
         target: "lockscreen"
 

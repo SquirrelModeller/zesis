@@ -9,6 +9,7 @@ import "Widgets/Music"
 import "Widgets/Notifications"
 import "Widgets/LockScreen"
 import "Widgets/ThemeSwitcher"
+import "Widgets/SysMon"
 
 Scope {
     Variants {
@@ -96,7 +97,8 @@ Scope {
 
                 // Sync back to button state when closed by clicking outside
                 onVisibleChanged: {
-                    if (!visible) trayWidget.wantsThemeSwitcher = false;
+                    if (!visible)
+                        trayWidget.wantsThemeSwitcher = false;
                 }
 
                 ThemeSwitcherPopup {
@@ -105,11 +107,43 @@ Scope {
                 }
             }
 
-            // Drive popup visibility imperatively so grabFocus close doesn't break the binding
+            PopupWindow {
+                id: sysMonPopup
+                grabFocus: true
+                color: "transparent"
+                implicitWidth: 380
+                implicitHeight: 520
+
+                anchor {
+                    window: root
+                    rect.x: root.width - 396
+                    rect.y: root.height
+                }
+
+                onVisibleChanged: {
+                    if (!visible)
+                        SysMonService.popupOpen = false;
+                }
+
+                SysMonPopup {
+                    anchors.fill: parent
+                }
+            }
+
+            Connections {
+                target: SysMonService
+                function onPopupOpenChanged() {
+                    sysMonPopup.visible = SysMonService.popupOpen;
+                }
+            }
+
             Connections {
                 target: trayWidget
                 function onWantsThemeSwitcherChanged() {
                     themePopup.visible = trayWidget.wantsThemeSwitcher;
+                }
+                function onLockRequested() {
+                    lockScreen.triggerLock();
                 }
             }
 
@@ -170,7 +204,9 @@ Scope {
         }
     }
 
-    LockScreen {}
+    LockScreen {
+        id: lockScreen
+    }
 
     // Notification toasts, top-right overlay, stacks below the bar
     PanelWindow {

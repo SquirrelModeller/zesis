@@ -86,7 +86,7 @@ Item {
                 text: "Themes"
                 color: Colors.text
                 font.pixelSize: 16
-                font.weight: Font.SemiBold
+                font.weight: Font.DemiBold
             }
 
             Item {

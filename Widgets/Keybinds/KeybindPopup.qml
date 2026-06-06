@@ -144,7 +144,7 @@ Item {
                                         text: sectionCard.modelData.name
                                         color: Colors.text
                                         font.pixelSize: 13
-                                        font.weight: Font.SemiBold
+                                        font.weight: Font.DemiBold
                                         anchors.verticalCenter: parent.verticalCenter
                                     }
                                 }

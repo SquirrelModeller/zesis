@@ -132,7 +132,7 @@ Item {
                         text: tab.modelData
                         color: tab.active ? Colors.text : Colors.textDim
                         font.pixelSize: 13
-                        font.weight: tab.active ? Font.SemiBold : Font.Normal
+                        font.weight: tab.active ? Font.DemiBold : Font.Normal
                         Behavior on color {
                             ColorAnimation {
                                 duration: 120

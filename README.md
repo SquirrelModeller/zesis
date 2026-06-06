@@ -12,6 +12,7 @@ Colors live in `colors.json` and are exposed via the `Colors` singleton (`Colors
 
 - [Quickshell](https://quickshell.outfoxxed.me) (Qt 6)
 - A Wayland compositor that implements `wlr-layer-shell` and `ext-session-lock`
+- A [Nerd Font](https://www.nerdfonts.com/) or the `nerd-fonts.symbols-only` package for icons throughout the shell
 - PAM configuration for the lock screen (see below)
 
 ## Setup

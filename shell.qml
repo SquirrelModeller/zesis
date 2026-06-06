@@ -2,6 +2,7 @@
 import QtQuick
 import QtQuick.Layouts
 import Quickshell
+import Quickshell.Io
 import Quickshell.Wayland
 import Quickshell.Services.Mpris
 import "Widgets/Bar"
@@ -10,6 +11,7 @@ import "Widgets/Notifications"
 import "Widgets/LockScreen"
 import "Widgets/ThemeSwitcher"
 import "Widgets/SysMon"
+import "Widgets/Keybinds"
 
 Scope {
     Variants {
@@ -206,6 +208,46 @@ Scope {
 
     LockScreen {
         id: lockScreen
+    }
+
+    PanelWindow {
+        id: keybindOverlay
+        WlrLayershell.layer: WlrLayer.Overlay
+        WlrLayershell.keyboardFocus: WlrKeyboardFocus.OnDemand
+        anchors {
+            top: true
+            bottom: true
+            left: true
+            right: true
+        }
+        exclusiveZone: -1
+        color: "transparent"
+        visible: KeybindService.popupOpen
+
+        onVisibleChanged: if (visible)
+            keybindContent.focusSearch()
+
+        Rectangle {
+            anchors.fill: parent
+            color: Qt.rgba(0, 0, 0, 0.45)
+            TapHandler {
+                onTapped: KeybindService.popupOpen = false
+            }
+        }
+
+        KeybindPopup {
+            id: keybindContent
+            anchors.centerIn: parent
+            width: Math.min(parent.width - 80, 1100)
+            height: Math.min(parent.height - 80, 820)
+        }
+    }
+
+    IpcHandler {
+        target: "keybinds"
+        function toggle() {
+            KeybindService.popupOpen = !KeybindService.popupOpen;
+        }
     }
 
     // Notification toasts, top-right overlay, stacks below the bar

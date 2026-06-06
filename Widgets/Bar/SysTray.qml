@@ -3,6 +3,7 @@ import QtQuick
 import QtQuick.Layouts
 import Quickshell.Services.SystemTray
 import "../../"
+import "../Keybinds"
 
 Rectangle {
     id: root
@@ -79,6 +80,45 @@ Rectangle {
                 hoverEnabled: true
                 cursorShape: Qt.PointingHandCursor
                 onClicked: root.wantsThemeSwitcher = !root.wantsThemeSwitcher
+            }
+        }
+
+        // Keybind cheatsheet button
+        Item {
+            implicitWidth: 30
+            implicitHeight: 30
+            Layout.alignment: Qt.AlignVCenter
+            Layout.leftMargin: 4
+
+            Rectangle {
+                anchors.fill: parent
+                radius: 8
+                color: KeybindService.popupOpen ? Colors.withAlpha(Colors.accent, 0.15) : kbHover.containsMouse ? Colors.surfaceHigh : "transparent"
+                Behavior on color {
+                    ColorAnimation {
+                        duration: 120
+                    }
+                }
+            }
+
+            Text {
+                anchors.centerIn: parent
+                text: "󰌌"
+                font.pixelSize: 15
+                color: KeybindService.popupOpen ? Colors.accent : Colors.text
+                Behavior on color {
+                    ColorAnimation {
+                        duration: 120
+                    }
+                }
+            }
+
+            MouseArea {
+                id: kbHover
+                anchors.fill: parent
+                hoverEnabled: true
+                cursorShape: Qt.PointingHandCursor
+                onClicked: KeybindService.popupOpen = !KeybindService.popupOpen
             }
         }
 

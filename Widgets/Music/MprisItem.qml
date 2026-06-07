@@ -61,6 +61,7 @@ Rectangle {
     Rectangle {
         anchors.fill: parent
         color: mprisroot.colOverlay
+        radius: 20
     }
 
     // Fallback vinyl, always underneath as base

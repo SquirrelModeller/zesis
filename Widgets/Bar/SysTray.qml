@@ -2,6 +2,7 @@ pragma ComponentBehavior: Bound
 import QtQuick
 import QtQuick.Layouts
 import Quickshell.Services.SystemTray
+import Quickshell.Services.Pipewire
 import "../../"
 import "../Keybinds"
 
@@ -10,6 +11,8 @@ Rectangle {
 
     property bool candleLit: false
     property bool wantsThemeSwitcher: false
+    property bool wantsSound: false
+    property real soundCenterX: 0
 
     signal lockRequested
 
@@ -119,6 +122,67 @@ Rectangle {
                 hoverEnabled: true
                 cursorShape: Qt.PointingHandCursor
                 onClicked: KeybindService.popupOpen = !KeybindService.popupOpen
+            }
+        }
+
+        // Volume button
+        Item {
+            id: volBtn
+            implicitWidth: 30
+            implicitHeight: 30
+            Layout.alignment: Qt.AlignVCenter
+            Layout.leftMargin: 4
+
+            readonly property real _vol: Pipewire.defaultAudioSink?.audio?.volume ?? 0
+            readonly property bool _muted: Pipewire.defaultAudioSink?.audio?.muted ?? false
+            readonly property string _icon: {
+                if (_muted || _vol === 0)
+                    return "󰝟";
+                if (_vol < 0.33)
+                    return "󰕿";
+                if (_vol < 0.67)
+                    return "󰖀";
+                return "󰕾";
+            }
+
+            Rectangle {
+                anchors.fill: parent
+                radius: 8
+                color: root.wantsSound ? Colors.withAlpha(Colors.accent, 0.15) : volHover.containsMouse ? Colors.surfaceHigh : "transparent"
+                Behavior on color {
+                    ColorAnimation {
+                        duration: 120
+                    }
+                }
+            }
+
+            Text {
+                anchors.centerIn: parent
+                text: volBtn._icon
+                font.pixelSize: 15
+                color: root.wantsSound ? Colors.accent : Colors.text
+                Behavior on color {
+                    ColorAnimation {
+                        duration: 120
+                    }
+                }
+            }
+
+            MouseArea {
+                id: volHover
+                anchors.fill: parent
+                hoverEnabled: true
+                cursorShape: Qt.PointingHandCursor
+                onClicked: {
+                    root.soundCenterX = volBtn.mapToItem(null, volBtn.width / 2, 0).x;
+                    root.wantsSound = !root.wantsSound;
+                }
+                onWheel: function (w) {
+                    var audio = Pipewire.defaultAudioSink?.audio;
+                    if (!audio)
+                        return;
+                    audio.volume = Math.max(0, Math.min(1.5, audio.volume + w.angleDelta.y / 1200.0));
+                }
             }
         }
 

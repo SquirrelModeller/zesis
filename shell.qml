@@ -11,6 +11,7 @@ import "Widgets/Music"
 import "Widgets/Notifications"
 import "Widgets/LockScreen"
 import "Widgets/Keybinds"
+import "Widgets/AppSwitcher"
 
 Scope {
     Variants {
@@ -296,6 +297,95 @@ Scope {
         function toggle() {
             KeybindService.popupOpen = !KeybindService.popupOpen; // qmllint disable missing-property
         }
+    }
+
+    PanelWindow {
+        id: appSwitcherOverlay
+        WlrLayershell.layer: WlrLayer.Overlay
+        WlrLayershell.keyboardFocus: WlrKeyboardFocus.OnDemand
+        anchors { top: true; bottom: true; left: true; right: true }
+        exclusiveZone: -1
+        color: "transparent"
+        visible: false
+
+        function open() {
+            if (!visible) {
+                asDimmer.opacity = 0;
+                asContent.opacity = 0;
+                asContent.scale = 0.94;
+                visible = true;
+            }
+            asHideAnim.stop();
+            asShowAnim.start();
+        }
+
+        function close() {
+            if (!visible) return;
+            asShowAnim.stop();
+            asHideAnim.start();
+        }
+
+        // qmllint disable missing-property
+        property bool _asOpen: AppSwitcherService.open
+        on_AsOpenChanged: _asOpen ? open() : close()
+        // qmllint enable missing-property
+
+        onVisibleChanged: {
+            if (!visible) {
+                AppSwitcherService.open = false; // qmllint disable missing-property
+                asContent.scale = 0.94;
+                asContent.opacity = 0;
+            }
+        }
+
+        ParallelAnimation {
+            id: asShowAnim
+            NumberAnimation { target: asDimmer; property: "opacity"; to: 0.60; duration: 180; easing.type: Easing.OutCubic }
+            NumberAnimation { target: asContent; property: "opacity"; to: 1; duration: 200; easing.type: Easing.OutCubic }
+            NumberAnimation { target: asContent; property: "scale"; to: 1; duration: 260; easing.type: Easing.OutBack; easing.overshoot: 1.1 }
+        }
+
+        ParallelAnimation {
+            id: asHideAnim
+            NumberAnimation { target: asDimmer; property: "opacity"; to: 0; duration: 160; easing.type: Easing.InCubic }
+            NumberAnimation { target: asContent; property: "opacity"; to: 0; duration: 150; easing.type: Easing.InCubic }
+            NumberAnimation { target: asContent; property: "scale"; to: 0.94; duration: 160; easing.type: Easing.InCubic }
+            onStopped: appSwitcherOverlay.visible = false
+        }
+
+        Rectangle {
+            id: asDimmer
+            anchors.fill: parent
+            color: "#0a0806"
+            opacity: 0
+            TapHandler {
+                onTapped: AppSwitcherService.confirm() // qmllint disable missing-property
+            }
+        }
+
+        Item {
+            id: asContent
+            anchors.fill: parent
+            scale: 0.94
+            opacity: 0
+
+            Loader {
+                anchors.fill: parent
+                active: appSwitcherOverlay.visible
+                sourceComponent: AppSwitcherPopup {}
+                onLoaded: item.forceActiveFocus() // qmllint disable missing-property
+            }
+        }
+    }
+
+    IpcHandler {
+        target: "appswitcher"
+        // qmllint disable missing-property
+        function cycle() { AppSwitcherService.cycleForward(); }
+        function back() { AppSwitcherService.cycleBack(); }
+        function confirm() { AppSwitcherService.confirm(); }
+        function cancel() { AppSwitcherService.cancel(); }
+        // qmllint enable missing-property
     }
 
     // Notification toasts, top-right overlay, stacks below the bar

@@ -83,7 +83,12 @@ Rectangle {
                 anchors.fill: parent
                 hoverEnabled: true
                 cursorShape: Qt.PointingHandCursor
-                onClicked: themePopup.visible = !themePopup.visible
+                onClicked: {
+                    if (themePopup.visible)
+                        themePopup.close();
+                    else
+                        themePopup.open();
+                }
             }
 
             PopupWindow {
@@ -97,10 +102,59 @@ Rectangle {
                 implicitWidth: 380
                 implicitHeight: 520
 
-                Loader {
+                function open() {
+                    if (!visible) {
+                        themeContent.scale = 0;
+                        themeContent.opacity = 0;
+                        visible = true;
+                    }
+                    themeShowAnim.start();
+                }
+
+                function close() {
+                    if (!visible)
+                        return;
+                    themeShowAnim.stop();
+                }
+
+                onVisibleChanged: {
+                    if (!visible) {
+                        themeContent.scale = 0;
+                        themeContent.opacity = 0;
+                    }
+                }
+
+                ParallelAnimation {
+                    id: themeShowAnim
+                    NumberAnimation {
+                        target: themeContent
+                        property: "scale"
+                        to: 1
+                        duration: 280
+                        easing.type: Easing.OutBack
+                        easing.overshoot: 1.4
+                    }
+                    NumberAnimation {
+                        target: themeContent
+                        property: "opacity"
+                        to: 1
+                        duration: 200
+                        easing.type: Easing.OutCubic
+                    }
+                }
+
+                Item {
+                    id: themeContent
                     anchors.fill: parent
-                    active: themePopup.visible
-                    sourceComponent: ThemeSwitcherPopup {}
+                    scale: 0
+                    opacity: 0
+                    transformOrigin: Item.Top
+
+                    Loader {
+                        anchors.fill: parent
+                        active: themePopup.visible
+                        sourceComponent: ThemeSwitcherPopup {}
+                    }
                 }
             }
         }
@@ -192,7 +246,12 @@ Rectangle {
                 anchors.fill: parent
                 hoverEnabled: true
                 cursorShape: Qt.PointingHandCursor
-                onClicked: soundPopup.visible = !soundPopup.visible
+                onClicked: {
+                    if (soundPopup.visible)
+                        soundPopup.close();
+                    else
+                        soundPopup.open();
+                }
                 onWheel: function (w) {
                     var audio = Pipewire.defaultAudioSink?.audio;
                     if (!audio)
@@ -212,10 +271,59 @@ Rectangle {
                 implicitWidth: 300
                 implicitHeight: 320
 
-                Loader {
+                function open() {
+                    if (!visible) {
+                        soundContent.scale = 0;
+                        soundContent.opacity = 0;
+                        visible = true;
+                    }
+                    soundShowAnim.start();
+                }
+
+                function close() {
+                    if (!visible)
+                        return;
+                    soundShowAnim.stop();
+                }
+
+                onVisibleChanged: {
+                    if (!visible) {
+                        soundContent.scale = 0;
+                        soundContent.opacity = 0;
+                    }
+                }
+
+                ParallelAnimation {
+                    id: soundShowAnim
+                    NumberAnimation {
+                        target: soundContent
+                        property: "scale"
+                        to: 1
+                        duration: 280
+                        easing.type: Easing.OutBack
+                        easing.overshoot: 1.4
+                    }
+                    NumberAnimation {
+                        target: soundContent
+                        property: "opacity"
+                        to: 1
+                        duration: 200
+                        easing.type: Easing.OutCubic
+                    }
+                }
+
+                Item {
+                    id: soundContent
                     anchors.fill: parent
-                    active: soundPopup.visible
-                    sourceComponent: SoundPopup {}
+                    scale: 0
+                    opacity: 0
+                    transformOrigin: Item.Top
+
+                    Loader {
+                        anchors.fill: parent
+                        active: soundPopup.visible
+                        sourceComponent: SoundPopup {}
+                    }
                 }
             }
         }

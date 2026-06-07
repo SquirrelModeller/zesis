@@ -46,7 +46,7 @@ Rectangle {
     Rectangle {
         anchors.fill: parent
         radius: 8
-        color: hover.hovered || SysMonService.popupOpen ? Qt.rgba(1, 1, 1, 0.08) : "transparent"
+        color: hover.hovered || sysMonPopup.visible ? Qt.rgba(1, 1, 1, 0.08) : "transparent"
         Behavior on color {
             ColorAnimation {
                 duration: 120
@@ -55,7 +55,12 @@ Rectangle {
     }
 
     TapHandler {
-        onTapped: SysMonService.popupOpen = !SysMonService.popupOpen
+        onTapped: {
+            if (sysMonPopup.visible)
+                sysMonPopup.close();
+            else
+                sysMonPopup.open();
+        }
     }
 
     PopupWindow {
@@ -64,20 +69,65 @@ Rectangle {
         anchor.rect.x: sysinfo.width / 2 - sysMonPopup.implicitWidth / 2
         anchor.rect.y: sysinfo.height
         grabFocus: true
-        visible: SysMonService.popupOpen
+        visible: false
         color: "transparent"
         implicitWidth: 380
         implicitHeight: 520
 
-        onVisibleChanged: {
-            if (!visible)
-                SysMonService.popupOpen = false;
+        function open() {
+            if (!visible) {
+                sysMonContent.scale = 0;
+                sysMonContent.opacity = 0;
+                visible = true;
+            }
+            sysMonShowAnim.start();
         }
 
-        Loader {
+        function close() {
+            if (!visible)
+                return;
+            sysMonShowAnim.stop();
+        }
+
+        onVisibleChanged: {
+            if (!visible) {
+                SysMonService.popupOpen = false;
+                sysMonContent.scale = 0;
+                sysMonContent.opacity = 0;
+            }
+        }
+
+        ParallelAnimation {
+            id: sysMonShowAnim
+            NumberAnimation {
+                target: sysMonContent
+                property: "scale"
+                to: 1
+                duration: 280
+                easing.type: Easing.OutBack
+                easing.overshoot: 1.4
+            }
+            NumberAnimation {
+                target: sysMonContent
+                property: "opacity"
+                to: 1
+                duration: 200
+                easing.type: Easing.OutCubic
+            }
+        }
+
+        Item {
+            id: sysMonContent
             anchors.fill: parent
-            active: sysMonPopup.visible
-            sourceComponent: SysMonPopup {}
+            scale: 0
+            opacity: 0
+            transformOrigin: Item.Top
+
+            Loader {
+                anchors.fill: parent
+                active: sysMonPopup.visible
+                sourceComponent: SysMonPopup {}
+            }
         }
     }
 }

@@ -10,9 +10,6 @@ import "Widgets/Music"
 import "Widgets/Notifications"
 import "Widgets/LockScreen"
 import "Widgets/Keybinds"
-import "Widgets/SysMon"
-import "Widgets/ThemeSwitcher"
-import "Widgets/Sound"
 
 Scope {
     Variants {
@@ -93,104 +90,8 @@ Scope {
                 onTriggered: root.wantsMusic = false
             }
 
-            PopupWindow {
-                id: themePopup
-                grabFocus: true
-                color: "transparent"
-                implicitWidth: 380
-                implicitHeight: 520
-
-                anchor {
-                    window: root
-                    rect.x: root.themePopupX
-                    rect.y: root.height
-                }
-
-                // Sync back to button state when closed by clicking outside
-                onVisibleChanged: {
-                    if (!visible)
-                        trayWidget.wantsThemeSwitcher = false;
-                }
-
-                Loader {
-                    anchors.fill: parent
-                    active: themePopup.visible
-                    sourceComponent: ThemeSwitcherPopup {}
-                }
-            }
-
-            PopupWindow {
-                id: sysMonPopup
-                grabFocus: true
-                color: "transparent"
-                implicitWidth: 380
-                implicitHeight: 520
-
-                anchor {
-                    window: root
-                    rect.x: root.sysMonPopupX
-                    rect.y: root.height
-                }
-
-                onVisibleChanged: {
-                    if (!visible)
-                        SysMonService.popupOpen = false;
-                }
-
-                Loader {
-                    anchors.fill: parent
-                    active: sysMonPopup.visible
-                    sourceComponent: SysMonPopup {}
-                }
-            }
-
-            Connections {
-                target: SysMonService
-                function onPopupOpenChanged() {
-                    if (SysMonService.popupOpen)
-                        root.sysMonPopupX = Math.max(4, Math.min(root.width - sysMonPopup.implicitWidth - 4, SysMonService.popupCenterX - sysMonPopup.implicitWidth / 2));
-                    sysMonPopup.visible = SysMonService.popupOpen;
-                }
-            }
-
-            PopupWindow {
-                id: soundPopup
-                grabFocus: true
-                color: "transparent"
-                implicitWidth: 300
-                implicitHeight: 320
-
-                anchor {
-                    window: root
-                    rect.x: root.soundPopupX
-                    rect.y: root.height
-                }
-
-                onVisibleChanged: {
-                    if (!visible)
-                        trayWidget.wantsSound = false;
-                }
-
-                Loader {
-                    anchors.fill: parent
-                    active: soundPopup.visible
-                    sourceComponent: SoundPopup {}
-                }
-            }
-
             Connections {
                 target: trayWidget
-                function onWantsThemeSwitcherChanged() {
-                    if (trayWidget.wantsThemeSwitcher)
-                        root.themePopupX = Math.max(4, Math.min(root.width - themePopup.implicitWidth - 4, trayWidget.themeCenterX - themePopup.implicitWidth / 2));
-                    themePopup.visible = trayWidget.wantsThemeSwitcher;
-                }
-                function onWantsSoundChanged() {
-                    if (trayWidget.wantsSound) {
-                        root.soundPopupX = Math.max(4, Math.min(root.width - soundPopup.implicitWidth - 4, trayWidget.soundCenterX - soundPopup.implicitWidth / 2));
-                    }
-                    soundPopup.visible = trayWidget.wantsSound;
-                }
                 function onLockRequested() {
                     lockScreen.triggerLock();
                 }
@@ -271,31 +172,128 @@ Scope {
         }
         exclusiveZone: -1
         color: "transparent"
-        visible: KeybindService.popupOpen
+        visible: false
 
-        Rectangle {
-            anchors.fill: parent
-            color: Qt.rgba(0, 0, 0, 0.45)
-            TapHandler {
-                onTapped: KeybindService.popupOpen = false
+        function open() {
+            if (!visible) {
+                keybindDimmer.opacity = 0;
+                keybindContent.scale = 0;
+                keybindContent.opacity = 0;
+                visible = true;
+            }
+            keybindHideAnim.stop();
+            keybindShowAnim.start();
+        }
+
+        function close() {
+            if (!visible)
+                return;
+            keybindShowAnim.stop();
+            keybindHideAnim.start();
+        }
+
+        // qmllint disable missing-property
+        property bool _kbOpen: KeybindService.popupOpen
+        on_KbOpenChanged: {
+            if (_kbOpen)
+                open();
+            else
+                close();
+        }
+        // qmllint enable missing-property
+
+        onVisibleChanged: {
+            if (!visible) {
+                KeybindService.popupOpen = false; // qmllint disable missing-property
+                keybindContent.scale = 0;
+                keybindContent.opacity = 0;
             }
         }
 
-        Loader {
-            id: keybindLoader
-            active: keybindOverlay.visible
+        ParallelAnimation {
+            id: keybindShowAnim
+            NumberAnimation {
+                target: keybindDimmer
+                property: "opacity"
+                to: 0.45
+                duration: 200
+                easing.type: Easing.OutCubic
+            }
+            NumberAnimation {
+                target: keybindContent
+                property: "scale"
+                to: 1
+                duration: 280
+                easing.type: Easing.OutBack
+                easing.overshoot: 1.4
+            }
+            NumberAnimation {
+                target: keybindContent
+                property: "opacity"
+                to: 1
+                duration: 200
+                easing.type: Easing.OutCubic
+            }
+        }
+
+        ParallelAnimation {
+            id: keybindHideAnim
+            NumberAnimation {
+                target: keybindDimmer
+                property: "opacity"
+                to: 0
+                duration: 180
+                easing.type: Easing.InCubic
+            }
+            NumberAnimation {
+                target: keybindContent
+                property: "scale"
+                to: 0
+                duration: 180
+                easing.type: Easing.InCubic
+            }
+            NumberAnimation {
+                target: keybindContent
+                property: "opacity"
+                to: 0
+                duration: 150
+                easing.type: Easing.InCubic
+            }
+            onStopped: keybindOverlay.visible = false
+        }
+
+        Rectangle {
+            id: keybindDimmer
+            anchors.fill: parent
+            color: "black"
+            opacity: 0
+            TapHandler {
+                onTapped: KeybindService.popupOpen = false // qmllint disable missing-property
+            }
+        }
+
+        Item {
+            id: keybindContent
             anchors.centerIn: parent
-            width: Math.min(parent.width - 80, 1100)
-            height: Math.min(parent.height - 80, 820)
-            sourceComponent: KeybindPopup {}
-            onLoaded: item.focusSearch() // qmllint disable missing-property
+            width: Math.min(keybindOverlay.width - 80, 1100)
+            height: Math.min(keybindOverlay.height - 80, 820)
+            scale: 0
+            opacity: 0
+
+            Loader {
+                id: keybindLoader
+                active: keybindOverlay.visible
+                anchors.fill: parent
+                sourceComponent: KeybindPopup {}
+                onLoaded: item.focusSearch() // qmllint disable missing-property
+            }
         }
     }
 
     IpcHandler {
         target: "keybinds"
         function toggle() {
-            KeybindService.popupOpen = !KeybindService.popupOpen;
+            KeybindService.popupOpen = !KeybindService.popupOpen; // qmllint disable missing-property
         }
     }
 

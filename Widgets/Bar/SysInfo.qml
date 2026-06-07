@@ -94,6 +94,8 @@ Rectangle {
                 SysMonService.popupOpen = false;
                 sysMonContent.scale = 0;
                 sysMonContent.opacity = 0;
+            } else {
+                SysMonService.popupOpen = true;
             }
         }
 

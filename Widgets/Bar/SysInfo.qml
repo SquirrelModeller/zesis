@@ -1,4 +1,5 @@
 import QtQuick
+import Quickshell
 import "../SysMon"
 
 Rectangle {
@@ -54,9 +55,29 @@ Rectangle {
     }
 
     TapHandler {
-        onTapped: {
-            SysMonService.popupCenterX = sysinfo.mapToItem(null, sysinfo.width / 2, 0).x
-            SysMonService.popupOpen = !SysMonService.popupOpen
+        onTapped: SysMonService.popupOpen = !SysMonService.popupOpen
+    }
+
+    PopupWindow {
+        id: sysMonPopup
+        anchor.item: sysinfo
+        anchor.rect.x: sysinfo.width / 2 - sysMonPopup.implicitWidth / 2
+        anchor.rect.y: sysinfo.height
+        grabFocus: true
+        visible: SysMonService.popupOpen
+        color: "transparent"
+        implicitWidth: 380
+        implicitHeight: 520
+
+        onVisibleChanged: {
+            if (!visible)
+                SysMonService.popupOpen = false;
+        }
+
+        Loader {
+            anchors.fill: parent
+            active: sysMonPopup.visible
+            sourceComponent: SysMonPopup {}
         }
     }
 }

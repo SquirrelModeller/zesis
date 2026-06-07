@@ -56,6 +56,8 @@ Item {
     PopupWindow {
         id: menuPopup
         anchor.item: root
+        anchor.rect.x: root.width / 2 - menuPopup.implicitWidth / 2
+        anchor.rect.y: root.height
         grabFocus: true
         visible: false
         color: "transparent"

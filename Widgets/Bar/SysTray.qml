@@ -1,19 +1,18 @@
 pragma ComponentBehavior: Bound
 import QtQuick
 import QtQuick.Layouts
+import Quickshell
 import Quickshell.Services.SystemTray
 import Quickshell.Services.Pipewire
 import "../../"
 import "../Keybinds"
+import "../Sound"
+import "../ThemeSwitcher"
 
 Rectangle {
     id: root
 
     property bool candleLit: false
-    property bool wantsThemeSwitcher: false
-    property real themeCenterX: 0
-    property bool wantsSound: false
-    property real soundCenterX: 0
 
     signal lockRequested
 
@@ -50,7 +49,7 @@ Rectangle {
             Rectangle {
                 anchors.fill: parent
                 radius: 8
-                color: root.wantsThemeSwitcher ? Qt.rgba(Colors.accent.r, Colors.accent.g, Colors.accent.b, 0.15) : themeBtnHover.containsMouse ? Colors.surfaceHigh : "transparent"
+                color: themePopup.visible ? Qt.rgba(Colors.accent.r, Colors.accent.g, Colors.accent.b, 0.15) : themeBtnHover.containsMouse ? Colors.surfaceHigh : "transparent"
                 Behavior on color {
                     ColorAnimation {
                         duration: 120
@@ -84,9 +83,24 @@ Rectangle {
                 anchors.fill: parent
                 hoverEnabled: true
                 cursorShape: Qt.PointingHandCursor
-                onClicked: {
-                    root.themeCenterX = themeBtn.mapToItem(null, themeBtn.width / 2, 0).x
-                    root.wantsThemeSwitcher = !root.wantsThemeSwitcher
+                onClicked: themePopup.visible = !themePopup.visible
+            }
+
+            PopupWindow {
+                id: themePopup
+                anchor.item: themeBtn
+                anchor.rect.x: themeBtn.width / 2 - themePopup.implicitWidth / 2
+                anchor.rect.y: themeBtn.height
+                grabFocus: true
+                visible: false
+                color: "transparent"
+                implicitWidth: 380
+                implicitHeight: 520
+
+                Loader {
+                    anchors.fill: parent
+                    active: themePopup.visible
+                    sourceComponent: ThemeSwitcherPopup {}
                 }
             }
         }
@@ -153,7 +167,7 @@ Rectangle {
             Rectangle {
                 anchors.fill: parent
                 radius: 8
-                color: root.wantsSound ? Colors.withAlpha(Colors.accent, 0.15) : volHover.containsMouse ? Colors.surfaceHigh : "transparent"
+                color: soundPopup.visible ? Colors.withAlpha(Colors.accent, 0.15) : volHover.containsMouse ? Colors.surfaceHigh : "transparent"
                 Behavior on color {
                     ColorAnimation {
                         duration: 120
@@ -165,7 +179,7 @@ Rectangle {
                 anchors.centerIn: parent
                 text: volBtn._icon
                 font.pixelSize: 15
-                color: root.wantsSound ? Colors.accent : Colors.text
+                color: soundPopup.visible ? Colors.accent : Colors.text
                 Behavior on color {
                     ColorAnimation {
                         duration: 120
@@ -178,15 +192,30 @@ Rectangle {
                 anchors.fill: parent
                 hoverEnabled: true
                 cursorShape: Qt.PointingHandCursor
-                onClicked: {
-                    root.soundCenterX = volBtn.mapToItem(null, volBtn.width / 2, 0).x;
-                    root.wantsSound = !root.wantsSound;
-                }
+                onClicked: soundPopup.visible = !soundPopup.visible
                 onWheel: function (w) {
                     var audio = Pipewire.defaultAudioSink?.audio;
                     if (!audio)
                         return;
                     audio.volume = Math.max(0, Math.min(1.5, audio.volume + w.angleDelta.y / 1200.0));
+                }
+            }
+
+            PopupWindow {
+                id: soundPopup
+                anchor.item: volBtn
+                anchor.rect.x: volBtn.width / 2 - soundPopup.implicitWidth / 2
+                anchor.rect.y: volBtn.height
+                grabFocus: true
+                visible: false
+                color: "transparent"
+                implicitWidth: 300
+                implicitHeight: 320
+
+                Loader {
+                    anchors.fill: parent
+                    active: soundPopup.visible
+                    sourceComponent: SoundPopup {}
                 }
             }
         }

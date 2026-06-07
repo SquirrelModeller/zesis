@@ -12,6 +12,7 @@ import "Widgets/LockScreen"
 import "Widgets/ThemeSwitcher"
 import "Widgets/SysMon"
 import "Widgets/Keybinds"
+import "Widgets/Sound"
 
 Scope {
     Variants {
@@ -35,6 +36,7 @@ Scope {
             color: "transparent"
 
             property bool wantsMusic: false
+            property real soundPopupX: 0
 
             // This casues 2% GPU usage, optimze
             RowLayout {
@@ -143,10 +145,41 @@ Scope {
                 }
             }
 
+            PopupWindow {
+                id: soundPopup
+                grabFocus: true
+                color: "transparent"
+                implicitWidth: 300
+                implicitHeight: 320
+
+                anchor {
+                    window: root
+                    rect.x: root.soundPopupX
+                    rect.y: root.height
+                }
+
+                onVisibleChanged: {
+                    if (!visible)
+                        trayWidget.wantsSound = false;
+                }
+
+                Loader {
+                    anchors.fill: parent
+                    active: soundPopup.visible
+                    sourceComponent: SoundPopup {}
+                }
+            }
+
             Connections {
                 target: trayWidget
                 function onWantsThemeSwitcherChanged() {
                     themePopup.visible = trayWidget.wantsThemeSwitcher;
+                }
+                function onWantsSoundChanged() {
+                    if (trayWidget.wantsSound) {
+                        root.soundPopupX = Math.max(4, Math.min(root.width - soundPopup.implicitWidth - 4, trayWidget.soundCenterX - soundPopup.implicitWidth / 2));
+                    }
+                    soundPopup.visible = trayWidget.wantsSound;
                 }
                 function onLockRequested() {
                     lockScreen.triggerLock();

@@ -54,6 +54,9 @@ Rectangle {
     }
 
     TapHandler {
-        onTapped: SysMonService.popupOpen = !SysMonService.popupOpen
+        onTapped: {
+            SysMonService.popupCenterX = sysinfo.mapToItem(null, sysinfo.width / 2, 0).x
+            SysMonService.popupOpen = !SysMonService.popupOpen
+        }
     }
 }

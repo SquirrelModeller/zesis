@@ -9,6 +9,7 @@ Singleton {
     id: root
 
     property bool popupOpen: false
+    property real popupCenterX: 0
     property int activeTab: 0  // 0=CPU, 1=Memory, 2=GPU, 3=Net, 4=Disk
 
     property var cpu: ({

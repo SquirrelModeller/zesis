@@ -11,6 +11,7 @@ Rectangle {
 
     property bool candleLit: false
     property bool wantsThemeSwitcher: false
+    property real themeCenterX: 0
     property bool wantsSound: false
     property real soundCenterX: 0
 
@@ -40,6 +41,7 @@ Rectangle {
 
         // Theme switcher button
         Item {
+            id: themeBtn
             implicitWidth: 30
             implicitHeight: 30
             Layout.alignment: Qt.AlignVCenter
@@ -82,7 +84,10 @@ Rectangle {
                 anchors.fill: parent
                 hoverEnabled: true
                 cursorShape: Qt.PointingHandCursor
-                onClicked: root.wantsThemeSwitcher = !root.wantsThemeSwitcher
+                onClicked: {
+                    root.themeCenterX = themeBtn.mapToItem(null, themeBtn.width / 2, 0).x
+                    root.wantsThemeSwitcher = !root.wantsThemeSwitcher
+                }
             }
         }
 

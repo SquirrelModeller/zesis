@@ -37,6 +37,8 @@ Scope {
 
             property bool wantsMusic: false
             property real soundPopupX: 0
+            property real themePopupX: 0
+            property real sysMonPopupX: 0
 
             // This casues 2% GPU usage, optimze
             RowLayout {
@@ -96,7 +98,7 @@ Scope {
 
                 anchor {
                     window: root
-                    rect.x: root.width - 396
+                    rect.x: root.themePopupX
                     rect.y: root.height
                 }
 
@@ -122,7 +124,7 @@ Scope {
 
                 anchor {
                     window: root
-                    rect.x: root.width - 396
+                    rect.x: root.sysMonPopupX
                     rect.y: root.height
                 }
 
@@ -141,6 +143,8 @@ Scope {
             Connections {
                 target: SysMonService
                 function onPopupOpenChanged() {
+                    if (SysMonService.popupOpen)
+                        root.sysMonPopupX = Math.max(4, Math.min(root.width - sysMonPopup.implicitWidth - 4, SysMonService.popupCenterX - sysMonPopup.implicitWidth / 2));
                     sysMonPopup.visible = SysMonService.popupOpen;
                 }
             }
@@ -173,6 +177,8 @@ Scope {
             Connections {
                 target: trayWidget
                 function onWantsThemeSwitcherChanged() {
+                    if (trayWidget.wantsThemeSwitcher)
+                        root.themePopupX = Math.max(4, Math.min(root.width - themePopup.implicitWidth - 4, trayWidget.themeCenterX - themePopup.implicitWidth / 2));
                     themePopup.visible = trayWidget.wantsThemeSwitcher;
                 }
                 function onWantsSoundChanged() {

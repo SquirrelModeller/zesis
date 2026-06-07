@@ -83,8 +83,104 @@ Scope {
                 onTriggered: root.wantsMusic = false
             }
 
+            PopupWindow {
+                id: themePopup
+                grabFocus: true
+                color: "transparent"
+                implicitWidth: 380
+                implicitHeight: 520
+
+                anchor {
+                    window: root
+                    rect.x: root.themePopupX
+                    rect.y: root.height
+                }
+
+                // Sync back to button state when closed by clicking outside
+                onVisibleChanged: {
+                    if (!visible)
+                        trayWidget.wantsThemeSwitcher = false;
+                }
+
+                Loader {
+                    anchors.fill: parent
+                    active: themePopup.visible
+                    sourceComponent: ThemeSwitcherPopup {}
+                }
+            }
+
+            PopupWindow {
+                id: sysMonPopup
+                grabFocus: true
+                color: "transparent"
+                implicitWidth: 380
+                implicitHeight: 520
+
+                anchor {
+                    window: root
+                    rect.x: root.sysMonPopupX
+                    rect.y: root.height
+                }
+
+                onVisibleChanged: {
+                    if (!visible)
+                        SysMonService.popupOpen = false;
+                }
+
+                Loader {
+                    anchors.fill: parent
+                    active: sysMonPopup.visible
+                    sourceComponent: SysMonPopup {}
+                }
+            }
+
+            Connections {
+                target: SysMonService
+                function onPopupOpenChanged() {
+                    if (SysMonService.popupOpen)
+                        root.sysMonPopupX = Math.max(4, Math.min(root.width - sysMonPopup.implicitWidth - 4, SysMonService.popupCenterX - sysMonPopup.implicitWidth / 2));
+                    sysMonPopup.visible = SysMonService.popupOpen;
+                }
+            }
+
+            PopupWindow {
+                id: soundPopup
+                grabFocus: true
+                color: "transparent"
+                implicitWidth: 300
+                implicitHeight: 320
+
+                anchor {
+                    window: root
+                    rect.x: root.soundPopupX
+                    rect.y: root.height
+                }
+
+                onVisibleChanged: {
+                    if (!visible)
+                        trayWidget.wantsSound = false;
+                }
+
+                Loader {
+                    anchors.fill: parent
+                    active: soundPopup.visible
+                    sourceComponent: SoundPopup {}
+                }
+            }
+
             Connections {
                 target: trayWidget
+                function onWantsThemeSwitcherChanged() {
+                    if (trayWidget.wantsThemeSwitcher)
+                        root.themePopupX = Math.max(4, Math.min(root.width - themePopup.implicitWidth - 4, trayWidget.themeCenterX - themePopup.implicitWidth / 2));
+                    themePopup.visible = trayWidget.wantsThemeSwitcher;
+                }
+                function onWantsSoundChanged() {
+                    if (trayWidget.wantsSound) {
+                        root.soundPopupX = Math.max(4, Math.min(root.width - soundPopup.implicitWidth - 4, trayWidget.soundCenterX - soundPopup.implicitWidth / 2));
+                    }
+                    soundPopup.visible = trayWidget.wantsSound;
+                }
                 function onLockRequested() {
                     lockScreen.triggerLock();
                 }

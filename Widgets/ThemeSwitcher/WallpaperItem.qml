@@ -97,8 +97,8 @@ Item {
 
         // Selected dot
         Rectangle {
-            width: 8
-            height: 8
+            implicitWidth: 8
+            implicitHeight: 8
             radius: 4
             color: Colors.accent
             opacity: root.selected ? 1 : 0

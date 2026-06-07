@@ -223,6 +223,7 @@ Item {
             Repeater {
                 model: root._cpu.procs || []
                 delegate: Item {
+                    id: procItem
                     required property var modelData
                     Layout.fillWidth: true
                     implicitHeight: 20
@@ -233,7 +234,7 @@ Item {
                         height: 8
                         radius: 2
                         anchors.verticalCenter: parent.verticalCenter
-                        color: root.procColor(modelData.name)
+                        color: root.procColor(procItem.modelData.name)
                     }
 
                     Text {
@@ -242,7 +243,7 @@ Item {
                         anchors.right: val.left
                         anchors.rightMargin: 8
                         anchors.verticalCenter: parent.verticalCenter
-                        text: modelData.name
+                        text: procItem.modelData.name
                         color: Colors.text
                         font.pixelSize: 12
                         elide: Text.ElideRight
@@ -252,7 +253,7 @@ Item {
                         id: val
                         anchors.right: parent.right
                         anchors.verticalCenter: parent.verticalCenter
-                        text: modelData.cpu.toFixed(1) + "%"
+                        text: procItem.modelData.cpu.toFixed(1) + "%"
                         color: Colors.textDim
                         font.pixelSize: 12
                         font.family: "monospace"
@@ -334,6 +335,7 @@ Item {
             Repeater {
                 model: root._mem.procs || []
                 delegate: Item {
+                    id: memProcItem
                     required property var modelData
                     Layout.fillWidth: true
                     implicitHeight: 20
@@ -344,7 +346,7 @@ Item {
                         height: 8
                         radius: 2
                         anchors.verticalCenter: parent.verticalCenter
-                        color: root.procColor(modelData.name)
+                        color: root.procColor(memProcItem.modelData.name)
                     }
 
                     Text {
@@ -353,7 +355,7 @@ Item {
                         anchors.right: memVal.left
                         anchors.rightMargin: 8
                         anchors.verticalCenter: parent.verticalCenter
-                        text: modelData.name
+                        text: memProcItem.modelData.name
                         color: Colors.text
                         font.pixelSize: 12
                         elide: Text.ElideRight
@@ -363,7 +365,7 @@ Item {
                         id: memVal
                         anchors.right: parent.right
                         anchors.verticalCenter: parent.verticalCenter
-                        text: root.fmtBytes(modelData.rss)
+                        text: root.fmtBytes(memProcItem.modelData.rss)
                         color: Colors.textDim
                         font.pixelSize: 12
                         font.family: "monospace"
@@ -522,6 +524,7 @@ Item {
             Repeater {
                 model: root._card ? root._card.procs || [] : []
                 delegate: Item {
+                    id: gpuProcItem
                     required property var modelData
                     Layout.fillWidth: true
                     implicitHeight: 20
@@ -532,7 +535,7 @@ Item {
                         height: 8
                         radius: 2
                         anchors.verticalCenter: parent.verticalCenter
-                        color: root.procColor(modelData.name)
+                        color: root.procColor(gpuProcItem.modelData.name)
                     }
 
                     Text {
@@ -541,7 +544,7 @@ Item {
                         anchors.right: gfxVal.left
                         anchors.rightMargin: 8
                         anchors.verticalCenter: parent.verticalCenter
-                        text: modelData.name
+                        text: gpuProcItem.modelData.name
                         color: Colors.text
                         font.pixelSize: 12
                         elide: Text.ElideRight
@@ -552,18 +555,18 @@ Item {
                         anchors.right: vramVal.left
                         anchors.rightMargin: 10
                         anchors.verticalCenter: parent.verticalCenter
-                        text: modelData.gfx_pct.toFixed(1) + "%"
+                        text: gpuProcItem.modelData.gfx_pct.toFixed(1) + "%"
                         color: Colors.textDim
                         font.pixelSize: 11
                         font.family: "monospace"
-                        visible: modelData.gfx_pct > 0
+                        visible: gpuProcItem.modelData.gfx_pct > 0
                     }
 
                     Text {
                         id: vramVal
                         anchors.right: parent.right
                         anchors.verticalCenter: parent.verticalCenter
-                        text: root.fmtBytes(modelData.vram_kib * 1024)
+                        text: root.fmtBytes(gpuProcItem.modelData.vram_kib * 1024)
                         color: Colors.textDim
                         font.pixelSize: 12
                         font.family: "monospace"
@@ -660,6 +663,7 @@ Item {
             Repeater {
                 model: root._net
                 delegate: Item {
+                    id: netItem
                     required property var modelData
                     Layout.fillWidth: true
                     implicitHeight: 20
@@ -668,7 +672,7 @@ Item {
                         id: ifaceName
                         anchors.left: parent.left
                         anchors.verticalCenter: parent.verticalCenter
-                        text: modelData.name
+                        text: netItem.modelData.name
                         color: Colors.text
                         font.pixelSize: 12
                         font.weight: Font.Medium
@@ -678,7 +682,7 @@ Item {
                         id: txVal
                         anchors.right: parent.right
                         anchors.verticalCenter: parent.verticalCenter
-                        text: "↑ " + root.fmtRate(modelData.tx_bytes_per_sec)
+                        text: "↑ " + root.fmtRate(netItem.modelData.tx_bytes_per_sec)
                         color: Colors.textDim
                         font.pixelSize: 12
                         font.family: "monospace"
@@ -688,7 +692,7 @@ Item {
                         anchors.right: txVal.left
                         anchors.rightMargin: 12
                         anchors.verticalCenter: parent.verticalCenter
-                        text: "↓ " + root.fmtRate(modelData.rx_bytes_per_sec)
+                        text: "↓ " + root.fmtRate(netItem.modelData.rx_bytes_per_sec)
                         color: Colors.textDim
                         font.pixelSize: 12
                         font.family: "monospace"
@@ -785,25 +789,26 @@ Item {
             Repeater {
                 model: root._disk
                 delegate: Item {
+                    id: diskItem
                     required property var modelData
                     Layout.fillWidth: true
                     implicitHeight: 20
 
                     Text {
                         anchors.left: parent.left
-                        anchors.leftMargin: modelData.depth * 14
+                        anchors.leftMargin: diskItem.modelData.depth * 14
                         anchors.verticalCenter: parent.verticalCenter
-                        text: (modelData.depth > 0 ? "↳ " : "") + modelData.name
-                        color: modelData.depth > 0 ? Colors.textDim : Colors.text
+                        text: (diskItem.modelData.depth > 0 ? "↳ " : "") + diskItem.modelData.name
+                        color: diskItem.modelData.depth > 0 ? Colors.textDim : Colors.text
                         font.pixelSize: 12
-                        font.weight: modelData.depth > 0 ? Font.Normal : Font.Medium
+                        font.weight: diskItem.modelData.depth > 0 ? Font.Normal : Font.Medium
                     }
 
                     Text {
                         id: writeVal
                         anchors.right: parent.right
                         anchors.verticalCenter: parent.verticalCenter
-                        text: "W " + root.fmtRate(modelData.write)
+                        text: "W " + root.fmtRate(diskItem.modelData.write)
                         color: Colors.textDim
                         font.pixelSize: 12
                         font.family: "monospace"
@@ -813,7 +818,7 @@ Item {
                         anchors.right: writeVal.left
                         anchors.rightMargin: 12
                         anchors.verticalCenter: parent.verticalCenter
-                        text: "R " + root.fmtRate(modelData.read)
+                        text: "R " + root.fmtRate(diskItem.modelData.read)
                         color: Colors.textDim
                         font.pixelSize: 12
                         font.family: "monospace"

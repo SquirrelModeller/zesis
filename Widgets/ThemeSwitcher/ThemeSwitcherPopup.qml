@@ -46,7 +46,7 @@ Item {
         id: scanner
         command: ["bash", "-c", "find \"$1\" -maxdepth 1 -type f \\( -iname '*.jpg' -o -iname '*.jpeg' -o -iname '*.png' -o -iname '*.webp' \\) 2>/dev/null | sort > \"$2\"", "--", root._wallpapersDir, Quickshell.env("HOME") + "/.cache/zesis/wallpapers.txt"]
         stdout: StdioCollector {}
-        onExited: listReader.reload()
+        onExited: () => listReader.reload()
     }
 
     FileView {

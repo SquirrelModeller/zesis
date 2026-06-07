@@ -10,6 +10,9 @@ import "Widgets/Music"
 import "Widgets/Notifications"
 import "Widgets/LockScreen"
 import "Widgets/Keybinds"
+import "Widgets/SysMon"
+import "Widgets/ThemeSwitcher"
+import "Widgets/Sound"
 
 Scope {
     Variants {
@@ -33,6 +36,13 @@ Scope {
             color: "transparent"
 
             property bool wantsMusic: false
+
+            // AnimPopupTest {
+            //     anchors.left: parent.left
+            //     anchors.leftMargin: 20
+            //     anchors.top: parent.top
+            //     anchors.bottom: parent.bottom
+            // }
 
             // This casues 2% GPU usage, optimze
             RowLayout {

@@ -3,7 +3,6 @@ import QtQuick
 import QtQuick.Layouts
 import Quickshell
 import Quickshell.Services.SystemTray
-import Quickshell.Services.Pipewire
 import "../../"
 import "../Keybinds"
 import "../Sound"
@@ -206,8 +205,8 @@ Rectangle {
             Layout.alignment: Qt.AlignVCenter
             Layout.leftMargin: 4
 
-            readonly property real _vol: Pipewire.defaultAudioSink?.audio?.volume ?? 0
-            readonly property bool _muted: Pipewire.defaultAudioSink?.audio?.muted ?? false
+            readonly property real _vol: AudioService.vol
+            readonly property bool _muted: AudioService.muted
             readonly property string _icon: {
                 if (_muted || _vol === 0)
                     return "󰝟";
@@ -253,7 +252,7 @@ Rectangle {
                         soundPopup.open();
                 }
                 onWheel: function (w) {
-                    var audio = Pipewire.defaultAudioSink?.audio;
+                    var audio = AudioService.sink?.audio;
                     if (!audio)
                         return;
                     audio.volume = Math.max(0, Math.min(1.5, audio.volume + w.angleDelta.y / 1200.0));

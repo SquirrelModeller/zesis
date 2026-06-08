@@ -25,16 +25,16 @@ Rectangle {
         anchors.centerIn: parent
         spacing: 4
 
-        SysInfo {
-            Layout.alignment: Qt.AlignVCenter
-        }
-
         Repeater {
             model: SystemTray.items
             delegate: TrayIcon {
                 required property SystemTrayItem modelData
                 item: modelData
             }
+        }
+
+        SysInfo {
+            Layout.alignment: Qt.AlignVCenter
         }
 
         // Theme switcher button
@@ -70,6 +70,7 @@ Rectangle {
                     if (!visible)
                         return;
                     themeShowAnim.stop();
+                    visible = false;
                 }
 
                 onVisibleChanged: {
@@ -176,6 +177,7 @@ Rectangle {
                     if (!visible)
                         return;
                     soundShowAnim.stop();
+                    visible = false;
                 }
 
                 onVisibleChanged: {

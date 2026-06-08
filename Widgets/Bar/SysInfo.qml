@@ -1,52 +1,25 @@
 import QtQuick
 import Quickshell
 import "../SysMon"
+import "../../"
 
-Rectangle {
+Item {
     id: sysinfo
 
     implicitWidth: 40
     implicitHeight: 40
-    color: "transparent"
 
-    Text {
-        text: "󰍛"
-        font.pointSize: 15
-        color: "white"
-        anchors.centerIn: parent
-    }
-
-    Canvas {
-        id: canvas
-        width: parent.width
-        height: parent.height
-
-        readonly property real arcLength: SysMonService.cpu.percent / 100
-
-        onArcLengthChanged: requestPaint()
-        Component.onCompleted: requestPaint()
-
-        onPaint: {
-            var ctx = canvas.getContext("2d");
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-            ctx.strokeStyle = "white";
-            ctx.lineWidth = parent.height / 8;
-
-            ctx.beginPath();
-            ctx.arc(canvas.width / 2, canvas.height / 2, (parent.width / 2) - ctx.lineWidth / 2, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * canvas.arcLength, false);
-            ctx.stroke();
-        }
-    }
+    readonly property bool active: sysMonPopup.visible
 
     HoverHandler {
         id: hover
     }
 
-    Rectangle {
-        anchors.fill: parent
-        radius: 8
-        color: hover.hovered || sysMonPopup.visible ? Qt.rgba(1, 1, 1, 0.08) : "transparent"
+    Text {
+        anchors.centerIn: parent
+        text: "󰍛"
+        font.pointSize: 15
+        color: (hover.hovered || sysinfo.active) ? Colors.accent : Colors.text
         Behavior on color {
             ColorAnimation {
                 duration: 120
@@ -54,13 +27,30 @@ Rectangle {
         }
     }
 
-    TapHandler {
-        onTapped: {
-            if (sysMonPopup.visible)
-                sysMonPopup.close();
-            else
-                sysMonPopup.open();
+    Canvas {
+        id: canvas
+        anchors.fill: parent
+
+        readonly property real arcLength: SysMonService.cpu.percent / 100
+        readonly property color strokeColor: (hover.hovered || sysinfo.active) ? Colors.accent : Colors.text
+
+        onArcLengthChanged: requestPaint()
+        onStrokeColorChanged: requestPaint()
+        Component.onCompleted: requestPaint()
+
+        onPaint: {
+            var ctx = getContext("2d");
+            ctx.clearRect(0, 0, width, height);
+            ctx.strokeStyle = Qt.rgba(strokeColor.r, strokeColor.g, strokeColor.b, strokeColor.a);
+            ctx.lineWidth = height / 8;
+            ctx.beginPath();
+            ctx.arc(width / 2, height / 2, width / 2 - ctx.lineWidth / 2, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * arcLength, false);
+            ctx.stroke();
         }
+    }
+
+    TapHandler {
+        onTapped: sysMonPopup.visible ? sysMonPopup.close() : sysMonPopup.open()
     }
 
     PopupWindow {

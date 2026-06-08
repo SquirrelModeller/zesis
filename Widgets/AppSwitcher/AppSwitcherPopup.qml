@@ -42,15 +42,43 @@ Item {
         }
     }
 
+    Keys.onReleased: event => {
+        if (event.key === Qt.Key_Alt) {
+            AppSwitcherService.confirm();
+            event.accepted = true;
+        }
+    }
+
     property point _lastCursorPos: Qt.point(-1, -1)
 
-    readonly property int cardSelW: Math.round(root.width * 0.13)
-    readonly property int cardW: Math.round(cardSelW * 0.78)
+    // Height-driven sizing: all cards share the same thumbnail height, width varies per window aspect ratio
+    readonly property int cardThumbH_sel: Math.round(root.height * 0.13)
+    readonly property int cardThumbH: Math.round(cardThumbH_sel * 0.78)
     readonly property int labelH: 34
     readonly property int cardSpacing: Math.round(root.width * 0.007)
-    readonly property int cardSelH: Math.round(cardSelW * 9 / 16) + labelH
+    readonly property int cardSelH: cardThumbH_sel + labelH
 
-    readonly property int listW: Math.min(root.width - 80, Math.max(root.cardSelW + 40, root.windows.length * (root.cardW + root.cardSpacing) - root.cardSpacing + (root.cardSelW - root.cardW) + 20))
+    function windowAspect(win) {
+        var sz = win.lastIpcObject && win.lastIpcObject["size"];
+        return (sz && sz.length >= 2 && sz[1] > 0) ? sz[0] / sz[1] : 16 / 9;
+    }
+
+    readonly property int selectedCardW: {
+        var idx = root.selectedIndex;
+        if (idx < 0 || idx >= root.windows.length)
+            return root.cardThumbH_sel;
+        return Math.round(root.cardThumbH_sel * root.windowAspect(root.windows[idx]));
+    }
+
+    readonly property int listW: {
+        var total = 0;
+        for (var i = 0; i < root.windows.length; i++) {
+            var h = (i === root.selectedIndex) ? root.cardThumbH_sel : root.cardThumbH;
+            total += Math.round(h * root.windowAspect(root.windows[i]));
+        }
+        total += root.cardSpacing * Math.max(0, root.windows.length - 1) + 20;
+        return Math.min(root.width - 80, Math.max(root.selectedCardW + 40, total));
+    }
 
     ListView {
         id: cardList
@@ -66,8 +94,8 @@ Item {
         clip: false
         spacing: root.cardSpacing
 
-        preferredHighlightBegin: (width - root.cardSelW) / 2
-        preferredHighlightEnd: (width - root.cardSelW) / 2 + root.cardSelW
+        preferredHighlightBegin: (width - root.selectedCardW) / 2
+        preferredHighlightEnd: (width - root.selectedCardW) / 2 + root.selectedCardW
         highlightRangeMode: ListView.ApplyRange
         highlightMoveDuration: 220
         highlightMoveVelocity: -1
@@ -94,8 +122,13 @@ Item {
                 var ws = cardDelegate.modelData.workspace;
                 return ws ? (parseInt(ws.name) || 0) : 0;
             }
+            readonly property real thumbAspect: {
+                var sz = cardDelegate.ipcObj["size"];
+                return (sz && sz.length >= 2 && sz[1] > 0) ? sz[0] / sz[1] : 16 / 9;
+            }
+            readonly property int thumbH: cardDelegate.isSelected ? root.cardThumbH_sel : root.cardThumbH
 
-            width: cardDelegate.isSelected ? root.cardSelW : root.cardW
+            width: Math.round(cardDelegate.thumbH * cardDelegate.thumbAspect)
             height: cardList.height
             Behavior on width {
                 NumberAnimation {
@@ -107,7 +140,7 @@ Item {
             Item {
                 id: inner
                 width: parent.width
-                height: Math.round(inner.width * 9 / 16) + root.labelH
+                height: Math.round(parent.width / cardDelegate.thumbAspect) + root.labelH
                 anchors.bottom: parent.bottom
                 anchors.horizontalCenter: parent.horizontalCenter
 
@@ -125,25 +158,19 @@ Item {
                     color: Colors.surface
                 }
 
-                // Thumbnail
+                // Thumbnail, sized to window's natural aspect ratio, no dead space
                 Item {
                     id: thumbItem
                     anchors.top: parent.top
                     anchors.left: parent.left
                     anchors.right: parent.right
                     anchors.margins: 1
-                    height: Math.round(inner.width * 9 / 16)
-                    clip: true
+                    height: Math.round(inner.width / cardDelegate.thumbAspect)
 
-                    Rectangle {
+                    ScreencopyView {
                         anchors.fill: parent
-                        color: Colors.bg
-
-                        ScreencopyView {
-                            anchors.fill: parent
-                            captureSource: cardDelegate.modelData.wayland
-                            live: true
-                        }
+                        captureSource: cardDelegate.modelData.wayland
+                        live: true
                     }
                 }
 
@@ -161,7 +188,7 @@ Item {
                     }
                 }
 
-                // App class label, anchored to thumbItem.bottom so it follows the thumbnail
+                // App class label
                 Text {
                     id: classLabel
                     anchors.left: parent.left

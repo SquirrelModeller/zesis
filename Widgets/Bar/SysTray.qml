@@ -8,6 +8,7 @@ import "../Keybinds"
 import "../Sound"
 import "../ThemeSwitcher"
 import "../Notifications"
+import "../Config"
 
 Rectangle {
     id: root
@@ -305,6 +306,84 @@ Rectangle {
                         anchors.fill: parent
                         active: notifPopup.visible
                         sourceComponent: NotifHistoryPopup {}
+                    }
+                }
+            }
+        }
+
+        // Config button
+        BarButton {
+            id: configBtn
+            icon: "󰒓"
+            active: configPopup.visible
+            Layout.alignment: Qt.AlignVCenter
+            Layout.leftMargin: 4
+            onClicked: configPopup.visible ? configPopup.close() : configPopup.open()
+
+            PopupWindow {
+                id: configPopup
+                anchor.item: configBtn
+                anchor.rect.x: configBtn.width / 2 - configPopup.implicitWidth / 2
+                anchor.rect.y: configBtn.height
+                grabFocus: true
+                visible: false
+                color: "transparent"
+                implicitWidth: Math.round(280 * UIScale.value)
+                implicitHeight: Math.round(500 * UIScale.value)
+
+                function open() {
+                    if (!visible) {
+                        configContent.scale = 0;
+                        configContent.opacity = 0;
+                        visible = true;
+                    }
+                    configShowAnim.start();
+                }
+
+                function close() {
+                    if (!visible)
+                        return;
+                    configShowAnim.stop();
+                    visible = false;
+                }
+
+                onVisibleChanged: {
+                    if (!visible) {
+                        configContent.scale = 0;
+                        configContent.opacity = 0;
+                    }
+                }
+
+                ParallelAnimation {
+                    id: configShowAnim
+                    NumberAnimation {
+                        target: configContent
+                        property: "scale"
+                        to: 1
+                        duration: 280
+                        easing.type: Easing.OutBack
+                        easing.overshoot: 1.4
+                    }
+                    NumberAnimation {
+                        target: configContent
+                        property: "opacity"
+                        to: 1
+                        duration: 200
+                        easing.type: Easing.OutCubic
+                    }
+                }
+
+                Item {
+                    id: configContent
+                    anchors.fill: parent
+                    scale: 0
+                    opacity: 0
+                    transformOrigin: Item.Top
+
+                    Loader {
+                        anchors.fill: parent
+                        active: configPopup.visible
+                        sourceComponent: ConfigPopup {}
                     }
                 }
             }

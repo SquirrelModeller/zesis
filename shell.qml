@@ -228,13 +228,16 @@ Scope {
 
     // Notification toasts, top-right overlay, stacks below the bar
     PanelWindow {
+        id: notifPanel
+        readonly property real notifW: Math.round(340 * UIScale.value)
+
         WlrLayershell.layer: WlrLayer.Overlay
         anchors {
             top: true
             right: true
         }
         exclusiveZone: 0
-        implicitWidth: 360
+        implicitWidth: notifW + 140
         implicitHeight: 600
         color: "transparent"
         visible: NotifServer.count > 0
@@ -245,14 +248,14 @@ Scope {
             anchors.topMargin: 70
             anchors.rightMargin: 16
             spacing: 8
-            width: 340
+            width: notifPanel.notifW
 
             Repeater {
                 model: NotifServer.notifications
                 delegate: NotifItem {
                     required property var modelData
                     notification: modelData
-                    width: 340
+                    width: parent.width
                 }
             }
         }

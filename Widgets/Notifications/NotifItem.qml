@@ -9,20 +9,25 @@ Rectangle {
 
     required property Notification notification
 
-    radius: 14
+    radius: UIScale.radiusLg
     color: Colors.surface
     border.color: Colors.withAlpha(Colors.accent, 0.18)
     border.width: 1
     implicitWidth: 340
-    implicitHeight: contentCol.implicitHeight + 24
+    implicitHeight: contentCol.implicitHeight + UIScale.spacingLg + 4
     clip: true
 
-    // Slide + fade in
     opacity: 0
-    transform: Translate {
-        id: slideIn
-        y: -8
-    }
+    transform: [
+        Translate {
+            id: slideIn
+            y: -8
+        },
+        Translate {
+            id: swipeTrans
+            x: 0
+        }
+    ]
 
     Component.onCompleted: showAnim.start()
 
@@ -47,6 +52,8 @@ Rectangle {
     }
 
     function dismiss() {
+        swipeDismissAnim.stop();
+        swipeSnapBack.stop();
         hideAnim.start();
     }
 
@@ -73,19 +80,74 @@ Rectangle {
         }
     }
 
-    // Dismiss timer
+    // Swipe to dismiss
+    DragHandler {
+        id: swipeDrag
+        target: null
+        xAxis.enabled: true
+        yAxis.enabled: false
+        acceptedButtons: Qt.LeftButton
+        onTranslationChanged: {
+            if (active)
+                swipeTrans.x = translation.x >= 0 ? translation.x : -Math.log(1 + Math.abs(translation.x)) * 10;
+        }
+        onActiveChanged: {
+            if (!active) {
+                if (swipeTrans.x > 100) {
+                    swipeDismissAnim.targetX = 420;
+                    swipeDismissAnim.start();
+                } else {
+                    swipeSnapBack.start();
+                }
+            }
+        }
+    }
+
+    NumberAnimation {
+        id: swipeSnapBack
+        target: swipeTrans
+        property: "x"
+        to: 0
+        duration: 250
+        easing.type: Easing.OutBack
+        easing.overshoot: 1.2
+    }
+
+    SequentialAnimation {
+        id: swipeDismissAnim
+        property real targetX: 420
+        ParallelAnimation {
+            NumberAnimation {
+                target: swipeTrans
+                property: "x"
+                to: swipeDismissAnim.targetX
+                duration: 220
+                easing.type: Easing.OutCubic
+            }
+            NumberAnimation {
+                target: root
+                property: "opacity"
+                to: 0
+                duration: 180
+                easing.type: Easing.InCubic
+            }
+        }
+        NumberAnimation {
+            target: root
+            property: "implicitHeight"
+            to: 0
+            duration: 180
+            easing.type: Easing.InCubic
+        }
+        ScriptAction {
+            script: root.notification.dismiss()
+        }
+    }
+
     Timer {
         interval: 8000
         running: true
         onTriggered: root.dismiss()
-    }
-
-    // Hover pauses dismiss timer, we do this by restarting on mouse enter
-    HoverHandler {
-        id: hoverHandler
-        onHoveredChanged: {
-            // Re-read: no simple pause API on Timer, so just restart on exit
-        }
     }
 
     MouseArea {
@@ -100,35 +162,34 @@ Rectangle {
             left: parent.left
             right: parent.right
             top: parent.top
-            margins: 14
+            margins: UIScale.spacingMd
         }
         spacing: 4
 
         RowLayout {
             Layout.fillWidth: true
-            spacing: 8
+            spacing: UIScale.spacingSm
 
             Text {
                 Layout.fillWidth: true
                 text: root.notification?.summary ?? ""
                 color: Colors.text
                 font.bold: true
-                font.pointSize: 10
+                font.pointSize: UIScale.fontMd
                 elide: Text.ElideRight
             }
 
             Text {
                 text: root.notification?.appName ?? ""
                 color: Colors.muted
-                font.pointSize: 8
+                font.pointSize: UIScale.fontXs
                 opacity: 0.8
             }
 
-            // Close button
             Text {
                 text: "✕"
                 color: closeHover.containsMouse ? Colors.accent : Colors.muted
-                font.pixelSize: 11
+                font.pointSize: UIScale.fontSm
                 Behavior on color {
                     ColorAnimation {
                         duration: 100
@@ -150,12 +211,11 @@ Rectangle {
             visible: (root.notification?.body ?? "") !== ""
             text: root.notification?.body ?? ""
             color: Colors.textDim
-            font.pointSize: 9
+            font.pointSize: UIScale.fontSm
             wrapMode: Text.WrapAtWordBoundaryOrAnywhere
             textFormat: Text.MarkdownText
         }
 
-        // Action buttons
         RowLayout {
             Layout.fillWidth: true
             visible: (root.notification?.actions?.length ?? 0) > 0
@@ -175,7 +235,7 @@ Rectangle {
                         anchors.centerIn: parent
                         text: parent.modelData.text
                         color: Colors.accent
-                        font.pointSize: 8
+                        font.pointSize: UIScale.fontXs
                     }
 
                     MouseArea {

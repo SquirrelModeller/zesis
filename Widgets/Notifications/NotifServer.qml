@@ -7,14 +7,22 @@ Singleton {
     id: root
 
     property int count: server.trackedNotifications.values.length
+    property int unreadCount: 0
 
-    // Expose the ObjectModel directly, usable as a Repeater/ListView model
     readonly property var notifications: server.trackedNotifications
+    readonly property ListModel history: historyModel
 
-    function clearAll() {
-        for (var i = 0; i < server.trackedNotifications.values.length; i++) {
-            server.trackedNotifications.values[i].dismiss();
-        }
+    function clearHistory() {
+        historyModel.clear();
+        unreadCount = 0;
+    }
+
+    function markRead() {
+        unreadCount = 0;
+    }
+
+    ListModel {
+        id: historyModel
     }
 
     NotificationServer {
@@ -27,6 +35,15 @@ Singleton {
 
         onNotification: n => {
             n.tracked = true;
+            historyModel.insert(0, {
+                appName: n.appName ?? "",
+                summary: n.summary ?? "",
+                body: n.body ?? "",
+                time: Qt.formatTime(new Date(), "hh:mm")
+            });
+            if (historyModel.count > 50)
+                historyModel.remove(historyModel.count - 1);
+            root.unreadCount++;
         }
     }
 }

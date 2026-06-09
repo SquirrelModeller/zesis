@@ -7,6 +7,7 @@ import "../../"
 import "../Keybinds"
 import "../Sound"
 import "../ThemeSwitcher"
+import "../Notifications"
 
 Rectangle {
     id: root
@@ -229,6 +230,85 @@ Rectangle {
         //     Layout.leftMargin: 4
         //     onLitChanged: root.candleLit = lit
         // }
+
+        // Notification history button
+        BarButton {
+            id: notifBtn
+            icon: NotifServer.unreadCount > 0 ? "󰂜" : "󰂚"
+            active: notifPopup.visible
+            Layout.alignment: Qt.AlignVCenter
+            Layout.leftMargin: 4
+            onClicked: notifPopup.visible ? notifPopup.close() : notifPopup.open()
+
+            PopupWindow {
+                id: notifPopup
+                anchor.item: notifBtn
+                anchor.rect.x: notifBtn.width / 2 - notifPopup.implicitWidth / 2
+                anchor.rect.y: notifBtn.height
+                grabFocus: true
+                visible: false
+                color: "transparent"
+                implicitWidth: Math.round(340 * UIScale.value)
+                implicitHeight: Math.round(480 * UIScale.value)
+
+                function open() {
+                    if (!visible) {
+                        notifContent.scale = 0;
+                        notifContent.opacity = 0;
+                        visible = true;
+                    }
+                    notifShowAnim.start();
+                    NotifServer.markRead();
+                }
+
+                function close() {
+                    if (!visible)
+                        return;
+                    notifShowAnim.stop();
+                    visible = false;
+                }
+
+                onVisibleChanged: {
+                    if (!visible) {
+                        notifContent.scale = 0;
+                        notifContent.opacity = 0;
+                    }
+                }
+
+                ParallelAnimation {
+                    id: notifShowAnim
+                    NumberAnimation {
+                        target: notifContent
+                        property: "scale"
+                        to: 1
+                        duration: 280
+                        easing.type: Easing.OutBack
+                        easing.overshoot: 1.4
+                    }
+                    NumberAnimation {
+                        target: notifContent
+                        property: "opacity"
+                        to: 1
+                        duration: 200
+                        easing.type: Easing.OutCubic
+                    }
+                }
+
+                Item {
+                    id: notifContent
+                    anchors.fill: parent
+                    scale: 0
+                    opacity: 0
+                    transformOrigin: Item.Top
+
+                    Loader {
+                        anchors.fill: parent
+                        active: notifPopup.visible
+                        sourceComponent: NotifHistoryPopup {}
+                    }
+                }
+            }
+        }
 
         // Lock button
         BarButton {

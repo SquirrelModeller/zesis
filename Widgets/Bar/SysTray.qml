@@ -9,6 +9,7 @@ import "../Sound"
 import "../ThemeSwitcher"
 import "../Notifications"
 import "../Config"
+import "../WidgetHome"
 
 Rectangle {
     id: root
@@ -387,6 +388,15 @@ Rectangle {
                     }
                 }
             }
+        }
+
+        // Widget home
+        BarButton {
+            icon: ""
+            active: WidgetHomeService.open
+            Layout.alignment: Qt.AlignVCenter
+            Layout.leftMargin: 4
+            onClicked: WidgetHomeService.open = !WidgetHomeService.open
         }
 
         // Lock button

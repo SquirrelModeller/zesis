@@ -13,6 +13,7 @@ import "Widgets/LockScreen"
 import "Widgets/Keybinds"
 import "Widgets/AppSwitcher"
 import "Widgets/Shared"
+import "Widgets/WidgetHome"
 
 Scope {
     Variants {
@@ -223,6 +224,74 @@ Scope {
         }
         function cancel() {
             AppSwitcherService.cancel();
+        }
+    }
+
+    // Widget home sidebar
+    PanelWindow {
+        id: widgetHome
+
+        readonly property real panelW: Math.round(360 * UIScale.value)
+
+        WlrLayershell.layer: WlrLayer.Top
+        WlrLayershell.keyboardFocus: WlrKeyboardFocus.OnDemand
+        anchors {
+            top: true
+            right: true
+            bottom: true
+        }
+        exclusiveZone: 0
+        implicitWidth: panelW
+        color: "transparent"
+        visible: false
+
+        property bool _whOpen: WidgetHomeService.open
+        on_WhOpenChanged: {
+            if (_whOpen) {
+                sidebarRect.offsetScale = 1;
+                visible = true;
+                slideIn.start();
+            } else {
+                slideOut.start();
+            }
+        }
+
+        // Open: ease into place (emphasizedDecel)
+        NumberAnimation {
+            id: slideIn
+            target: sidebarRect; property: "offsetScale"
+            to: 0; duration: 280
+            easing.type: Easing.BezierSpline
+            easing.bezierCurve: [0.05, 0.7, 0.1, 1, 1, 1]
+        }
+
+        // Close: quick departure (emphasizedAccel)
+        NumberAnimation {
+            id: slideOut
+            target: sidebarRect; property: "offsetScale"
+            to: 1; duration: 220
+            easing.type: Easing.BezierSpline
+            easing.bezierCurve: [0.3, 0, 0.8, 0.15, 1, 1]
+            onFinished: widgetHome.visible = false
+        }
+
+        Rectangle {
+            id: sidebarRect
+            property real offsetScale: 1
+
+            anchors.top: parent.top
+            anchors.bottom: parent.bottom
+            anchors.topMargin: 60
+            width: widgetHome.panelW
+            x: widgetHome.panelW * offsetScale
+            opacity: 1 - offsetScale
+            color: Colors.bg
+            border.color: Colors.outline
+            border.width: 1
+
+            WidgetHomePanel {
+                anchors.fill: parent
+            }
         }
     }
 

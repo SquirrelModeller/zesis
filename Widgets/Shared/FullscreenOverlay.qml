@@ -2,6 +2,7 @@ pragma ComponentBehavior: Bound
 import QtQuick
 import Quickshell
 import Quickshell.Wayland
+import "../../"
 
 PanelWindow {
     id: root
@@ -61,21 +62,21 @@ PanelWindow {
             target: dimmer
             property: "opacity"
             to: root.dimmerOpacity
-            duration: 200
+            duration: Anim.medium
             easing.type: Easing.OutCubic
         }
         NumberAnimation {
             target: overlayContent
             property: "opacity"
             to: 1
-            duration: 200
+            duration: Anim.medium
             easing.type: Easing.OutCubic
         }
         NumberAnimation {
             target: overlayContent
             property: "scale"
             to: 1
-            duration: 280
+            duration: Anim.slow
             easing.type: Easing.OutBack
             easing.overshoot: root.showOvershoot
         }
@@ -87,21 +88,21 @@ PanelWindow {
             target: dimmer
             property: "opacity"
             to: 0
-            duration: 180
+            duration: Anim.medium
             easing.type: Easing.InCubic
         }
         NumberAnimation {
             target: overlayContent
             property: "opacity"
             to: 0
-            duration: 150
+            duration: Anim.fast
             easing.type: Easing.InCubic
         }
         NumberAnimation {
             target: overlayContent
             property: "scale"
             to: root.initialScale
-            duration: 160
+            duration: Anim.fast
             easing.type: Easing.InCubic
         }
         onStopped: root.visible = false

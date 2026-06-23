@@ -5,6 +5,9 @@ import "../Music"
 import "../Notifications"
 import "../Sound"
 import "../Config"
+import "../Network"
+import "../Home"
+import "../Storage"
 import "../../"
 
 Item {
@@ -14,34 +17,44 @@ Item {
     property int selectedRow: -1
     property int selectedCol: -1
     readonly property bool anySelected: selectedRow !== -1
+    onAnySelectedChanged: WidgetHomeService.anySelected = anySelected
 
-    readonly property real pad: 20
-    readonly property real colGap: 10
-    readonly property real rowGap: 10
-    readonly property real collapsedH: 52
+    readonly property real pad: Math.round(20 * UIScale.value)
+    readonly property real colGap: Math.round(10 * UIScale.value)
+    readonly property real rowGap: Math.round(10 * UIScale.value)
+    readonly property real collapsedH: Math.round(52 * UIScale.value)
+    readonly property real headerH: Math.round(40 * UIScale.value)
     readonly property real collapsedW: (root.width - 2 * pad - colGap) / 2
     readonly property real expandedW: root.width - 2 * pad
     readonly property real expandedH: contentArea.height
 
     // Each entry: [label, icon codepoint (Material Icons), widgetIndex]
-    readonly property var layout: [[["Music", "", 0], ["Notifs", "", 1]], [["Sound", "", 2], ["Scale", "", 3]]]
+    readonly property var layout: [[["Music", "", 0], ["Notifs", "", 1]], [["Sound", "", 2], ["Scale", "", 3]], [["Network", "", 4], ["Storage", "", 5]]]
 
-    readonly property var widgetComponents: [musicComp, notifComp, soundComp, configComp]
+    readonly property var widgetComponents: [musicComp, notifComp, soundComp, configComp, networkComp, storageComp]
     Component {
         id: musicComp
         MusicController {}
     }
     Component {
         id: notifComp
-        NotifHistoryPopup {}
+        NotifHistory {}
     }
     Component {
         id: soundComp
-        SoundPopup {}
+        Sound {}
     }
     Component {
         id: configComp
-        ConfigPopup {}
+        Config {}
+    }
+    Component {
+        id: networkComp
+        NetworkTile {}
+    }
+    Component {
+        id: storageComp
+        Storage {}
     }
 
     // Header
@@ -53,11 +66,11 @@ Item {
         anchors.topMargin: UIScale.spacingMd
         anchors.leftMargin: UIScale.spacingMd
         anchors.rightMargin: UIScale.spacingMd
-        height: 40
+        height: Math.round(40 * UIScale.value)
         opacity: root.anySelected ? 0 : 1
         Behavior on opacity {
             NumberAnimation {
-                duration: 150
+                duration: Anim.fast
             }
         }
 
@@ -65,7 +78,7 @@ Item {
             text: "Widget Home"
             color: Colors.text
             font.bold: true
-            font.pointSize: UIScale.fontLg
+            font.pixelSize: UIScale.fontLead
         }
 
         Item {
@@ -76,39 +89,73 @@ Item {
             Layout.preferredWidth: 32
             Layout.preferredHeight: 32
 
-            HoverHandler {
-                id: xHover
+            MouseArea {
+                id: expandMouseAreaBtn
+                anchors.fill: parent
+                hoverEnabled: true
+                cursorShape: Qt.PointingHandCursor
+                onClicked: {
+                    WidgetHomeService.open = false;
+                    HomePanelService.open = true;
+                }
+            }
+
+            Text {
+                anchors.centerIn: parent
+                text: ""
+                font.family: "Material Icons"
+                font.pixelSize: Math.round((expandMouseAreaBtn.containsMouse ? 20 : 16) * UIScale.value)
+                color: expandMouseAreaBtn.containsMouse ? Colors.accent : Colors.muted
+                Behavior on color {
+                    ColorAnimation {
+                        duration: Anim.fast
+                    }
+                }
+                Behavior on font.pixelSize {
+                    NumberAnimation {
+                        duration: Anim.fast
+                        easing.type: Easing.OutCubic
+                    }
+                }
+            }
+        }
+
+        Item {
+            Layout.preferredWidth: 32
+            Layout.preferredHeight: 32
+
+            MouseArea {
+                id: xMouseArea
+                anchors.fill: parent
+                hoverEnabled: true
+                cursorShape: Qt.PointingHandCursor
+                onClicked: WidgetHomeService.open = false
             }
 
             Text {
                 anchors.centerIn: parent
                 text: "✕"
-                color: xHover.hovered ? Colors.accent : Colors.muted
-                font.pixelSize: xHover.hovered ? 20 : 16
-                scale: xHover.hovered ? 1.15 : 1.0
+                color: xMouseArea.containsMouse ? Colors.accent : Colors.muted
+                font.pixelSize: Math.round((xMouseArea.containsMouse ? 20 : 16) * UIScale.value)
+                scale: xMouseArea.containsMouse ? 1.15 : 1.0
 
                 Behavior on color {
                     ColorAnimation {
-                        duration: 150
+                        duration: Anim.fast
                     }
                 }
                 Behavior on font.pixelSize {
                     NumberAnimation {
-                        duration: 150
+                        duration: Anim.fast
                         easing.type: Easing.OutCubic
                     }
                 }
                 Behavior on scale {
                     NumberAnimation {
-                        duration: 150
+                        duration: Anim.fast
                         easing.type: Easing.OutCubic
                     }
                 }
-            }
-
-            TapHandler {
-                cursorShape: Qt.PointingHandCursor
-                onTapped: WidgetHomeService.open = false
             }
         }
     }
@@ -126,7 +173,7 @@ Item {
         opacity: root.anySelected ? 0 : 1
         Behavior on opacity {
             NumberAnimation {
-                duration: 150
+                duration: Anim.fast
             }
         }
     }
@@ -147,7 +194,7 @@ Item {
 
             Behavior on spacing {
                 NumberAnimation {
-                    duration: 420
+                    duration: Anim.morph
                     easing.type: Easing.BezierSpline
                     easing.bezierCurve: [0.38, 1.21, 0.22, 1.00, 1, 1]
                 }
@@ -162,6 +209,10 @@ Item {
                     required property int index
 
                     readonly property bool isThisRowSelected: root.selectedRow === rowItem.index
+                    readonly property real rowCollapsedW: {
+                        var n = rowItem.modelData.length;
+                        return n > 0 ? (root.expandedW - (n - 1) * root.colGap) / n : root.expandedW;
+                    }
 
                     width: root.expandedW
                     height: isThisRowSelected ? root.expandedH : (root.anySelected ? 0 : root.collapsedH)
@@ -169,14 +220,14 @@ Item {
 
                     Behavior on height {
                         NumberAnimation {
-                            duration: 420
+                            duration: Anim.morph
                             easing.type: Easing.BezierSpline
                             easing.bezierCurve: [0.38, 1.21, 0.22, 1.00, 1, 1]
                         }
                     }
                     Behavior on opacity {
                         NumberAnimation {
-                            duration: 150
+                            duration: Anim.fast
                         }
                     }
 
@@ -186,7 +237,7 @@ Item {
 
                         Behavior on spacing {
                             NumberAnimation {
-                                duration: 420
+                                duration: Anim.morph
                                 easing.type: Easing.BezierSpline
                                 easing.bezierCurve: [0.38, 1.21, 0.22, 1.00, 1, 1]
                             }
@@ -206,70 +257,136 @@ Item {
                                 readonly property bool isSelected: root.selectedRow === rowItem.index && root.selectedCol === btn.index
                                 readonly property bool siblingSelected: rowItem.isThisRowSelected && !isSelected
 
-                                width: isSelected ? root.expandedW : (root.anySelected ? 0 : root.collapsedW)
+                                width: isSelected ? root.expandedW : (root.anySelected ? 0 : rowItem.rowCollapsedW)
                                 height: isSelected ? root.expandedH : root.collapsedH
-                                opacity: siblingSelected ? 0 : 1
+                                property real _siblingOpacity: siblingSelected ? 0.0 : 1.0
+                                Behavior on _siblingOpacity {
+                                    NumberAnimation {
+                                        duration: Anim.fast
+                                    }
+                                }
+                                property real _introOpacity: 1.0
+                                opacity: Math.min(_siblingOpacity, _introOpacity)
+                                property real _introY: 0.0
+                                transform: Translate {
+                                    y: btn._introY
+                                }
                                 clip: true
+
+                                SequentialAnimation {
+                                    id: introAnim
+                                    PauseAnimation {
+                                        duration: (rowItem.index * 2 + btn.index) * 60
+                                    }
+                                    ParallelAnimation {
+                                        NumberAnimation {
+                                            target: btn
+                                            property: "_introOpacity"
+                                            from: 0.0
+                                            to: 1.0
+                                            duration: Anim.medium
+                                        }
+                                        NumberAnimation {
+                                            target: btn
+                                            property: "_introY"
+                                            from: 10.0
+                                            to: 0.0
+                                            duration: Anim.slow
+                                            easing.type: Easing.BezierSpline
+                                            easing.bezierCurve: [0.05, 0.7, 0.1, 1.0, 1, 1]
+                                        }
+                                    }
+                                }
+
+                                readonly property bool _panelOpen: WidgetHomeService.open
+                                on_PanelOpenChanged: {
+                                    if (_panelOpen) {
+                                        btn._introOpacity = 0.0;
+                                        btn._introY = 10.0;
+                                        introAnim.restart();
+                                    }
+                                }
 
                                 Behavior on width {
                                     NumberAnimation {
-                                        duration: 420
+                                        duration: Anim.morph
                                         easing.type: Easing.BezierSpline
                                         easing.bezierCurve: [0.38, 1.21, 0.22, 1.00, 1, 1]
                                     }
                                 }
                                 Behavior on height {
                                     NumberAnimation {
-                                        duration: 420
+                                        duration: Anim.morph
                                         easing.type: Easing.BezierSpline
                                         easing.bezierCurve: [0.38, 1.21, 0.22, 1.00, 1, 1]
                                     }
                                 }
-                                Behavior on opacity {
-                                    NumberAnimation {
-                                        duration: 150
-                                    }
-                                }
-
                                 Rectangle {
                                     id: pill
                                     anchors.centerIn: parent
-                                    width: btn.isSelected ? root.expandedW : (root.anySelected ? 0 : root.collapsedW)
+                                    width: btn.isSelected ? root.expandedW : (root.anySelected ? 0 : rowItem.rowCollapsedW)
                                     height: btn.isSelected ? root.expandedH : (root.anySelected ? 0 : root.collapsedH)
-                                    radius: btn.isSelected ? 0 : root.collapsedH / 2
-                                    // bg when expanded so rounded bottom corners blend into the panel
+                                    radius: btn.isSelected ? UIScale.radiusLg : root.collapsedH / 2
+                                    topLeftRadius: btn.isSelected ? 0 : root.collapsedH / 2
+                                    topRightRadius: btn.isSelected ? 0 : root.collapsedH / 2
                                     color: btn.isSelected ? Colors.bg : Colors.accent
+                                    border.color: btn.isSelected ? Colors.outline : "transparent"
+                                    border.width: 1
                                     clip: true
+                                    scale: !btn.isSelected && expandMouseArea.containsMouse ? 1.06 : 1.0
+                                    Behavior on scale {
+                                        NumberAnimation {
+                                            duration: Anim.fast
+                                            easing.type: Easing.OutCubic
+                                        }
+                                    }
 
                                     Behavior on width {
                                         NumberAnimation {
-                                            duration: 420
+                                            duration: Anim.morph
                                             easing.type: Easing.BezierSpline
                                             easing.bezierCurve: [0.38, 1.21, 0.22, 1.00, 1, 1]
                                         }
                                     }
                                     Behavior on height {
                                         NumberAnimation {
-                                            duration: 420
+                                            duration: Anim.morph
                                             easing.type: Easing.BezierSpline
                                             easing.bezierCurve: [0.38, 1.21, 0.22, 1.00, 1, 1]
                                         }
                                     }
                                     Behavior on radius {
                                         NumberAnimation {
-                                            duration: 420
+                                            duration: Anim.morph
                                             easing.type: Easing.BezierSpline
                                             easing.bezierCurve: [0.42, 1.67, 0.21, 0.90, 1, 1]
                                         }
                                     }
-
-                                    HoverHandler {
-                                        id: hov
+                                    Behavior on topLeftRadius {
+                                        NumberAnimation {
+                                            duration: Anim.morph
+                                            easing.type: Easing.BezierSpline
+                                            easing.bezierCurve: [0.42, 1.67, 0.21, 0.90, 1, 1]
+                                        }
+                                    }
+                                    Behavior on topRightRadius {
+                                        NumberAnimation {
+                                            duration: Anim.morph
+                                            easing.type: Easing.BezierSpline
+                                            easing.bezierCurve: [0.42, 1.67, 0.21, 0.90, 1, 1]
+                                        }
+                                    }
+                                    Behavior on border.color {
+                                        ColorAnimation {
+                                            duration: Anim.morph
+                                        }
                                     }
 
                                     // Expand (collapsed state)
                                     MouseArea {
+                                        id: expandMouseArea
                                         anchors.fill: parent
+                                        hoverEnabled: true
                                         cursorShape: Qt.PointingHandCursor
                                         enabled: !btn.isSelected
                                         onClicked: {
@@ -295,10 +412,10 @@ Item {
                                         anchors.fill: parent
                                         radius: parent.radius
                                         color: "white"
-                                        opacity: hov.hovered && !btn.isSelected ? 0.08 : 0.0
+                                        opacity: expandMouseArea.containsMouse ? 0.08 : 0.0
                                         Behavior on opacity {
                                             NumberAnimation {
-                                                duration: 150
+                                                duration: Anim.fast
                                             }
                                         }
                                     }
@@ -309,8 +426,8 @@ Item {
                                         anchors.top: parent.top
                                         anchors.left: parent.left
                                         anchors.right: parent.right
-                                        height: 40
-                                        radius: 16
+                                        height: root.headerH
+                                        radius: Math.round(16 * UIScale.value)
                                         color: Colors.accent
                                         visible: btn.isSelected
 
@@ -318,28 +435,28 @@ Item {
                                             anchors.bottom: parent.bottom
                                             anchors.left: parent.left
                                             anchors.right: parent.right
-                                            height: 16
+                                            height: Math.round(16 * UIScale.value)
                                             color: Colors.accent
                                         }
 
                                         Row {
                                             anchors.left: parent.left
                                             anchors.verticalCenter: parent.verticalCenter
-                                            anchors.leftMargin: 14
-                                            spacing: 8
+                                            anchors.leftMargin: UIScale.spacingMd
+                                            spacing: UIScale.spacingSm
 
                                             Text {
                                                 text: btn.icon
                                                 color: Colors.bg
                                                 font.family: "Material Icons"
-                                                font.pixelSize: 19
+                                                font.pixelSize: Math.round(19 * UIScale.value)
                                                 anchors.verticalCenter: parent.verticalCenter
                                             }
 
                                             Text {
                                                 text: btn.label
                                                 color: Colors.bg
-                                                font.pixelSize: 14
+                                                font.pixelSize: UIScale.fontBody
                                                 font.weight: Font.Medium
                                                 anchors.verticalCenter: parent.verticalCenter
                                             }
@@ -349,11 +466,11 @@ Item {
                                     // Icon + label, hidden once expanded
                                     Row {
                                         anchors.centerIn: parent
-                                        spacing: 8
+                                        spacing: UIScale.spacingSm
                                         opacity: btn.isSelected ? 0 : 1
                                         Behavior on opacity {
                                             NumberAnimation {
-                                                duration: 120
+                                                duration: Anim.fast
                                             }
                                         }
 
@@ -361,14 +478,14 @@ Item {
                                             text: btn.icon
                                             color: Colors.bg
                                             font.family: "Material Icons"
-                                            font.pixelSize: 20
+                                            font.pixelSize: Math.round(20 * UIScale.value)
                                             anchors.verticalCenter: parent.verticalCenter
                                         }
 
                                         Text {
                                             text: btn.label
                                             color: Colors.bg
-                                            font.pixelSize: 14
+                                            font.pixelSize: UIScale.fontBody
                                             font.weight: Font.Medium
                                             anchors.verticalCenter: parent.verticalCenter
                                         }
@@ -379,7 +496,7 @@ Item {
                                     // never fires inside the content region.
                                     MouseArea {
                                         anchors.fill: parent
-                                        anchors.topMargin: 40
+                                        anchors.topMargin: root.headerH
                                         enabled: btn.isSelected
                                     }
 
@@ -387,13 +504,13 @@ Item {
                                     // Only top margin exposes the collapse strip; left/right/bottom flush.
                                     Loader {
                                         anchors.fill: parent
-                                        anchors.topMargin: 40
+                                        anchors.topMargin: root.headerH
                                         active: btn.isSelected
                                         sourceComponent: btn.isSelected ? root.widgetComponents[btn.widgetIndex] : null
                                         opacity: btn.isSelected ? 1 : 0
                                         Behavior on opacity {
                                             NumberAnimation {
-                                                duration: 200
+                                                duration: Anim.medium
                                             }
                                         }
                                     }

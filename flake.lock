@@ -7,11 +7,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1780762642,
-        "narHash": "sha256-EWZOLDqyq+0mSO0qMKoBwhEjaCvHs/lwNQUHx0ktC3Q=",
+        "lastModified": 1780872866,
+        "narHash": "sha256-wnmNMSbJeIHKbNEh9C9k/HfkV7k9Adw0ek5OqAtkuxE=",
         "owner": "SquirrelModeller",
         "repo": "athroisma",
-        "rev": "f0429ea4a54937e6195c8d90cbc429c5e2766c0a",
+        "rev": "1fea764f319a31a728ebbb886afdd7cb205e8ede",
         "type": "github"
       },
       "original": {

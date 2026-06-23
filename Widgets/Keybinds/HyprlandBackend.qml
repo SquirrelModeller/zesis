@@ -21,8 +21,6 @@ QtObject {
 
     Component.onCompleted: refresh()
 
-    // data fetch
-
     property QtObject _proc: Process {
         id: proc
         command: ["hyprctl", "binds", "-j"]

@@ -16,7 +16,7 @@ Item {
         color: animPopup.visible ? Qt.rgba(1, 1, 1, 0.15) : Qt.rgba(1, 1, 1, 0.05)
         Behavior on color {
             ColorAnimation {
-                duration: 120
+                duration: Anim.fast
             }
         }
 
@@ -55,13 +55,13 @@ Item {
 
         onTargetHChanged: {
             if (targetH > implicitHeight)
-                implicitHeight = targetH;    // surface only grows, mask covers dead zone on shrink
-            visibleHeight = targetH;         // Behavior animates the rect both ways
+                implicitHeight = targetH; // surface only grows, mask covers dead zone on shrink
+            visibleHeight = targetH; // Behavior animates the rect both ways
         }
 
         Behavior on visibleHeight {
             NumberAnimation {
-                duration: 260
+                duration: Anim.medium
                 easing.type: Easing.OutCubic
             }
         }
@@ -91,7 +91,7 @@ Item {
             if (!visible) {
                 content.scale = 0;
                 content.opacity = 0;
-                implicitHeight = targetH;    // reset surface to current content size
+                implicitHeight = targetH; // reset surface to current content size
                 visibleHeight = targetH;
             }
         }
@@ -118,7 +118,7 @@ Item {
                 target: content
                 property: "scale"
                 to: 1
-                duration: 280
+                duration: Anim.slow
                 easing.type: Easing.OutBack
                 easing.overshoot: 1.4
             }
@@ -126,7 +126,7 @@ Item {
                 target: content
                 property: "opacity"
                 to: 1
-                duration: 200
+                duration: Anim.medium
                 easing.type: Easing.OutCubic
             }
         }
@@ -138,14 +138,14 @@ Item {
                 target: content
                 property: "scale"
                 to: 0
-                duration: 180
+                duration: Anim.medium
                 easing.type: Easing.InCubic
             }
             NumberAnimation {
                 target: content
                 property: "opacity"
                 to: 0
-                duration: 150
+                duration: Anim.fast
                 easing.type: Easing.InCubic
             }
             onStopped: animPopup.visible = false
@@ -215,7 +215,7 @@ Item {
                                 anchors.fill: parent
                                 anchors.leftMargin: 10
                                 verticalAlignment: Text.AlignVCenter
-                                text: "Add a task…"
+                                text: "Add a task..."
                                 color: Qt.rgba(1, 1, 1, 0.25)
                                 font.pixelSize: 13
                                 visible: todoInput.text.length === 0 && !todoInput.activeFocus
@@ -229,7 +229,7 @@ Item {
                             color: addHover.hovered ? Qt.rgba(1, 1, 1, 0.2) : Qt.rgba(1, 1, 1, 0.1)
                             Behavior on color {
                                 ColorAnimation {
-                                    duration: 80
+                                    duration: Anim.micro
                                 }
                             }
 
@@ -285,7 +285,7 @@ Item {
                                 color: delHover.hovered ? Qt.rgba(1, 0.3, 0.3, 0.35) : "transparent"
                                 Behavior on color {
                                     ColorAnimation {
-                                        duration: 80
+                                        duration: Anim.micro
                                     }
                                 }
 

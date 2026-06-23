@@ -28,6 +28,11 @@
           clang-tools
           imagemagick
           athroisma.packages.${system}.default
+          (python3.withPackages (ps:
+            with ps; [
+              icalendar
+              recurring-ical-events
+            ]))
         ];
 
         QML_IMPORT_PATH = pkgs.lib.concatStringsSep ":" [

@@ -1,13 +1,12 @@
-pragma ComponentBehavior: Bound
 import QtQuick
 import QtQuick.Controls
 import Quickshell
 import Quickshell.Services.Mpris
+import "../../"
 
 Item {
     id: root
-    width: 400
-    height: 240
+    anchors.fill: parent
 
     SwipeView {
         id: swiper
@@ -49,7 +48,7 @@ Item {
             color: index === swiper.currentIndex ? "white" : Qt.rgba(1, 1, 1, 0.35)
             Behavior on color {
                 ColorAnimation {
-                    duration: 300
+                    duration: Anim.slow
                 }
             }
         }

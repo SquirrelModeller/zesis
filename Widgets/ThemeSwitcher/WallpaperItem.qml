@@ -15,29 +15,29 @@ Item {
     readonly property string _ext: _baseName.includes(".") ? _baseName.split(".").pop().toUpperCase() : ""
     readonly property string _thumbPath: ThemeState.thumbsDir + "/" + _baseName + ".jpg"
 
-    implicitHeight: 84
+    implicitHeight: Math.round(84 * UIScale.value)
 
     Rectangle {
         anchors.fill: parent
-        radius: 8
+        radius: UIScale.radiusSm
         color: root.selected ? Qt.rgba(Colors.accent.r, Colors.accent.g, Colors.accent.b, 0.15) : hoverArea.containsMouse ? Colors.surfaceHigh : "transparent"
         Behavior on color {
             ColorAnimation {
-                duration: 120
+                duration: Anim.fast
             }
         }
     }
 
     RowLayout {
         anchors.fill: parent
-        anchors.margins: 8
-        spacing: 12
+        anchors.margins: UIScale.spacingSm
+        spacing: Math.round(12 * UIScale.value)
 
         // Thumbnail
         Rectangle {
-            width: 120
-            height: 68
-            radius: 6
+            implicitWidth: Math.round(120 * UIScale.value)
+            implicitHeight: Math.round(68 * UIScale.value)
+            radius: UIScale.radiusSm
             color: Colors.surface
             clip: true
 
@@ -60,15 +60,15 @@ Item {
             // Loading placeholder
             Rectangle {
                 anchors.fill: parent
-                radius: 6
+                radius: UIScale.radiusSm
                 color: Colors.surface
                 visible: thumb.status !== Image.Ready
 
                 Rectangle {
                     anchors.centerIn: parent
-                    width: 28
-                    height: 28
-                    radius: 14
+                    width: Math.round(28 * UIScale.value)
+                    height: Math.round(28 * UIScale.value)
+                    radius: Math.round(14 * UIScale.value)
                     color: Colors.surfaceHigh
                 }
             }
@@ -77,12 +77,12 @@ Item {
         // Info column
         Column {
             Layout.fillWidth: true
-            spacing: 4
+            spacing: Math.round(4 * UIScale.value)
 
             Text {
                 text: root._displayName
                 color: Colors.text
-                font.pixelSize: 13
+                font.pixelSize: UIScale.fontSmall
                 font.weight: Font.Medium
                 elide: Text.ElideRight
                 width: parent.width
@@ -91,20 +91,20 @@ Item {
             Text {
                 text: root._ext
                 color: Colors.textDim
-                font.pixelSize: 11
+                font.pixelSize: UIScale.fontCaption
             }
         }
 
         // Selected dot
         Rectangle {
-            implicitWidth: 8
-            implicitHeight: 8
-            radius: 4
+            implicitWidth: Math.round(8 * UIScale.value)
+            implicitHeight: Math.round(8 * UIScale.value)
+            radius: Math.round(4 * UIScale.value)
             color: Colors.accent
             opacity: root.selected ? 1 : 0
             Behavior on opacity {
                 NumberAnimation {
-                    duration: 200
+                    duration: Anim.medium
                 }
             }
         }
@@ -113,7 +113,7 @@ Item {
     // Applying overlay
     Rectangle {
         anchors.fill: parent
-        radius: 8
+        radius: UIScale.radiusSm
         color: Qt.rgba(0, 0, 0, 0.4)
         visible: ThemeState.applying && root.selected
 
@@ -121,7 +121,7 @@ Item {
             anchors.centerIn: parent
             text: "Applying..."
             color: Colors.text
-            font.pixelSize: 12
+            font.pixelSize: UIScale.fontCaption
         }
     }
 

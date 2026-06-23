@@ -18,10 +18,10 @@ Item {
     Rectangle {
         anchors.fill: parent
         radius: 6
-        color: hoverHandler.hovered ? Colors.withAlpha(Colors.accent, 0.12) : "transparent"
+        color: trayMouseArea.containsMouse ? Colors.withAlpha(Colors.accent, 0.12) : "transparent"
         Behavior on color {
             ColorAnimation {
-                duration: 120
+                duration: Anim.fast
             }
         }
     }
@@ -34,12 +34,10 @@ Item {
         mipmap: true
     }
 
-    HoverHandler {
-        id: hoverHandler
-    }
-
     MouseArea {
+        id: trayMouseArea
         anchors.fill: parent
+        hoverEnabled: true
         acceptedButtons: Qt.LeftButton | Qt.RightButton
         onClicked: event => {
             if (event.button === Qt.LeftButton) {
@@ -52,7 +50,6 @@ Item {
         }
     }
 
-    // Custom coffee-themed popup menu
     PopupWindow {
         id: menuPopup
         anchor.item: root
@@ -123,7 +120,7 @@ Item {
                         color: itemHover.containsMouse && entry.modelData.enabled ? Colors.withAlpha(Colors.accent, 0.14) : "transparent"
                         Behavior on color {
                             ColorAnimation {
-                                duration: 80
+                                duration: Anim.micro
                             }
                         }
                     }
@@ -149,7 +146,7 @@ Item {
                             Layout.fillWidth: true
                             text: entry.modelData.text ?? ""
                             color: entry.modelData.enabled ? Colors.text : Colors.muted
-                            font.pointSize: 10
+                            font.pixelSize: 13
                             elide: Text.ElideRight
                             verticalAlignment: Text.AlignVCenter
                         }
@@ -157,7 +154,7 @@ Item {
                         // Submenu arrow
                         Text {
                             visible: entry.modelData.hasChildren
-                            text: "›"
+                            text: ">"
                             color: Colors.muted
                             font.pixelSize: 14
                         }

@@ -1,19 +1,44 @@
-# squirrel-quickshell
+# zesis
 
-A personal [Quickshell](https://quickshell.outfoxxed.me) configuration written in QML, targeting Wayland compositors (primarily Hyprland).
+*ζέσις - Greek for "boiling", "seething"; the act of bubbling up with heat or fervor*
 
-Contributions and adaptations are welcome, the config is written to be portable across user systems rather than hardcoded to a specific machine.
+A graphical shell with a mind of its own, using [Quickshell](https://quickshell.outfoxxed.me), targeting Wayland compositors.
 
-## Theming
+Contributions and adaptations are welcome - the config is written to be portable across user systems rather than hardcoded to a specific machine.
 
+---
+
+## Architecture
+
+### Theming
 Colors live in `colors.json` and are exposed via the `Colors` singleton (`Colors.qml`). Editing `colors.json` hot-reloads the theme at runtime without restarting Quickshell. See the token list in `Colors.qml` for available palette properties.
+
+### Compositor backend
+All Hyprland-specific calls (workspace/window data, dispatch commands, monitor queries) are isolated behind a two-layer abstraction in `Widgets/Wm/`:
+
+- **`HyprlandWmBackend`** - the only file that imports `Quickshell.Hyprland`. Exposes reactive `workspaces`, `toplevels`, and `focusedMonitor` properties, plus named action functions (`focusWorkspace`, `moveWindow`, `preselect`, etc.).
+- **`WmService`** - compositor-agnostic singleton. Widgets bind to `WmService.*`. Swapping compositors means writing a new backend and changing one line: `property QtObject _backend: SwayWmBackend {}`.
+
+The Display widget follows the same pattern with `DisplayHyprlandBackend`, and the Keybinds widget has its own `HyprlandBackend` for reading binds.
+
+---
 
 ## Requirements
 
+### Required
 - [Quickshell](https://quickshell.outfoxxed.me) (Qt 6)
-- A Wayland compositor that implements `wlr-layer-shell` and `ext-session-lock`
-- A [Nerd Font](https://www.nerdfonts.com/) or the `nerd-fonts.symbols-only` package for icons throughout the shell
-- PAM configuration for the lock screen (see below)
+- [Matugen](https://github.com/InioX/matugen)
+- A Wayland compositor that implements `wlr-layer-shell`
+- A [Nerd Font](https://www.nerdfonts.com/) or the `nerd-fonts.symbols-only` package for icons
+- aww (SHOULD HANDLE SINKS INSTEAD, FIX ME SQUIRREL YOU GODDAMN IDIOT)
+
+### Optional
+- Hyprland - workspace/window management, keybind cheatsheet, display picker (only backend currently implemented)
+- `ext-session-lock` compositor support + PAM configuration - lock screen (see below)
+- `avahi` + `smbclient` + `keyutils` - Network widget
+- [athroisma](https://github.com/squirrel/athroisma) - System Monitor widget
+- magick (wallpaper preview)
+- awk (for credential search)
 
 ## Setup
 
@@ -56,7 +81,7 @@ Create an empty `.qmlls.ini` file next to `shell.qml`. Quickshell populates it w
 touch .qmlls.ini
 ```
 
-`.qmlls.ini` is gitignored, its content is machine-specific.
+`.qmlls.ini` is gitignored - its content is machine-specific.
 
 #### VSCode / VSCodium
 
@@ -65,11 +90,3 @@ Enable `qt-qml.qmlls.useQmlImportPathEnvVar` in your workspace settings so `qmll
 ## Contributing
 
 This is a personal config, but PRs and issues are welcome - especially for portability improvements.
-
-Commits follow the [Conventional Commits](https://www.conventionalcommits.org/) specification:
-
-```
-feat: add notification grouping
-fix: correct workspace indicator z-order
-chore: update flake inputs
-```

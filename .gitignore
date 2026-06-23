@@ -2,3 +2,5 @@
 .vscode/
 .direnv
 _refs/
+*.qsb
+__pycache__

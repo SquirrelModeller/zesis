@@ -11,13 +11,20 @@ Rectangle {
     required property real discScale
     readonly property real rotationStep: 3
 
-    readonly property color colOverlay: Qt.rgba(0.07, 0.05, 0.03, 0.70)
-    readonly property color colSeekKnob: "#FCCD94"
+    readonly property color colOverlay: Colors.withAlpha(Colors.bg, 0.70)
+    readonly property color colSeekKnob: Colors.accent
 
     // Cache art URL per-track: clear on title change (shows fallback vinyl
     // while the new thumbnail downloads), latch on non-empty URL so Firefox's
     // habit of immediately clearing artUrl doesn't drop the disc.
     property string _artUrl: ""
+
+    property int _toggleCount: 0
+    property var _now: new Date()
+    property bool _is4AM: {
+        var h = mprisroot._now.getHours();
+        return h >= 3 && h < 5;
+    }
 
     Component.onCompleted: {
         if (player.trackArtUrl !== "")
@@ -28,16 +35,37 @@ Rectangle {
         target: mprisroot.player
         function onTrackTitleChanged() {
             mprisroot._artUrl = "";
+            mprisroot._toggleCount = 0;
         }
         function onTrackArtUrlChanged() {
             if (mprisroot.player.trackArtUrl !== "")
                 mprisroot._artUrl = mprisroot.player.trackArtUrl;
         }
+        function onPlaybackStateChanged() {
+            var s = mprisroot.player.playbackState;
+            if (s === MprisPlaybackState.Playing || s === MprisPlaybackState.Paused) {
+                mprisroot._toggleCount++;
+                toggleResetTimer.restart();
+            }
+        }
     }
 
-    radius: 20
-    width: 400
-    height: 260
+    Timer {
+        id: toggleResetTimer
+        interval: 60000
+        onTriggered: mprisroot._toggleCount = 0
+    }
+
+    Timer {
+        interval: 60000
+        repeat: true
+        running: true
+        onTriggered: mprisroot._now = new Date()
+    }
+
+    radius: Math.round(20 * UIScale.value)
+    topLeftRadius: 0
+    topRightRadius: 0
     clip: true
     color: Colors.bg
 
@@ -54,14 +82,57 @@ Rectangle {
             blur: 1.0
             blurMax: 48
             saturation: 0.15
+            maskEnabled: true
+            maskThresholdMin: 0.5
+            maskSpreadAtMin: 1.0
+            maskSource: _cornerMask
         }
+    }
+
+    Rectangle {
+        id: _cornerMask
+        anchors.fill: parent
+        radius: mprisroot.radius
+        topLeftRadius: 0
+        topRightRadius: 0
+        visible: false
+        layer.enabled: true
     }
 
     // Dark warm overlay
     Rectangle {
         anchors.fill: parent
+        radius: mprisroot.radius
+        topLeftRadius: 0
+        topRightRadius: 0
         color: mprisroot.colOverlay
-        radius: 20
+    }
+
+    // Teto
+    Item {
+        anchors.fill: parent
+        clip: true
+        visible: mprisroot.player.trackTitle.toLowerCase().includes("teto") || mprisroot.player.trackArtist.toLowerCase().includes("teto")
+        rotation: -20
+
+        Column {
+            anchors.centerIn: parent
+            width: parent.width * 2
+            spacing: Math.round(14 * UIScale.value)
+
+            Repeater {
+                model: 40
+                Text {
+                    width: parent.width
+                    text: "TETOTETOTETOTETOTETOTETOTETOTETOTETOTETO"
+                    color: Qt.rgba(1, 1, 1, 0.07)
+                    font.pixelSize: Math.round(22 * UIScale.value)
+                    font.weight: Font.Bold
+                    font.family: "monospace"
+                    font.letterSpacing: 2
+                }
+            }
+        }
     }
 
     // Fallback vinyl, always underneath as base
@@ -86,7 +157,7 @@ Rectangle {
                 height: width
                 radius: width / 2
                 color: "transparent"
-                border.color: Qt.rgba(1, 0.72, 0.48, 0.10)
+                border.color: Colors.withAlpha(Colors.accent, 0.10)
                 border.width: 2
             }
         }
@@ -95,7 +166,7 @@ Rectangle {
             width: parent.width * 0.22
             height: width
             radius: width / 2
-            color: "#0d0a07"
+            color: Colors.bg
         }
     }
 
@@ -107,6 +178,7 @@ Rectangle {
         fillMode: Image.PreserveAspectCrop
         source: mprisroot._artUrl
         retainWhileLoading: true
+        cache: false
         width: parent.width * mprisroot.discScale
         height: width
         layer.enabled: true
@@ -160,7 +232,7 @@ Rectangle {
             layer.samples: 3
 
             ShapePath {
-                strokeWidth: 10
+                strokeWidth: Math.round(10 * UIScale.value)
                 strokeColor: Colors.withAlpha(Colors.accent, 0.22)
                 fillColor: "transparent"
                 capStyle: ShapePath.RoundCap
@@ -174,7 +246,7 @@ Rectangle {
                 }
             }
             ShapePath {
-                strokeWidth: 10
+                strokeWidth: Math.round(10 * UIScale.value)
                 strokeColor: Colors.accent
                 fillColor: "transparent"
                 capStyle: ShapePath.RoundCap
@@ -190,9 +262,9 @@ Rectangle {
         }
 
         Rectangle {
-            width: 14
-            height: 14
-            radius: 7
+            width: Math.round(14 * UIScale.value)
+            height: Math.round(14 * UIScale.value)
+            radius: Math.round(7 * UIScale.value)
             color: mprisroot.colSeekKnob
             x: circularSeeker.width / 2 + circularSeeker.radius * Math.cos((circularSeeker.startAngle + circularSeeker.displayedAngle) * Math.PI / 180) - width / 2
             y: circularSeeker.height / 2 + circularSeeker.radius * Math.sin((circularSeeker.startAngle + circularSeeker.displayedAngle) * Math.PI / 180) - height / 2
@@ -207,8 +279,9 @@ Rectangle {
                     const dx = mevent.x - width / 2;
                     const dy = mevent.y - height / 2;
                     const distance = Math.sqrt(dx ** 2 + dy ** 2);
-                    const innerRadius = circularSeeker.radius - 12;
-                    const outerRadius = circularSeeker.radius + 12;
+                    const hitOffset = Math.round(12 * UIScale.value);
+                    const innerRadius = circularSeeker.radius - hitOffset;
+                    const outerRadius = circularSeeker.radius + hitOffset;
                     if (distance >= innerRadius && distance <= outerRadius) {
                         circularSeeker.userIsDragging = true;
                         updateAngle(mevent.x, mevent.y);
@@ -248,26 +321,32 @@ Rectangle {
     // Track info, lives in the top zone above the disc
     Column {
         anchors.top: parent.top
-        anchors.topMargin: 16
+        anchors.topMargin: Math.round(16 * UIScale.value)
         anchors.horizontalCenter: parent.horizontalCenter
-        width: parent.width - 100
-        spacing: 5
+        width: parent.width - Math.round(100 * UIScale.value)
+        spacing: Math.round(5 * UIScale.value)
 
         Text {
             text: mprisroot.player.trackTitle
             width: parent.width
             color: Colors.text
             font.bold: true
-            font.pointSize: 12
+            font.pixelSize: UIScale.fontLead
             elide: Text.ElideRight
             horizontalAlignment: Text.AlignHCenter
         }
         Text {
-            text: mprisroot.player.trackArtist
+            text: {
+                if (mprisroot._is4AM)
+                    return "can't sleep?";
+                if (mprisroot._toggleCount >= 8)
+                    return "make up your mind";
+                return mprisroot.player.trackArtist;
+            }
             width: parent.width
             color: Colors.muted
             font.bold: true
-            font.pointSize: 9
+            font.pixelSize: UIScale.fontSmall
             elide: Text.ElideRight
             horizontalAlignment: Text.AlignHCenter
         }
@@ -276,20 +355,20 @@ Rectangle {
     // Previous
     Item {
         anchors.left: parent.left
-        anchors.leftMargin: 18
+        anchors.leftMargin: Math.round(18 * UIScale.value)
         anchors.verticalCenter: parent.verticalCenter
-        anchors.verticalCenterOffset: -22
-        width: 36
-        height: 36
+        anchors.verticalCenterOffset: Math.round(-22 * UIScale.value)
+        width: Math.round(36 * UIScale.value)
+        height: Math.round(36 * UIScale.value)
 
         Text {
             anchors.centerIn: parent
             text: "⏮"
-            font.pixelSize: 22
+            font.pixelSize: Math.round(22 * UIScale.value)
             color: prevArea.containsMouse ? Colors.accent : Colors.muted
             Behavior on color {
                 ColorAnimation {
-                    duration: 120
+                    duration: Anim.fast
                 }
             }
         }
@@ -304,20 +383,20 @@ Rectangle {
     // Next
     Item {
         anchors.right: parent.right
-        anchors.rightMargin: 18
+        anchors.rightMargin: Math.round(18 * UIScale.value)
         anchors.verticalCenter: parent.verticalCenter
-        anchors.verticalCenterOffset: -22
-        width: 36
-        height: 36
+        anchors.verticalCenterOffset: Math.round(-22 * UIScale.value)
+        width: Math.round(36 * UIScale.value)
+        height: Math.round(36 * UIScale.value)
 
         Text {
             anchors.centerIn: parent
             text: "⏭"
-            font.pixelSize: 22
+            font.pixelSize: Math.round(22 * UIScale.value)
             color: nextArea.containsMouse ? Colors.accent : Colors.muted
             Behavior on color {
                 ColorAnimation {
-                    duration: 120
+                    duration: Anim.fast
                 }
             }
         }

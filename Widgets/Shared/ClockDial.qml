@@ -16,6 +16,13 @@ Item {
 
     // When true, disc stays expanded and hover collapse is suppressed
     property bool alwaysExpanded: false
+
+    // Set to true to trigger the unlock safe-spin (hours CW, minutes CCW)
+    property bool unlocking: false
+
+    property int spinClicks: 0
+    property real _spinAngle: 0
+    property real _spinStep: 0
     readonly property int peekOffset: 16
     readonly property real minuteRadius: discRadius * 0.815
     readonly property real hourRadius: discRadius * 0.500
@@ -43,6 +50,20 @@ Item {
             } else
                 collapseTimer.restart();
         }
+    }
+
+    TapHandler {
+        onTapped: {
+            root.spinClicks++;
+            root._spinStep = Math.pow(root.spinClicks, 1.5) * 0.5;
+        }
+    }
+
+    Timer {
+        interval: 16
+        repeat: true
+        running: root.spinClicks > 0 && !root.unlocking
+        onTriggered: root._spinAngle = ((root._spinAngle + root._spinStep) % 360 + 360) % 360
     }
 
     // Disc position, peeks from top-right corner when collapsed
@@ -79,16 +100,17 @@ Item {
         height: root.discRadius * 2
         x: root.discCX - root.discRadius
         y: root.discCY - root.discRadius
+        rotation: root._spinAngle
 
         Behavior on x {
             NumberAnimation {
-                duration: 350
+                duration: Anim.slow
                 easing.type: Easing.InOutCubic
             }
         }
         Behavior on y {
             NumberAnimation {
-                duration: 350
+                duration: Anim.slow
                 easing.type: Easing.InOutCubic
             }
         }
@@ -125,7 +147,7 @@ Item {
                 id: minuteAnim
                 target: minuteRing
                 property: "rotation"
-                duration: 420
+                duration: Anim.morph
                 easing.type: Easing.OutCubic
                 onStopped: {
                     // Snap back one full revolution once past -360° - no visual change
@@ -201,7 +223,7 @@ Item {
 
                     Text {
                         anchors.centerIn: parent
-                        // 12h: index 0 → "12", 1 → "1", … | 24h: index 0 → "0", …
+                        // 12h: index 0 -> "12", 1 -> "1", ... | 24h: index 0 -> "0", ...
                         text: root.use24Hour ? parent.index : (parent.index === 0 ? 12 : parent.index)
                         font.pixelSize: Math.round((root.use24Hour ? 9 : 11) * root._scale)
                         font.bold: true
@@ -266,5 +288,34 @@ Item {
             return;
         _hrAccum = -(currentHour * (360.0 / hourCount));
         hourRing.rotation = _hrAccum;
+    }
+
+    NumberAnimation {
+        id: minuteSafeAnim
+        target: minuteRing
+        property: "rotation"
+        duration: 1100
+        easing.type: Easing.OutCubic
+    }
+
+    NumberAnimation {
+        id: hourSafeAnim
+        target: hourRing
+        property: "rotation"
+        duration: 1100
+        easing.type: Easing.OutCubic
+    }
+
+    onUnlockingChanged: {
+        if (!unlocking)
+            return;
+        minuteAnim.stop();
+        hourAnim.stop();
+        minuteSafeAnim.from = minuteRing.rotation;
+        minuteSafeAnim.to = minuteRing.rotation - 1080;
+        hourSafeAnim.from = hourRing.rotation;
+        hourSafeAnim.to = hourRing.rotation + 1080;
+        minuteSafeAnim.start();
+        hourSafeAnim.start();
     }
 }

@@ -1,6 +1,4 @@
-// qmllint disable import
 pragma Singleton
-// qmllint enable import
 import QtQuick
 import Quickshell
 import Quickshell.Io
@@ -15,7 +13,7 @@ Singleton {
 
     property string palette: "dark"
     property string lastWallpaper: ""
-    property string wallustArgs: "-b fastresize -c labmixed -k"
+    property string schemeType: "scheme-tonal-spot"
     property bool applying: false
 
     Process {
@@ -27,16 +25,16 @@ Singleton {
         id: stateData
         property string palette: "dark"
         property string lastWallpaper: ""
-        property string wallustArgs: "-b fastresize -c labmixed -k"
+        property string schemeType: "scheme-tonal-spot"
     }
 
     FileView {
         path: root._stateFile
-        adapter: stateData
+        adapter: stateData // qmllint disable missing-type
         onLoaded: {
             root.palette = stateData.palette;
             root.lastWallpaper = stateData.lastWallpaper;
-            root.wallustArgs = stateData.wallustArgs;
+            root.schemeType = stateData.schemeType;
         }
     }
 
@@ -45,20 +43,38 @@ Singleton {
             return;
         root.applying = true;
         applyProcess._wallpaperPath = wallpaperPath;
-        applyProcess.command = ["bash", "-c", "awww img \"$1\" --transition-type fade --transition-duration 1; wallust run \"$1\" " + root.wallustArgs + " -p \"$2\" && hyprctl reload", "--", wallpaperPath, root.palette];
+        applyProcess.command = ["bash", "-c", "awww img \"$1\" --transition-type fade --transition-duration 1 && matugen image \"$1\" --source-color-index 0 --type \"$2\" --mode \"$3\"", "--", wallpaperPath, root.schemeType, root.palette];
+        applyProcess.running = true;
+    }
+
+    function togglePalette() {
+        root.palette = (root.palette === "dark" ? "light" : "dark");
+        root._persistState();
+        if (root.applying || root.lastWallpaper === "")
+            return;
+        root.applying = true;
+        applyProcess._wallpaperPath = root.lastWallpaper;
+        applyProcess.command = ["bash", "-c", "matugen image \"$1\" --source-color-index 0 --type \"$2\" --mode \"$3\"", "--", root.lastWallpaper, root.schemeType, root.palette];
         applyProcess.running = true;
     }
 
     Process {
         id: applyProcess
         property string _wallpaperPath: ""
-        onExited: (code, status) => {
+        onExited: (code, status) => { // qmllint disable signal-handler-parameters
             root.applying = false;
             if (code === 0) {
                 root.lastWallpaper = applyProcess._wallpaperPath;
-                _persistState();
+                root._persistState();
+                if (!hookProcess.running)
+                    hookProcess.running = true;
             }
         }
+    }
+
+    Process {
+        id: hookProcess
+        command: ["bash", "-c", "hook=\"$1\"; [ -x \"$hook\" ] && exec \"$hook\"", "--", root._home + "/.config/zesis/on-theme-change"]
     }
 
     Process {
@@ -69,7 +85,7 @@ Singleton {
         var json = JSON.stringify({
             palette: root.palette,
             lastWallpaper: root.lastWallpaper,
-            wallustArgs: root.wallustArgs
+            schemeType: root.schemeType
         });
         saveProcess.command = ["bash", "-c", "printf '%s' \"$1\" > \"$2\"", "--", json, root._stateFile];
         saveProcess.running = true;

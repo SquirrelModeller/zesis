@@ -1,6 +1,4 @@
-// qmllint disable import
 pragma Singleton
-// qmllint enable import
 import QtQuick
 import Quickshell
 

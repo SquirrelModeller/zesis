@@ -38,14 +38,14 @@ Rectangle {
                 target: root
                 property: "opacity"
                 to: 1
-                duration: 200
+                duration: Anim.medium
                 easing.type: Easing.OutCubic
             }
             NumberAnimation {
                 target: slideIn
                 property: "y"
                 to: 0
-                duration: 200
+                duration: Anim.medium
                 easing.type: Easing.OutCubic
             }
         }
@@ -64,14 +64,14 @@ Rectangle {
                 target: root
                 property: "opacity"
                 to: 0
-                duration: 160
+                duration: Anim.fast
                 easing.type: Easing.InCubic
             }
             NumberAnimation {
                 target: root
                 property: "implicitHeight"
                 to: 0
-                duration: 200
+                duration: Anim.medium
                 easing.type: Easing.InCubic
             }
         }
@@ -108,7 +108,7 @@ Rectangle {
         target: swipeTrans
         property: "x"
         to: 0
-        duration: 250
+        duration: Anim.medium
         easing.type: Easing.OutBack
         easing.overshoot: 1.2
     }
@@ -121,14 +121,14 @@ Rectangle {
                 target: swipeTrans
                 property: "x"
                 to: swipeDismissAnim.targetX
-                duration: 220
+                duration: Anim.medium
                 easing.type: Easing.OutCubic
             }
             NumberAnimation {
                 target: root
                 property: "opacity"
                 to: 0
-                duration: 180
+                duration: Anim.medium
                 easing.type: Easing.InCubic
             }
         }
@@ -136,7 +136,7 @@ Rectangle {
             target: root
             property: "implicitHeight"
             to: 0
-            duration: 180
+            duration: Anim.medium
             easing.type: Easing.InCubic
         }
         ScriptAction {
@@ -175,24 +175,24 @@ Rectangle {
                 text: root.notification?.summary ?? ""
                 color: Colors.text
                 font.bold: true
-                font.pointSize: UIScale.fontMd
+                font.pixelSize: UIScale.fontBody
                 elide: Text.ElideRight
             }
 
             Text {
                 text: root.notification?.appName ?? ""
                 color: Colors.muted
-                font.pointSize: UIScale.fontXs
+                font.pixelSize: UIScale.fontCaption
                 opacity: 0.8
             }
 
             Text {
                 text: "✕"
                 color: closeHover.containsMouse ? Colors.accent : Colors.muted
-                font.pointSize: UIScale.fontSm
+                font.pixelSize: UIScale.fontSmall
                 Behavior on color {
                     ColorAnimation {
-                        duration: 100
+                        duration: Anim.fast
                     }
                 }
 
@@ -211,7 +211,7 @@ Rectangle {
             visible: (root.notification?.body ?? "") !== ""
             text: root.notification?.body ?? ""
             color: Colors.textDim
-            font.pointSize: UIScale.fontSm
+            font.pixelSize: UIScale.fontSmall
             wrapMode: Text.WrapAtWordBoundaryOrAnywhere
             textFormat: Text.MarkdownText
         }
@@ -235,7 +235,7 @@ Rectangle {
                         anchors.centerIn: parent
                         text: parent.modelData.text
                         color: Colors.accent
-                        font.pointSize: UIScale.fontXs
+                        font.pixelSize: UIScale.fontCaption
                     }
 
                     MouseArea {

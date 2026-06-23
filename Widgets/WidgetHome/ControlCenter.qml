@@ -10,8 +10,16 @@ import "../../"
 
 Item {
     id: root
+    focus: true
 
     property string currentTitle: ""
+
+    Keys.onEscapePressed: {
+        if (stack.depth > 1)
+            stack.pop();
+        else
+            WidgetHomeService.open = false;
+    }
 
     function widgetComponent(index) {
         return [musicComp, notifComp, soundComp, configComp][index];
@@ -24,31 +32,32 @@ Item {
         anchors.top: parent.top
         anchors.left: parent.left
         anchors.right: parent.right
-        anchors.topMargin: 8
+        anchors.topMargin: UIScale.spacingSm
         anchors.leftMargin: UIScale.spacingMd
         anchors.rightMargin: UIScale.spacingMd
-        height: 40
+        height: Math.round(40 * UIScale.value)
         opacity: stack.depth > 1 ? 1 : 0
         enabled: stack.depth > 1
         Behavior on opacity {
             NumberAnimation {
-                duration: 150
+                duration: Anim.fast
             }
         }
 
         Text {
-            text: "‹"
-            color: backHover.containsMouse ? Colors.accent : Colors.muted
-            font.pixelSize: 22
+            text: "<"
+            color: backHover.hovered ? Colors.accent : Colors.muted
+            font.pixelSize: UIScale.fontTitle
             Behavior on color {
                 ColorAnimation {
-                    duration: 100
+                    duration: Anim.fast
                 }
             }
-            MouseArea {
+            HoverHandler {
                 id: backHover
+            }
+            MouseArea {
                 anchors.fill: parent
-                hoverEnabled: true
                 onClicked: stack.pop()
             }
         }
@@ -57,7 +66,7 @@ Item {
             text: root.currentTitle
             color: Colors.text
             font.bold: true
-            font.pointSize: UIScale.fontMd
+            font.pixelSize: UIScale.fontBody
             leftPadding: UIScale.spacingSm
         }
     }
@@ -74,7 +83,7 @@ Item {
                     property: "x"
                     from: 40
                     to: 0
-                    duration: 220
+                    duration: Anim.medium
                     easing.type: Easing.BezierSpline
                     easing.bezierCurve: [0.05, 0.7, 0.1, 1, 1, 1]
                 }
@@ -82,7 +91,7 @@ Item {
                     property: "opacity"
                     from: 0
                     to: 1
-                    duration: 120
+                    duration: Anim.fast
                 }
             }
         }
@@ -93,7 +102,7 @@ Item {
                     property: "x"
                     from: 0
                     to: -40
-                    duration: 180
+                    duration: Anim.medium
                     easing.type: Easing.BezierSpline
                     easing.bezierCurve: [0.3, 0, 0.8, 0.15, 1, 1]
                 }
@@ -101,7 +110,7 @@ Item {
                     property: "opacity"
                     from: 1
                     to: 0
-                    duration: 120
+                    duration: Anim.fast
                 }
             }
         }
@@ -112,7 +121,7 @@ Item {
                     property: "x"
                     from: -40
                     to: 0
-                    duration: 220
+                    duration: Anim.medium
                     easing.type: Easing.BezierSpline
                     easing.bezierCurve: [0.05, 0.7, 0.1, 1, 1, 1]
                 }
@@ -120,7 +129,7 @@ Item {
                     property: "opacity"
                     from: 0
                     to: 1
-                    duration: 120
+                    duration: Anim.fast
                 }
             }
         }
@@ -131,7 +140,7 @@ Item {
                     property: "x"
                     from: 0
                     to: 40
-                    duration: 180
+                    duration: Anim.medium
                     easing.type: Easing.BezierSpline
                     easing.bezierCurve: [0.3, 0, 0.8, 0.15, 1, 1]
                 }
@@ -139,7 +148,7 @@ Item {
                     property: "opacity"
                     from: 1
                     to: 0
-                    duration: 120
+                    duration: Anim.fast
                 }
             }
         }
@@ -164,7 +173,7 @@ Item {
 
             Loader {
                 anchors.fill: parent
-                anchors.topMargin: 48
+                anchors.topMargin: Math.round(48 * UIScale.value)
                 sourceComponent: pageRoot.widgetComp
             }
         }
@@ -176,14 +185,14 @@ Item {
     }
     Component {
         id: notifComp
-        NotifHistoryPopup {}
+        NotifHistory {}
     }
     Component {
         id: soundComp
-        SoundPopup {}
+        Sound {}
     }
     Component {
         id: configComp
-        ConfigPopup {}
+        Config {}
     }
 }

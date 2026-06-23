@@ -7,6 +7,7 @@ import Quickshell.Io
 import Quickshell.Wayland
 import Quickshell.Services.Mpris
 import "Widgets/Bar"
+import "Widgets/WorkspaceIndicator"
 import "Widgets/Music"
 import "Widgets/Notifications"
 import "Widgets/LockScreen"
@@ -14,8 +15,18 @@ import "Widgets/Keybinds"
 import "Widgets/AppSwitcher"
 import "Widgets/Shared"
 import "Widgets/WidgetHome"
+import "Widgets/Polkit"
+import "Widgets/Display"
+import "Widgets/Calendar"
+import "Widgets/Home"
+import "Widgets/Sound"
+import "Widgets/AirPods"
 
 Scope {
+    // Singletons instantiated at startup for startup-apply logic
+    property string _displayInit: DisplayService.monitorName
+    property var _calInit: CalendarService.events
+
     Variants {
         model: Quickshell.screens
         delegate: PanelWindow {
@@ -38,34 +49,19 @@ Scope {
 
             property bool wantsMusic: false
 
-            // AnimPopupTest {
-            //     anchors.left: parent.left
-            //     anchors.leftMargin: 20
-            //     anchors.top: parent.top
-            //     anchors.bottom: parent.bottom
-            // }
-
-            // This casues 2% GPU usage, optimze
             RowLayout {
-                id: sysTray
-
                 anchors {
+                    right: parent.right
+                    top: parent.top
+                    bottom: parent.bottom
                     rightMargin: 20
                     topMargin: 10
                 }
                 spacing: 0
                 layoutDirection: Qt.RightToLeft
-                anchors.right: parent.right
-                anchors.top: parent.top
-                anchors.bottom: parent.bottom
 
                 SysTray {
                     id: trayWidget
-                }
-
-                IdleInhibitor {
-                    enabled: trayWidget.candleLit
-                    window: root
                 }
             }
 
@@ -164,12 +160,14 @@ Scope {
         id: lockScreen
     }
 
+    PolkitAuth {}
+
     FullscreenOverlay {
         id: keybindOverlay
         maxContentWidth: 1100
         maxContentHeight: 820
         content: Component {
-            KeybindPopup {}
+            Keybinds {}
         }
 
         property bool _kbOpen: KeybindService.popupOpen
@@ -178,15 +176,55 @@ Scope {
         onVisibleChanged: if (!visible)
             KeybindService.popupOpen = false
         onDimmerTapped: KeybindService.popupOpen = false
-        onContentLoaded: function (item) {
-            item.focusSearch();
-        }
+        onContentLoaded: item => item.focusSearch()
     }
 
     IpcHandler {
         target: "keybinds"
         function toggle() {
             KeybindService.popupOpen = !KeybindService.popupOpen;
+        }
+    }
+
+    PanelWindow {
+        id: homeOverlay
+
+        readonly property int panelWidth: Math.round(1200 * UIScale.value)
+        readonly property int panelHeight: Math.round(760 * UIScale.value)
+
+        WlrLayershell.namespace: "zesis:homePanel"
+        WlrLayershell.layer: WlrLayer.Overlay
+        WlrLayershell.keyboardFocus: visible ? WlrKeyboardFocus.OnDemand : WlrKeyboardFocus.None
+
+        exclusiveZone: -1
+        color: "transparent"
+
+        anchors {
+            top: true
+            left: true
+        }
+        margins {
+            top: Math.round((screen.height - panelHeight) / 2)
+            left: Math.round((screen.width - panelWidth) / 2)
+        }
+
+        implicitWidth: panelWidth
+        implicitHeight: panelHeight
+
+        visible: HomePanelService.open
+        onVisibleChanged: if (visible)
+            homePanel.forceActiveFocus()
+
+        HomePanel {
+            id: homePanel
+            anchors.fill: parent
+        }
+    }
+
+    IpcHandler {
+        target: "home"
+        function toggle() {
+            HomePanelService.open = !HomePanelService.open;
         }
     }
 
@@ -197,7 +235,7 @@ Scope {
         initialScale: 0.94
         showOvershoot: 1.1
         content: Component {
-            AppSwitcherPopup {}
+            AppSwitcher {}
         }
 
         property bool _asOpen: AppSwitcherService.open
@@ -206,94 +244,28 @@ Scope {
         onVisibleChanged: if (!visible)
             AppSwitcherService.open = false
         onDimmerTapped: AppSwitcherService.confirm()
-        onContentLoaded: function (item) {
-            item.forceActiveFocus();
-        }
+        onContentLoaded: item => item.forceActiveFocus()
     }
 
     IpcHandler {
         target: "appswitcher"
         function cycle() {
-            AppSwitcherService.cycleForward();
+            AppSwitcherService.mode === 1 ? AppSwitcherService.cycleWorkspaceForward() : AppSwitcherService.cycleForward();
         }
         function back() {
-            AppSwitcherService.cycleBack();
+            AppSwitcherService.mode === 1 ? AppSwitcherService.cycleWorkspaceBack() : AppSwitcherService.cycleBack();
         }
         function confirm() {
-            AppSwitcherService.confirm();
+            AppSwitcherService.mode === 1 ? AppSwitcherService.confirmWorkspace() : AppSwitcherService.confirm();
         }
         function cancel() {
             AppSwitcherService.cancel();
         }
     }
 
-    // Widget home sidebar
-    PanelWindow {
-        id: widgetHome
+    WidgetHomeSidebar {}
 
-        readonly property real panelW: Math.round(360 * UIScale.value)
-
-        WlrLayershell.layer: WlrLayer.Top
-        WlrLayershell.keyboardFocus: WlrKeyboardFocus.OnDemand
-        anchors {
-            top: true
-            right: true
-            bottom: true
-        }
-        exclusiveZone: 0
-        implicitWidth: panelW
-        color: "transparent"
-        visible: false
-
-        property bool _whOpen: WidgetHomeService.open
-        on_WhOpenChanged: {
-            if (_whOpen) {
-                sidebarRect.offsetScale = 1;
-                visible = true;
-                slideIn.start();
-            } else {
-                slideOut.start();
-            }
-        }
-
-        // Open: ease into place (emphasizedDecel)
-        NumberAnimation {
-            id: slideIn
-            target: sidebarRect; property: "offsetScale"
-            to: 0; duration: 280
-            easing.type: Easing.BezierSpline
-            easing.bezierCurve: [0.05, 0.7, 0.1, 1, 1, 1]
-        }
-
-        // Close: quick departure (emphasizedAccel)
-        NumberAnimation {
-            id: slideOut
-            target: sidebarRect; property: "offsetScale"
-            to: 1; duration: 220
-            easing.type: Easing.BezierSpline
-            easing.bezierCurve: [0.3, 0, 0.8, 0.15, 1, 1]
-            onFinished: widgetHome.visible = false
-        }
-
-        Rectangle {
-            id: sidebarRect
-            property real offsetScale: 1
-
-            anchors.top: parent.top
-            anchors.bottom: parent.bottom
-            anchors.topMargin: 60
-            width: widgetHome.panelW
-            x: widgetHome.panelW * offsetScale
-            opacity: 1 - offsetScale
-            color: Colors.bg
-            border.color: Colors.outline
-            border.width: 1
-
-            WidgetHomePanel {
-                anchors.fill: parent
-            }
-        }
-    }
+    VolumeOsd {}
 
     // Notification toasts, top-right overlay, stacks below the bar
     PanelWindow {

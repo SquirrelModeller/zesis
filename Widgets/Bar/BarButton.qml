@@ -2,30 +2,29 @@ import QtQuick
 import "../../"
 
 Item {
-    implicitWidth: 30
-    implicitHeight: 30
+    implicitWidth: Math.round(30 * UIScale.value)
+    implicitHeight: Math.round(30 * UIScale.value)
 
     property string icon: ""
     property bool active: false
     signal clicked
 
-    HoverHandler {
-        id: hover
+    MouseArea {
+        id: mouseArea
+        anchors.fill: parent
+        hoverEnabled: true
+        onClicked: parent.clicked()
     }
 
     Text {
         anchors.centerIn: parent
         text: parent.icon
-        font.pixelSize: 15
-        color: (hover.hovered || active) ? Colors.accent : Colors.text
+        font.pixelSize: Math.round(15 * UIScale.value)
+        color: (mouseArea.containsMouse || active) ? Colors.accent : Colors.text
         Behavior on color {
             ColorAnimation {
-                duration: 120
+                duration: Anim.fast
             }
         }
-    }
-
-    TapHandler {
-        onTapped: parent.clicked()
     }
 }

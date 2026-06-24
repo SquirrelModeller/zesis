@@ -9,12 +9,7 @@ Item {
 
     readonly property var _monthNames: ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"]
     readonly property var _shortDayNames: ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
-    readonly property var _dayLabels: ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"]
     readonly property var _today: new Date()
-
-    property int viewYear: root._today.getFullYear()
-    property int viewMonth: root._today.getMonth()
-    property var selectedDate: root._today
 
     // Form state
     property bool _creating: false
@@ -56,7 +51,7 @@ Item {
     readonly property real _hourLabelW: Math.round(44 * UIScale.value)
 
     readonly property var _weekStart: {
-        var d = new Date(root.selectedDate);
+        var d = new Date(miniGrid.selectedDate);
         var day = d.getDay();
         var diff = day === 0 ? -6 : 1 - day;
         d.setDate(d.getDate() + diff);
@@ -101,16 +96,6 @@ Item {
         return out;
     }
 
-    readonly property var _eventDateSet: {
-        var s = {};
-        for (var i = 0; i < CalendarService.events.length; i++)
-            s[CalendarService.events[i].start.substring(0, 10)] = true;
-        return s;
-    }
-
-    readonly property int _daysInMonth: new Date(root.viewYear, root.viewMonth + 1, 0).getDate()
-    readonly property int _firstWeekday: new Date(root.viewYear, root.viewMonth, 1).getDay()
-
     property var _now: new Date()
     Timer {
         interval: 60000
@@ -132,35 +117,24 @@ Item {
 
     // Functions
 
-    function prevMonth() {
-        if (root.viewMonth === 0) {
-            root.viewMonth = 11;
-            root.viewYear -= 1;
-        } else
-            root.viewMonth -= 1;
-        root.selectedDate = new Date(root.viewYear, root.viewMonth, 1);
-    }
-    function nextMonth() {
-        if (root.viewMonth === 11) {
-            root.viewMonth = 0;
-            root.viewYear += 1;
-        } else
-            root.viewMonth += 1;
-        root.selectedDate = new Date(root.viewYear, root.viewMonth, 1);
+    function goToThisWeek() {
+        miniGrid.selectedDate = root._today;
+        miniGrid.viewYear = root._today.getFullYear();
+        miniGrid.viewMonth = root._today.getMonth();
     }
     function prevWeek() {
-        var d = new Date(root.selectedDate);
+        var d = new Date(miniGrid.selectedDate);
         d.setDate(d.getDate() - 7);
-        root.selectedDate = d;
-        root.viewYear = root._weekStart.getFullYear();
-        root.viewMonth = root._weekStart.getMonth();
+        miniGrid.selectedDate = d;
+        miniGrid.viewYear = root._weekStart.getFullYear();
+        miniGrid.viewMonth = root._weekStart.getMonth();
     }
     function nextWeek() {
-        var d = new Date(root.selectedDate);
+        var d = new Date(miniGrid.selectedDate);
         d.setDate(d.getDate() + 7);
-        root.selectedDate = d;
-        root.viewYear = root._weekStart.getFullYear();
-        root.viewMonth = root._weekStart.getMonth();
+        miniGrid.selectedDate = d;
+        miniGrid.viewYear = root._weekStart.getFullYear();
+        miniGrid.viewMonth = root._weekStart.getMonth();
     }
 
     function fmtTime(ev) {
@@ -282,191 +256,16 @@ Item {
             }
         }
 
-        // Month navigation
-        RowLayout {
+        CalendarMiniGrid {
+            id: miniGrid
             Layout.fillWidth: true
-            Layout.leftMargin: UIScale.panelPad
-            Layout.rightMargin: UIScale.panelPad
-            Layout.topMargin: UIScale.spacingXs
-            spacing: UIScale.spacingXs
-
-            Rectangle {
-                implicitWidth: Math.round(28 * UIScale.value)
-                implicitHeight: Math.round(28 * UIScale.value)
-                radius: UIScale.radiusSm
-                color: prevHov.hovered ? Colors.withAlpha(Colors.text, 0.1) : "transparent"
-                Behavior on color {
-                    ColorAnimation {
-                        duration: Anim.fast
-                    }
-                }
-                Text {
-                    anchors.centerIn: parent
-                    text: ""
-                    font.family: "Material Icons"
-                    font.pixelSize: Math.round(18 * UIScale.value)
-                    color: Colors.textDim
-                }
-                HoverHandler {
-                    id: prevHov
-                }
-                MouseArea {
-                    anchors.fill: parent
-                    cursorShape: Qt.PointingHandCursor
-                    onClicked: root.prevMonth()
-                }
-            }
-            Text {
-                Layout.fillWidth: true
-                text: root._monthNames[root.viewMonth] + " " + root.viewYear
-                color: Colors.text
-                font.pixelSize: UIScale.fontSubhead
-                font.weight: Font.DemiBold
-                horizontalAlignment: Text.AlignHCenter
-            }
-            Rectangle {
-                implicitWidth: Math.round(28 * UIScale.value)
-                implicitHeight: Math.round(28 * UIScale.value)
-                radius: UIScale.radiusSm
-                color: nextHov.hovered ? Colors.withAlpha(Colors.text, 0.1) : "transparent"
-                Behavior on color {
-                    ColorAnimation {
-                        duration: Anim.fast
-                    }
-                }
-                Text {
-                    anchors.centerIn: parent
-                    text: ""
-                    font.family: "Material Icons"
-                    font.pixelSize: Math.round(18 * UIScale.value)
-                    color: Colors.textDim
-                }
-                HoverHandler {
-                    id: nextHov
-                }
-                MouseArea {
-                    anchors.fill: parent
-                    cursorShape: Qt.PointingHandCursor
-                    onClicked: root.nextMonth()
-                }
-            }
-        }
-
-        // Day-of-week labels
-        RowLayout {
-            Layout.fillWidth: true
-            Layout.leftMargin: UIScale.panelPad
-            Layout.rightMargin: UIScale.panelPad
-            spacing: Math.round(4 * UIScale.value)
-            Repeater {
-                model: root._dayLabels
-                delegate: Text {
-                    required property string modelData
-                    Layout.fillWidth: true
-                    text: modelData
-                    color: Colors.muted
-                    font.pixelSize: UIScale.fontTiny
-                    font.weight: Font.Bold
-                    font.letterSpacing: 1.0
-                    horizontalAlignment: Text.AlignHCenter
-                }
-            }
-        }
-
-        // Calendar grid (compact)
-        Item {
-            id: calGrid
-            Layout.fillWidth: true
-            Layout.leftMargin: UIScale.panelPad
-            Layout.rightMargin: UIScale.panelPad
-
-            readonly property real cellGap: Math.round(4 * UIScale.value)
-            readonly property real cellW: (width - 6 * cellGap) / 7
-            readonly property real cellH: Math.round(36 * UIScale.value)
-            implicitHeight: 6 * cellH + 5 * cellGap
-
-            Repeater {
-                model: 42
-                delegate: Item {
-                    id: dayCell
-                    required property int index
-                    readonly property int _offset: dayCell.index - root._firstWeekday
-                    readonly property bool inMonth: _offset >= 0 && _offset < root._daysInMonth
-                    readonly property int dayNum: _offset + 1
-                    readonly property var cellDate: new Date(root.viewYear, root.viewMonth, dayNum)
-                    readonly property bool isToday: {
-                        var t = root._today;
-                        return inMonth && cellDate.getFullYear() === t.getFullYear() && cellDate.getMonth() === t.getMonth() && cellDate.getDate() === t.getDate();
-                    }
-                    readonly property bool inCurrentWeek: {
-                        if (!inMonth)
-                            return false;
-                        var ws = root._weekStart, d = new Date(cellDate);
-                        d.setHours(0, 0, 0, 0);
-                        var diff = Math.round((d.getTime() - ws.getTime()) / 86400000);
-                        return diff >= 0 && diff < 7;
-                    }
-                    readonly property bool hasEvents: {
-                        if (!inMonth)
-                            return false;
-                        var y = String(cellDate.getFullYear());
-                        var m = String(cellDate.getMonth() + 1).padStart(2, "0");
-                        var d = String(cellDate.getDate()).padStart(2, "0");
-                        return root._eventDateSet[y + "-" + m + "-" + d] === true;
-                    }
-
-                    x: (dayCell.index % 7) * (calGrid.cellW + calGrid.cellGap)
-                    y: Math.floor(dayCell.index / 7) * (calGrid.cellH + calGrid.cellGap)
-                    width: calGrid.cellW
-                    height: calGrid.cellH
-
-                    Rectangle {
-                        anchors.fill: parent
-                        radius: UIScale.radiusSm
-                        color: dayCell.isToday ? Colors.withAlpha(Colors.accent, 0.18) : dayCell.inCurrentWeek ? Colors.withAlpha(Colors.text, 0.06) : cellHov.hovered && dayCell.inMonth ? Colors.withAlpha(Colors.text, 0.04) : "transparent"
-                        border.color: dayCell.isToday ? Colors.withAlpha(Colors.accent, 0.6) : dayCell.inCurrentWeek ? Colors.withAlpha(Colors.text, 0.18) : "transparent"
-                        border.width: 1
-                        Behavior on color {
-                            ColorAnimation {
-                                duration: Anim.fast
-                            }
-                        }
-                    }
-                    Text {
-                        anchors.horizontalCenter: parent.horizontalCenter
-                        anchors.top: parent.top
-                        anchors.topMargin: Math.round(8 * UIScale.value)
-                        text: dayCell.inMonth ? dayCell.dayNum : ""
-                        color: dayCell.isToday ? Colors.accent : dayCell.inMonth ? Colors.textDim : Colors.withAlpha(Colors.text, 0.15)
-                        font.pixelSize: UIScale.fontSmall
-                        font.weight: (dayCell.isToday || dayCell.inCurrentWeek) ? Font.DemiBold : Font.Normal
-                        Behavior on color {
-                            ColorAnimation {
-                                duration: Anim.fast
-                            }
-                        }
-                    }
-                    Rectangle {
-                        visible: dayCell.hasEvents
-                        anchors.horizontalCenter: parent.horizontalCenter
-                        anchors.bottom: parent.bottom
-                        anchors.bottomMargin: Math.round(4 * UIScale.value)
-                        width: Math.round(4 * UIScale.value)
-                        height: Math.round(4 * UIScale.value)
-                        radius: width / 2
-                        color: dayCell.isToday ? Colors.accent : Colors.withAlpha(Colors.accent, 0.6)
-                    }
-                    HoverHandler {
-                        id: cellHov
-                    }
-                    MouseArea {
-                        anchors.fill: parent
-                        cursorShape: dayCell.inMonth ? Qt.PointingHandCursor : Qt.ArrowCursor
-                        onClicked: {
-                            if (dayCell.inMonth)
-                                root.selectedDate = dayCell.cellDate;
-                        }
-                    }
+            onSelectedDateChanged: {
+                var ws = root._weekStart;
+                if (!ws)
+                    return;
+                if (miniGrid.viewYear !== ws.getFullYear() || miniGrid.viewMonth !== ws.getMonth()) {
+                    miniGrid.viewYear = ws.getFullYear();
+                    miniGrid.viewMonth = ws.getMonth();
                 }
             }
         }
@@ -545,6 +344,33 @@ Item {
 
             Item {
                 Layout.fillWidth: true
+            }
+
+            Rectangle {
+                implicitHeight: Math.round(22 * UIScale.value)
+                implicitWidth: thisWeekLabel.implicitWidth + Math.round(12 * UIScale.value)
+                radius: height / 2
+                color: thisWeekHov.hovered ? Colors.withAlpha(Colors.text, 0.1) : Colors.surfaceHigh
+                Behavior on color {
+                    ColorAnimation {
+                        duration: Anim.fast
+                    }
+                }
+                Text {
+                    id: thisWeekLabel
+                    anchors.centerIn: parent
+                    text: "This week"
+                    color: Colors.textDim
+                    font.pixelSize: UIScale.fontTiny
+                }
+                HoverHandler {
+                    id: thisWeekHov
+                }
+                MouseArea {
+                    anchors.fill: parent
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: root.goToThisWeek()
+                }
             }
 
             Rectangle {
@@ -1045,9 +871,9 @@ Item {
                         cursorShape: sumField.text.trim().length > 0 ? Qt.PointingHandCursor : Qt.ArrowCursor
                         enabled: !CalendarService.writing && sumField.text.trim().length > 0
                         onClicked: {
-                            var y = root.selectedDate.getFullYear();
-                            var mo = String(root.selectedDate.getMonth() + 1).padStart(2, "0");
-                            var d = String(root.selectedDate.getDate()).padStart(2, "0");
+                            var y = miniGrid.selectedDate.getFullYear();
+                            var mo = String(miniGrid.selectedDate.getMonth() + 1).padStart(2, "0");
+                            var d = String(miniGrid.selectedDate.getDate()).padStart(2, "0");
                             var ev = {
                                 summary: sumField.text.trim(),
                                 date: y + "-" + mo + "-" + d,

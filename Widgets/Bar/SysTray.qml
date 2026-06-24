@@ -114,7 +114,7 @@ Rectangle {
             onClicked: root.lockRequested()
         }
 
-        Clock {
+        ClockItem {
             Layout.alignment: Qt.AlignCenter
         }
     }

@@ -26,6 +26,14 @@ Item {
     Keys.onEscapePressed: HomePanelService.open = false
 
     property string section: "network"
+
+    property bool _panelOpen: HomePanelService.open
+    on_PanelOpenChanged: {
+        if (_panelOpen && HomePanelService.requestedSection !== "") {
+            root.section = HomePanelService.requestedSection;
+            HomePanelService.requestedSection = "";
+        }
+    }
     property string searchText: ""
     property string _hostname: ""
 

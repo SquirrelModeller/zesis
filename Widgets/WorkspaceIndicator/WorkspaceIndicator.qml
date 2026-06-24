@@ -41,14 +41,38 @@ Item {
         return Math.max(0, Math.min(root.effectiveN - 1, id - 1));
     }
 
+    // "topLeft" | "bottomLeft" | "topRight" | "bottomRight"
+    property string corner: "topLeft"
+
+    readonly property bool _flipX: corner === "topRight" || corner === "bottomRight"
+    readonly property bool _flipY: corner === "bottomLeft" || corner === "bottomRight"
+
+    readonly property real _cornerAngle: {
+        if (corner === "bottomLeft")
+            return -45;
+        if (corner === "topRight")
+            return 135;
+        if (corner === "bottomRight")
+            return 225;
+        return 45;
+    }
+
     property bool forceExpanded: false
     property bool _hoveredExpanded: false
     readonly property bool expanded: root.forceExpanded || root._hoveredExpanded
 
     readonly property real discRotation: disc.rotation
 
-    readonly property real discCX: expanded ? discRadius + pad : peekOffset
-    readonly property real discCY: expanded ? discRadius + pad : peekOffset
+    readonly property real discCX: {
+        if (expanded)
+            return root._flipX ? root.width - discRadius - pad : discRadius + pad;
+        return root._flipX ? root.width - peekOffset : peekOffset;
+    }
+    readonly property real discCY: {
+        if (expanded)
+            return root._flipY ? root.height - discRadius - pad : discRadius + pad;
+        return root._flipY ? root.height - peekOffset : peekOffset;
+    }
 
     // Animated center, tracks the disc's actual visual position during transitions
     readonly property real visualDiscCX: disc.x + discRadius
@@ -94,8 +118,8 @@ Item {
             }
         }
 
-        // Rotate so the active chamber always sits at 45 degree (deepest visible corner point)
-        rotation: 45 + root.activeIndex * (360 / root.effectiveN)
+        // Rotate so the active chamber always sits at the deepest visible corner point
+        rotation: root._cornerAngle + root.activeIndex * (360 / root.effectiveN)
 
         Behavior on rotation {
             RotationAnimation {

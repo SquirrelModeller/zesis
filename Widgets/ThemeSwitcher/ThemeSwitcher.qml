@@ -5,6 +5,7 @@ import QtQuick.Controls
 import Quickshell
 import Quickshell.Io
 import "../../"
+import "../Bar"
 
 Item {
     id: root
@@ -42,7 +43,11 @@ Item {
 
     Rectangle {
         anchors.fill: parent
-        radius: Math.round(12 * UIScale.value)
+        radius: UIScale.radiusLg
+        topLeftRadius:     (BarConfig.side === "top"    || BarConfig.side === "left")  ? 0 : UIScale.radiusLg
+        topRightRadius:    (BarConfig.side === "top"    || BarConfig.side === "right") ? 0 : UIScale.radiusLg
+        bottomLeftRadius:  (BarConfig.side === "bottom" || BarConfig.side === "left")  ? 0 : UIScale.radiusLg
+        bottomRightRadius: (BarConfig.side === "bottom" || BarConfig.side === "right") ? 0 : UIScale.radiusLg
         color: Colors.bg
         border.color: Colors.outline
         border.width: 1

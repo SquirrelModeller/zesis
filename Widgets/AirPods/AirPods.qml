@@ -3,7 +3,7 @@ import QtQuick
 import QtQuick.Layouts
 import Quickshell
 import "../../"
-import "../Shared"
+import "../Bar"
 
 Item {
     id: root
@@ -33,13 +33,14 @@ Item {
             spacing: Math.round(5 * UIScale.value)
 
             Text {
-                text: "󰋋"
+                text: "󱡏"
                 font.pixelSize: Math.round(14 * UIScale.value)
                 color: Colors.accent
             }
 
             // Left pod %
             Text {
+                visible: !BarConfig.isVertical
                 text: AirPodsService.leftLevel + "%"
                 font.pixelSize: UIScale.fontTiny
                 font.weight: Font.DemiBold
@@ -59,6 +60,7 @@ Item {
 
             // Right pod %
             Text {
+                visible: !BarConfig.isVertical
                 text: AirPodsService.rightLevel + "%"
                 font.pixelSize: UIScale.fontTiny
                 font.weight: Font.DemiBold
@@ -92,11 +94,26 @@ Item {
     PopupWindow {
         id: apPopup
         anchor.item: root
-        anchor.rect.x: root.width / 2 - apPopup.implicitWidth / 2
-        anchor.rect.y: root.height
+        anchor.rect.x: {
+            if (BarConfig.side === "left")
+                return root.width;
+            if (BarConfig.side === "right")
+                return -apPopup.implicitWidth;
+            return root.width / 2 - apPopup.implicitWidth / 2;
+        }
+        anchor.rect.y: {
+            if (BarConfig.side === "bottom")
+                return -apPopup.implicitHeight;
+            if (BarConfig.isVertical)
+                return root.height / 2 - apPopup.implicitHeight / 2;
+            return root.height;
+        }
         grabFocus: true
         visible: false
         color: "transparent"
+
+        property string _barSide: BarConfig.side
+        on_BarSideChanged: apPopup.close()
         implicitWidth: Math.round(260 * UIScale.value)
         implicitHeight: apContent.implicitHeight
 
@@ -149,13 +166,23 @@ Item {
             implicitHeight: popupCol.implicitHeight
             scale: 0
             opacity: 0
-            transformOrigin: Item.Top
+            transformOrigin: {
+                if (BarConfig.side === "bottom")
+                    return Item.Bottom;
+                if (BarConfig.side === "left")
+                    return Item.Left;
+                if (BarConfig.side === "right")
+                    return Item.Right;
+                return Item.Top;
+            }
 
             Rectangle {
                 anchors.fill: parent
                 radius: UIScale.radiusLg
-                topLeftRadius: 0
-                topRightRadius: 0
+                topLeftRadius: (BarConfig.side === "top" || BarConfig.side === "left") ? 0 : UIScale.radiusLg
+                topRightRadius: (BarConfig.side === "top" || BarConfig.side === "right") ? 0 : UIScale.radiusLg
+                bottomLeftRadius: (BarConfig.side === "bottom" || BarConfig.side === "left") ? 0 : UIScale.radiusLg
+                bottomRightRadius: (BarConfig.side === "bottom" || BarConfig.side === "right") ? 0 : UIScale.radiusLg
                 color: Colors.bg
                 border.color: Colors.outline
                 border.width: 1

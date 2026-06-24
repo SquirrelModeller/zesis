@@ -16,7 +16,7 @@ import "../Config"
 import "../Battery"
 import "../Record"
 import "../SysMon"
-import "../WidgetHome"
+import "../Home"
 import "../Clock"
 
 Rectangle {
@@ -28,13 +28,16 @@ Rectangle {
 
     radius: 100
     color: Colors.barBg
-    implicitWidth: row.implicitWidth + 24
-    implicitHeight: 50
+    implicitWidth: BarConfig.isVertical ? Math.round(50 * UIScale.value) : (layout.implicitWidth + Math.round(24 * UIScale.value))
+    implicitHeight: BarConfig.isVertical ? (layout.implicitHeight + Math.round(24 * UIScale.value)) : Math.round(50 * UIScale.value)
 
-    RowLayout {
-        id: row
+    GridLayout {
+        id: layout
         anchors.centerIn: parent
-        spacing: 4
+        rowSpacing: 4
+        columnSpacing: 4
+        rows: BarConfig.isVertical ? -1 : 1
+        columns: BarConfig.isVertical ? 1 : -1
 
         Repeater {
             model: SystemTray.items
@@ -44,90 +47,75 @@ Rectangle {
             }
         }
 
-        SysMon {
-            Layout.alignment: Qt.AlignVCenter
+        SysMonItem {
+            Layout.alignment: Qt.AlignCenter
         }
 
         ThemeSwitcherItem {
-            Layout.alignment: Qt.AlignVCenter
-            Layout.leftMargin: 4
+            Layout.alignment: Qt.AlignCenter
         }
 
         KeybindsItem {
-            Layout.alignment: Qt.AlignVCenter
-            Layout.leftMargin: 4
+            Layout.alignment: Qt.AlignCenter
         }
 
         BluetoothItem {
-            Layout.alignment: Qt.AlignVCenter
-            Layout.leftMargin: 4
+            Layout.alignment: Qt.AlignCenter
         }
 
         AirPods {
-            Layout.alignment: Qt.AlignVCenter
-            Layout.leftMargin: 4
+            Layout.alignment: Qt.AlignCenter
         }
 
         WifiItem {
-            Layout.alignment: Qt.AlignVCenter
-            Layout.leftMargin: 4
+            Layout.alignment: Qt.AlignCenter
         }
 
         BrightnessItem {
-            Layout.alignment: Qt.AlignVCenter
-            Layout.leftMargin: 4
+            Layout.alignment: Qt.AlignCenter
         }
 
         SoundItem {
-            Layout.alignment: Qt.AlignVCenter
-            Layout.leftMargin: 4
+            Layout.alignment: Qt.AlignCenter
         }
 
         MicItem {
-            Layout.alignment: Qt.AlignVCenter
-            Layout.leftMargin: 4
+            Layout.alignment: Qt.AlignCenter
         }
 
         NotificationsItem {
-            Layout.alignment: Qt.AlignVCenter
-            Layout.leftMargin: 4
+            Layout.alignment: Qt.AlignCenter
         }
 
         ConfigItem {
-            Layout.alignment: Qt.AlignVCenter
-            Layout.leftMargin: 4
+            Layout.alignment: Qt.AlignCenter
         }
 
         BatteryItem {
-            Layout.alignment: Qt.AlignVCenter
-            Layout.leftMargin: 4
+            Layout.alignment: Qt.AlignCenter
         }
 
         RecordItem {
-            Layout.alignment: Qt.AlignVCenter
-            Layout.leftMargin: 4
+            Layout.alignment: Qt.AlignCenter
         }
 
         // Widget home
         BarButton {
             icon: ""
-            active: WidgetHomeService.open
-            Layout.alignment: Qt.AlignVCenter
-            Layout.leftMargin: 4
-            onClicked: WidgetHomeService.open = !WidgetHomeService.open
+            active: HomePanelService.open
+            Layout.alignment: Qt.AlignCenter
+            onClicked: HomePanelService.open = !HomePanelService.open
         }
 
         // Lock button
         BarButton {
             icon: "󰌾"
-            Layout.alignment: Qt.AlignVCenter
-            Layout.leftMargin: 4
+            Layout.alignment: Qt.AlignCenter
             onClicked: root.lockRequested()
         }
 
         Clock {
-            Layout.alignment: Qt.AlignVCenter
-            Layout.leftMargin: 4
+            Layout.alignment: Qt.AlignCenter
         }
     }
 }

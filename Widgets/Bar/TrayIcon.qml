@@ -13,7 +13,7 @@ Item {
 
     implicitWidth: 28
     implicitHeight: 28
-    Layout.alignment: Qt.AlignVCenter
+    Layout.alignment: Qt.AlignCenter
 
     Rectangle {
         anchors.fill: parent
@@ -53,11 +53,26 @@ Item {
     PopupWindow {
         id: menuPopup
         anchor.item: root
-        anchor.rect.x: root.width / 2 - menuPopup.implicitWidth / 2
-        anchor.rect.y: root.height
+        anchor.rect.x: {
+            if (BarConfig.side === "left")
+                return root.width;
+            if (BarConfig.side === "right")
+                return -menuPopup.implicitWidth;
+            return root.width / 2 - menuPopup.implicitWidth / 2;
+        }
+        anchor.rect.y: {
+            if (BarConfig.side === "bottom")
+                return -menuPopup.implicitHeight;
+            if (BarConfig.isVertical)
+                return root.height / 2 - menuPopup.implicitHeight / 2;
+            return root.height;
+        }
         grabFocus: true
         visible: false
         color: "transparent"
+
+        property string _barSide: BarConfig.side
+        on_BarSideChanged: menuPopup.visible = false
         implicitWidth: 220
         implicitHeight: Math.min(menuList.contentHeight + 10, 480)
 

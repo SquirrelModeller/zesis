@@ -3,6 +3,7 @@ pragma ComponentBehavior: Bound
 import QtQuick
 import "./"
 import "../../"
+import "../Bar"
 
 Item {
     id: root
@@ -36,8 +37,8 @@ Item {
     }
 
     // Pill resizes with content, in fixed mode it never shrinks below HH:MM width
-    implicitWidth: (widthMode === "fixed" ? Math.max(charsRow.implicitWidth, _minContentW) : charsRow.implicitWidth) + hPad * 2
-    implicitHeight: cellH + vPad * 2
+    implicitWidth: BarConfig.isVertical ? (2 * cellW + charGap + hPad * 2) : ((widthMode === "fixed" ? Math.max(charsRow.implicitWidth, _minContentW) : charsRow.implicitWidth) + hPad * 2)
+    implicitHeight: BarConfig.isVertical ? (2 * cellH + vPad * 3) : (cellH + vPad * 2)
 
     ListModel {
         id: slotsModel
@@ -191,8 +192,10 @@ Item {
         border.width: 1.5
     }
 
+    // Horizontal layout
     Row {
         id: charsRow
+        visible: !BarConfig.isVertical
         anchors.left: parent.left
         anchors.leftMargin: root.hPad
         anchors.verticalCenter: parent.verticalCenter
@@ -215,6 +218,89 @@ Item {
                 font.bold: true
                 font.family: "monospace"
                 color: root._cursorOn ? Colors.accent : Colors.withAlpha(Colors.accent, 0.12)
+            }
+        }
+    }
+
+    // Vertical stacked layout, same slotsModel, two filtered views
+    Column {
+        visible: BarConfig.isVertical
+        anchors.centerIn: parent
+        spacing: root.vPad
+
+        // Hours row: indices 0–1
+        Row {
+            anchors.horizontalCenter: parent.horizontalCenter
+            spacing: root.charGap
+
+            Repeater {
+                model: slotsModel
+                delegate: Item {
+                    required property string ch
+                    required property int index
+                    visible: index < 2
+                    width: root.cellW
+                    height: root.cellH
+                    Text {
+                        anchors.centerIn: parent
+                        text: parent.ch
+                        font.pixelSize: Math.round(21 * UIScale.value)
+                        font.bold: true
+                        font.family: "monospace"
+                        color: Colors.accent
+                    }
+                }
+            }
+            Item {
+                visible: root._state === 2 && root._cursor < 2
+                width: root.cellW
+                height: root.cellH
+                Text {
+                    anchors.centerIn: parent
+                    text: "_"
+                    font.pixelSize: Math.round(21 * UIScale.value)
+                    font.bold: true
+                    font.family: "monospace"
+                    color: root._cursorOn ? Colors.accent : Colors.withAlpha(Colors.accent, 0.12)
+                }
+            }
+        }
+
+        // Minutes row: indices > 2 (colon at index 2 is skipped)
+        Row {
+            anchors.horizontalCenter: parent.horizontalCenter
+            spacing: root.charGap
+
+            Repeater {
+                model: slotsModel
+                delegate: Item {
+                    required property string ch
+                    required property int index
+                    visible: index > 2
+                    width: root.cellW
+                    height: root.cellH
+                    Text {
+                        anchors.centerIn: parent
+                        text: parent.ch
+                        font.pixelSize: Math.round(21 * UIScale.value)
+                        font.bold: true
+                        font.family: "monospace"
+                        color: Colors.accent
+                    }
+                }
+            }
+            Item {
+                visible: root._state === 2 && root._cursor > 2
+                width: root.cellW
+                height: root.cellH
+                Text {
+                    anchors.centerIn: parent
+                    text: "_"
+                    font.pixelSize: Math.round(21 * UIScale.value)
+                    font.bold: true
+                    font.family: "monospace"
+                    color: root._cursorOn ? Colors.accent : Colors.withAlpha(Colors.accent, 0.12)
+                }
             }
         }
     }

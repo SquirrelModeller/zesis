@@ -1,7 +1,6 @@
 pragma ComponentBehavior: Bound
 
 import QtQuick
-import QtQuick.Layouts
 import Quickshell
 import Quickshell.Io
 import Quickshell.Wayland
@@ -20,7 +19,6 @@ import "Widgets/Display"
 import "Widgets/Calendar"
 import "Widgets/Home"
 import "Widgets/Sound"
-import "Widgets/AirPods"
 
 Scope {
     // Singletons instantiated at startup for startup-apply logic
@@ -35,42 +33,43 @@ Scope {
             required property ShellScreen modelData
 
             WlrLayershell.layer: WlrLayer.Top
+            WlrLayershell.margins {
+                top: BarConfig.side === "top" ? BarConfig.edgeGap : 0
+                bottom: BarConfig.side === "bottom" ? BarConfig.edgeGap : 0
+                left: BarConfig.side === "left" ? BarConfig.edgeGap : 0
+                right: BarConfig.side === "right" ? BarConfig.edgeGap : 0
+            }
             screen: modelData
 
-            implicitHeight: 60
+            // Strip = pill thickness on the short axis, full-edge span on the long axis.
+            // This avoids any centering math, edgeGap is the only outer-gap knob.
+            implicitHeight: BarConfig.isVertical ? 0 : Math.round(50 * UIScale.value)
+            implicitWidth: BarConfig.isVertical ? Math.round(50 * UIScale.value) : 0
 
             anchors {
-                top: true
-                left: true
-                right: true
+                top: BarConfig.side !== "bottom"
+                bottom: BarConfig.side !== "top"
+                left: BarConfig.side !== "right"
+                right: BarConfig.side !== "left"
             }
 
             color: "transparent"
 
             property bool wantsMusic: false
 
-            RowLayout {
-                anchors {
-                    right: parent.right
-                    top: parent.top
-                    bottom: parent.bottom
-                    rightMargin: 20
-                    topMargin: 10
-                }
-                spacing: 0
-                layoutDirection: Qt.RightToLeft
-
-                SysTray {
-                    id: trayWidget
-                }
+            SysTray {
+                id: trayWidget
+                // Short axis: strip = pill, so x=0/y=0 fills it exactly.
+                // Long axis: end-aligned with endGap from the far edge.
+                x: BarConfig.isVertical ? 0 : (parent.width - width - BarConfig.endGap)
+                y: BarConfig.isVertical ? (parent.height - height - BarConfig.endGap) : 0
             }
 
             Item {
                 id: centerHoverZone
-                anchors.horizontalCenter: parent.horizontalCenter
-                anchors.top: parent.top
-                anchors.bottom: parent.bottom
-                width: 300
+                anchors.centerIn: parent
+                width: BarConfig.isVertical ? parent.width : 300
+                height: BarConfig.isVertical ? 300 : parent.height
 
                 HoverHandler {
                     id: barCenter
@@ -107,8 +106,20 @@ Scope {
 
                 anchor {
                     window: root
-                    rect.x: root.width / 2 - 200
-                    rect.y: root.height
+                    rect.x: {
+                        if (BarConfig.side === "left")
+                            return root.width;
+                        if (BarConfig.side === "right")
+                            return -musicPopup.implicitWidth;
+                        return root.width / 2 - musicPopup.implicitWidth / 2;
+                    }
+                    rect.y: {
+                        if (BarConfig.side === "bottom")
+                            return -musicPopup.implicitHeight;
+                        if (BarConfig.isVertical)
+                            return root.height / 2 - musicPopup.implicitHeight / 2;
+                        return root.height;
+                    }
                 }
 
                 HoverHandler {
@@ -134,12 +145,14 @@ Scope {
     PanelWindow {
         WlrLayershell.layer: WlrLayer.Top
         anchors {
-            top: true
-            left: true
+            top: BarConfig.side !== "bottom"
+            bottom: BarConfig.side === "bottom"
+            left: BarConfig.side !== "right"
+            right: BarConfig.side === "right"
         }
         exclusiveZone: -1
-        implicitWidth: 202
-        implicitHeight: 202
+        implicitWidth: Math.round((WorkspaceIndicatorService.discRadius + 16) * UIScale.value) * 2
+        implicitHeight: Math.round((WorkspaceIndicatorService.discRadius + 16) * UIScale.value) * 2
         color: "transparent"
 
         mask: Region {
@@ -153,6 +166,13 @@ Scope {
         WorkspaceIndicator {
             id: indicator
             anchors.fill: parent
+            corner: {
+                if (BarConfig.side === "bottom")
+                    return "bottomLeft";
+                if (BarConfig.side === "right")
+                    return "topRight";
+                return "topLeft";
+            }
         }
     }
 

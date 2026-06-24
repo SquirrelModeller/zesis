@@ -33,6 +33,76 @@ Singleton {
     property var gpu: []
     property var net: []
     property var disk: []
+    property int selectedCard: 0
+
+    readonly property var gpuCard: gpu.length > selectedCard ? gpu[selectedCard] : null
+    readonly property var gpuComputeSegments: {
+        if (!gpuCard)
+            return [];
+        return (gpuCard.procs || []).filter(p => p.gfx_pct > 0).map(p => ({
+                    color: procColor(p.name),
+                    value: p.gfx_pct
+                }));
+    }
+    readonly property var gpuVramSegments: {
+        if (!gpuCard)
+            return [];
+        return (gpuCard.procs || []).filter(p => p.vram_kib > 0).map(p => ({
+                    color: procColor(p.name),
+                    value: p.vram_kib * 1024
+                }));
+    }
+
+    function procColor(name) {
+        var h = 5381;
+        for (var i = 0; i < name.length; i++)
+            h = ((h << 5) + h ^ name.charCodeAt(i)) >>> 0;
+        return Qt.hsla((h % 360) / 360, 0.68, 0.58, 1.0);
+    }
+
+    function fmtBytes(n) {
+        if (n >= 1073741824)
+            return (n / 1073741824).toFixed(1) + "G";
+        if (n >= 1048576)
+            return Math.round(n / 1048576) + "M";
+        if (n >= 1024)
+            return Math.round(n / 1024) + "K";
+        return n + "B";
+    }
+
+    function fmtRate(n) {
+        return fmtBytes(n) + "/s";
+    }
+
+    readonly property var diskFlat: {
+        var out = [];
+        for (var i = 0; i < disk.length; i++) {
+            out.push({
+                name: disk[i].name,
+                read: disk[i].read_bytes_per_sec,
+                write: disk[i].write_bytes_per_sec,
+                depth: 0
+            });
+            var parts = disk[i].partitions || [];
+            for (var j = 0; j < parts.length; j++)
+                out.push({
+                    name: parts[j].name,
+                    read: parts[j].read_bytes_per_sec,
+                    write: parts[j].write_bytes_per_sec,
+                    depth: 1
+                });
+        }
+        return out;
+    }
+
+    readonly property var cpuSegments: (cpu.procs || []).map(p => ({
+                color: procColor(p.name),
+                value: p.cpu
+            }))
+    readonly property var memSegments: (memory.procs || []).map(p => ({
+                color: procColor(p.name),
+                value: p.rss
+            }))
 
     onPopupOpenChanged: sendRequest()
     onPanelOpenChanged: sendRequest()

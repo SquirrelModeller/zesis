@@ -5,6 +5,7 @@ import Quickshell.Services.Pam
 import Quickshell.Wayland
 import "../../"
 import "../Shared"
+import "../User"
 
 WlSessionLockSurface {
     id: surface
@@ -73,6 +74,38 @@ WlSessionLockSurface {
             }
             if (event.text && event.text.length > 0)
                 surface.inputBuffer += event.text;
+        }
+    }
+
+    Item {
+        id: greetingSection
+        anchors.horizontalCenter: parent.horizontalCenter
+        y: parent.height / 2 - Math.round(396 * UIScale.value) - height - Math.round(24 * UIScale.value)
+        width: Math.round(300 * UIScale.value)
+        height: greetingCol.implicitHeight
+
+        Column {
+            id: greetingCol
+            anchors.horizontalCenter: parent.horizontalCenter
+            spacing: Math.round(10 * UIScale.value)
+
+            UserAvatar {
+                size: Math.round(64 * UIScale.value)
+                anchors.horizontalCenter: parent.horizontalCenter
+            }
+
+            Text {
+                anchors.horizontalCenter: parent.horizontalCenter
+                text: {
+                    var h = new Date().getHours();
+                    var g = h < 12 ? "Good morning" : h < 17 ? "Good afternoon" : "Good evening";
+                    return UserService.name !== "" ? g + ", " + UserService.name : g;
+                }
+                color: Colors.text
+                font.pixelSize: UIScale.fontSubhead
+                font.weight: Font.DemiBold
+                opacity: 0.88
+            }
         }
     }
 

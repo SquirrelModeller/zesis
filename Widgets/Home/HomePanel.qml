@@ -16,6 +16,7 @@ import "../Sound"
 import "../SysMon"
 import "../ThemeSwitcher"
 import "../NixPurity"
+import "../User"
 import "../Wifi"
 import "../../"
 
@@ -355,6 +356,27 @@ Item {
                         width: parent.width
                         spacing: 0
 
+                        Text {
+                            text: "PERSONAL"
+                            color: Colors.muted
+                            font.pixelSize: UIScale.fontTiny
+                            font.weight: Font.Bold
+                            font.letterSpacing: 1.5
+                            leftPadding: UIScale.spacingSm
+                            Layout.bottomMargin: UIScale.spacingXs
+                            visible: root.searchText === "" || "user".includes(root.searchText.toLowerCase())
+                        }
+
+                        NavItem {
+                            navId: "user"
+                            navLabel: "User"
+                            navIcon: ""
+                            isNavSelected: root.section === "user"
+                            visible: root.searchText === "" || "user".includes(root.searchText.toLowerCase())
+                            Layout.fillWidth: true
+                            Layout.bottomMargin: Math.round(2 * UIScale.value)
+                        }
+
                         // WIDGETS section
                         Text {
                             text: "WIDGETS"
@@ -527,19 +549,8 @@ Item {
                         anchors.rightMargin: UIScale.spacingSm
                         spacing: UIScale.spacingSm
 
-                        Rectangle {
-                            implicitWidth: Math.round(30 * UIScale.value)
-                            implicitHeight: Math.round(30 * UIScale.value)
-                            radius: Math.round(9 * UIScale.value)
-                            color: Colors.withAlpha(Colors.text, 0.1)
-
-                            Text {
-                                anchors.centerIn: parent
-                                text: root._hostname.charAt(0).toUpperCase()
-                                color: Colors.textDim
-                                font.pixelSize: UIScale.fontBody
-                                font.weight: Font.Bold
-                            }
+                        UserAvatar {
+                            size: Math.round(30 * UIScale.value)
                         }
 
                         Column {
@@ -547,16 +558,20 @@ Item {
                             spacing: 1
 
                             Text {
-                                text: root._hostname
+                                text: UserService.name !== "" ? UserService.name : root._hostname
                                 color: Colors.text
                                 font.pixelSize: UIScale.fontSmall
                                 font.weight: Font.Bold
+                                elide: Text.ElideRight
+                                width: parent.width
                             }
                             Text {
-                                text: "local"
+                                text: root._hostname
                                 color: Colors.textDim
                                 font.pixelSize: UIScale.fontTiny
                                 font.family: "monospace"
+                                elide: Text.ElideRight
+                                width: parent.width
                             }
                         }
                     }
@@ -572,6 +587,8 @@ Item {
             Loader {
                 anchors.fill: parent
                 sourceComponent: {
+                    if (root.section === "user")
+                        return userPanelComp;
                     if (root.section === "bluetooth")
                         return bluetoothPanelComp;
                     if (root.section === "wifi")
@@ -604,6 +621,10 @@ Item {
                 }
             }
 
+            Component {
+                id: userPanelComp
+                UserPanel {}
+            }
             Component {
                 id: bluetoothPanelComp
                 BluetoothPanel {}

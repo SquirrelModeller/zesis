@@ -11,17 +11,24 @@ Singleton {
 
     property string name: userData.name
     property string avatarPath: userData.avatarPath
+    property string heroImage: userData.heroImage
+    property bool heroFollowWallpaper: userData.heroFollowWallpaper
 
     function setName(n) {
-        _write(n, root.avatarPath);
+        _write(n, root.avatarPath, root.heroImage, root.heroFollowWallpaper);
     }
-
     function setAvatarPath(p) {
-        _write(root.name, p);
+        _write(root.name, p, root.heroImage, root.heroFollowWallpaper);
+    }
+    function setHeroImage(p) {
+        _write(root.name, root.avatarPath, p, root.heroFollowWallpaper);
+    }
+    function setHeroFollowWallpaper(v) {
+        _write(root.name, root.avatarPath, root.heroImage, v);
     }
 
-    function _write(n, p) {
-        writeProc.command = ["sh", "-c", "mkdir -p '" + root._configDir + "' && " + "printf '%s' '{\"name\":\"" + n + "\",\"avatarPath\":\"" + p + "\"}' > '" + root._configPath + "'"];
+    function _write(n, p, hi, hfw) {
+        writeProc.command = ["sh", "-c", "mkdir -p '" + root._configDir + "' && " + "printf '%s' '{\"name\":\"" + n + "\",\"avatarPath\":\"" + p + "\",\"heroImage\":\"" + hi + "\",\"heroFollowWallpaper\":" + hfw + "}' > '" + root._configPath + "'"];
         writeProc.running = true;
     }
 
@@ -29,6 +36,8 @@ Singleton {
         id: userData
         property string name: ""
         property string avatarPath: ""
+        property string heroImage: ""
+        property bool heroFollowWallpaper: true
     }
 
     FileView {

@@ -165,10 +165,142 @@ Item {
                     }
                 }
 
+                Text {
+                    text: "HERO CARD"
+                    color: Colors.muted
+                    font.pixelSize: UIScale.fontTiny
+                    font.weight: Font.Bold
+                    font.letterSpacing: 1.5
+                    Layout.leftMargin: UIScale.panelPad
+                    Layout.topMargin: UIScale.spacingXs
+                }
+
+                Rectangle {
+                    Layout.fillWidth: true
+                    Layout.leftMargin: UIScale.panelPad
+                    Layout.rightMargin: UIScale.panelPad
+                    implicitHeight: Math.round(56 * UIScale.value)
+                    radius: UIScale.radiusMd
+                    color: Colors.withAlpha(Colors.text, 0.03)
+                    border.color: Colors.withAlpha(Colors.text, 0.06)
+                    border.width: 1
+
+                    RowLayout {
+                        anchors.fill: parent
+                        anchors.leftMargin: UIScale.spacingMd
+                        anchors.rightMargin: UIScale.spacingMd
+                        spacing: UIScale.spacingSm
+
+                        Column {
+                            spacing: Math.round(2 * UIScale.value)
+
+                            Text {
+                                text: "Follow wallpaper"
+                                color: Colors.text
+                                font.pixelSize: UIScale.fontSmall
+                                font.weight: Font.DemiBold
+                            }
+                            Text {
+                                text: "Use the current wallpaper as the hero background"
+                                color: Colors.textDim
+                                font.pixelSize: UIScale.fontTiny
+                            }
+                        }
+
+                        Item {
+                            Layout.fillWidth: true
+                        }
+
+                        ToggleSwitch {
+                            checked: UserService.heroFollowWallpaper
+                            onToggled: UserService.setHeroFollowWallpaper(!UserService.heroFollowWallpaper)
+                        }
+                    }
+                }
+
+                Rectangle {
+                    Layout.fillWidth: true
+                    Layout.leftMargin: UIScale.panelPad
+                    Layout.rightMargin: UIScale.panelPad
+                    implicitHeight: Math.round(56 * UIScale.value)
+                    visible: !UserService.heroFollowWallpaper
+                    radius: UIScale.radiusMd
+                    color: Colors.withAlpha(Colors.text, 0.03)
+                    border.color: Colors.withAlpha(Colors.text, 0.06)
+                    border.width: 1
+
+                    RowLayout {
+                        anchors.fill: parent
+                        anchors.leftMargin: UIScale.spacingMd
+                        anchors.rightMargin: UIScale.spacingMd
+                        spacing: UIScale.spacingSm
+
+                        Column {
+                            Layout.fillWidth: true
+                            spacing: Math.round(2 * UIScale.value)
+
+                            Text {
+                                text: "Custom image"
+                                color: Colors.text
+                                font.pixelSize: UIScale.fontSmall
+                                font.weight: Font.DemiBold
+                            }
+                            Text {
+                                width: parent.width
+                                text: UserService.heroImage !== "" ? UserService.heroImage.split("/").pop() : "No image selected"
+                                color: Colors.textDim
+                                font.pixelSize: UIScale.fontTiny
+                                elide: Text.ElideRight
+                            }
+                        }
+
+                        Rectangle {
+                            implicitWidth: Math.round(110 * UIScale.value)
+                            implicitHeight: Math.round(30 * UIScale.value)
+                            radius: UIScale.radiusSm
+                            color: heroPickHov.hovered ? Colors.withAlpha(Colors.accent, 0.28) : Colors.withAlpha(Colors.accent, 0.14)
+                            Behavior on color {
+                                ColorAnimation {
+                                    duration: Anim.fast
+                                }
+                            }
+
+                            Text {
+                                anchors.centerIn: parent
+                                text: "Choose image"
+                                color: Colors.accent
+                                font.pixelSize: UIScale.fontSmall
+                                font.weight: Font.DemiBold
+                            }
+
+                            HoverHandler {
+                                id: heroPickHov
+                            }
+                            MouseArea {
+                                anchors.fill: parent
+                                cursorShape: Qt.PointingHandCursor
+                                onClicked: heroPicker.open()
+                            }
+                        }
+                    }
+                }
+
                 Item {
                     implicitHeight: UIScale.spacingXs
                 }
             }
+        }
+    }
+
+    FileDialog {
+        id: heroPicker
+        title: "Choose Hero Image"
+        nameFilters: ["Images (*.png *.jpg *.jpeg *.svg *.webp *.bmp *.gif)", "All files (*)"]
+        onAccepted: {
+            var path = heroPicker.selectedFile.toString();
+            if (path.startsWith("file://"))
+                path = path.slice(7);
+            UserService.setHeroImage(path);
         }
     }
 

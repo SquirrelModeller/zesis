@@ -26,7 +26,7 @@ Item {
 
     Keys.onEscapePressed: HomePanelService.open = false
 
-    property string section: "network"
+    property string section: "home"
 
     property bool _panelOpen: HomePanelService.open
     on_PanelOpenChanged: {
@@ -49,6 +49,14 @@ Item {
     readonly property bool panelOpen: HomePanelService.open
     onPanelOpenChanged: if (!panelOpen)
         searchInput.text = ""
+
+    property string _reqSec: HomePanelService.requestedSection
+    on_ReqSecChanged: {
+        if (_reqSec !== "") {
+            root.section = _reqSec;
+            HomePanelService.requestedSection = "";
+        }
+    }
 
     component NavItem: Rectangle {
         id: navItem
@@ -364,7 +372,17 @@ Item {
                             font.letterSpacing: 1.5
                             leftPadding: UIScale.spacingSm
                             Layout.bottomMargin: UIScale.spacingXs
-                            visible: root.searchText === "" || "user".includes(root.searchText.toLowerCase())
+                            visible: root.searchText === "" || ["home", "user"].some(s => s.includes(root.searchText.toLowerCase()))
+                        }
+
+                        NavItem {
+                            navId: "home"
+                            navLabel: "Home"
+                            navIcon: ""
+                            isNavSelected: root.section === "home"
+                            visible: root.searchText === "" || "home".includes(root.searchText.toLowerCase())
+                            Layout.fillWidth: true
+                            Layout.bottomMargin: Math.round(2 * UIScale.value)
                         }
 
                         NavItem {
@@ -587,6 +605,8 @@ Item {
             Loader {
                 anchors.fill: parent
                 sourceComponent: {
+                    if (root.section === "home")
+                        return dashboardComp;
                     if (root.section === "user")
                         return userPanelComp;
                     if (root.section === "bluetooth")
@@ -621,6 +641,10 @@ Item {
                 }
             }
 
+            Component {
+                id: dashboardComp
+                DashboardPanel {}
+            }
             Component {
                 id: userPanelComp
                 UserPanel {}

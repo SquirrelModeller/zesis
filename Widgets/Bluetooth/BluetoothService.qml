@@ -20,9 +20,11 @@ Singleton {
     }
 
     function _restoreAdapter() {
-        if (!_btConfig.preferredAdapter) return;
+        if (!_btConfig.preferredAdapter)
+            return;
         const match = Bluetooth.adapters.values.find(a => a.dbusPath === _btConfig.preferredAdapter);
-        if (match) root.activeAdapter = match;
+        if (match)
+            root.activeAdapter = match;
     }
 
     JsonAdapter {
@@ -38,7 +40,9 @@ Singleton {
 
     Connections {
         target: Bluetooth.adapters
-        function onValuesChanged() { root._restoreAdapter(); }
+        function onValuesChanged() {
+            root._restoreAdapter();
+        }
     }
 
     Process {
@@ -155,6 +159,40 @@ Singleton {
         _notifyProc.running = true;
     }
 
+    property string _pairingAddress: ""
+
+    // bluetoothctl registers itself as a BlueZ pairing agent on startup, which answers
+    // the RequestAuthorization D-Bus callback that Quickshell has no agent for.
+    // We spawn it for the duration of pairing, then kill it.
+    function pairDevice(device) {
+        root._pairingAddress = device.address;
+        _agentProc.running = true;
+        _pairTimeout.restart();
+        device.pair();
+    }
+
+    function cancelPairDevice(device) {
+        root._pairingAddress = "";
+        _agentProc.running = false;
+        _pairTimeout.stop();
+        device.cancelPair();
+    }
+
+    Process {
+        id: _agentProc
+        command: ["bluetoothctl", "--agent", "NoInputNoOutput"]
+    }
+
+    Timer {
+        id: _pairTimeout
+        interval: 30000
+        repeat: false
+        onTriggered: {
+            root._pairingAddress = "";
+            _agentProc.running = false;
+        }
+    }
+
     Instantiator {
         model: root.activeAdapter?.devices.values ?? []
 
@@ -162,6 +200,7 @@ Singleton {
             id: deviceWatcher
             required property var modelData
             property bool deviceConnected: modelData?.connected ?? false
+            property bool deviceBonded: modelData?.bonded ?? false
             property bool ready: false
 
             Component.onCompleted: {
@@ -176,6 +215,16 @@ Singleton {
                     root._notify("low", "bluetooth-active", "Connected", devName);
                 else
                     root._notify("low", "bluetooth-disconnected", "Disconnected", devName);
+            }
+
+            onDeviceBondedChanged: {
+                if (!deviceWatcher.ready || !deviceWatcher.deviceBonded)
+                    return;
+                if (deviceWatcher.modelData.address === root._pairingAddress) {
+                    root._pairingAddress = "";
+                    _agentProc.running = false;
+                    _pairTimeout.stop();
+                }
             }
         }
     }

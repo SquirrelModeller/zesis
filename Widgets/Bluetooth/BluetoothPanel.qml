@@ -796,14 +796,9 @@ Item {
                                         cursorShape: Qt.PointingHandCursor
                                         onClicked: {
                                             if (nearbyItem.modelData.pairing)
-                                                nearbyItem.modelData.cancelPair();
+                                                BluetoothService.cancelPairDevice(nearbyItem.modelData);
                                             else
-                                                // device.pair() fails with "Authentication Failed" for BLE devices
-                                                // (MX Master 4, etc.) because Quickshell registers no BlueZ pairing
-                                                // agent, nobody answers the RequestAuthorization D-Bus callback.
-                                                // TODO: replace with bluetoothctl pair <address> via Process,
-                                                // or implement org.bluez.Agent1 in Quickshell upstream.
-                                                nearbyItem.modelData.pair();
+                                                BluetoothService.pairDevice(nearbyItem.modelData);
                                         }
                                     }
                                 }

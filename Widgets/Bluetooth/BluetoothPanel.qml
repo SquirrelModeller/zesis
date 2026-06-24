@@ -216,7 +216,7 @@ Item {
                                 anchors.fill: parent
                                 hoverEnabled: true
                                 cursorShape: Qt.PointingHandCursor
-                                onClicked: BluetoothService.activeAdapter = adapterChip.modelData
+                                onClicked: BluetoothService.selectAdapter(adapterChip.modelData)
                             }
                         }
                     }

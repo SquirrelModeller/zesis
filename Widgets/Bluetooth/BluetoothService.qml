@@ -11,6 +11,40 @@ Singleton {
 
     property BluetoothAdapter activeAdapter: Bluetooth.defaultAdapter
 
+    readonly property string _configPath: (Quickshell.env("XDG_CONFIG_HOME") || (Quickshell.env("HOME") + "/.config")) + "/zesis/bluetooth.json"
+
+    function selectAdapter(adapter) {
+        root.activeAdapter = adapter;
+        _writeProc.command = ["sh", "-c", "mkdir -p \"$(dirname '" + root._configPath + "')\" && echo '{\"preferredAdapter\":\"" + adapter.dbusPath + "\"}' > '" + root._configPath + "'"];
+        _writeProc.running = true;
+    }
+
+    function _restoreAdapter() {
+        if (!_btConfig.preferredAdapter) return;
+        const match = Bluetooth.adapters.values.find(a => a.dbusPath === _btConfig.preferredAdapter);
+        if (match) root.activeAdapter = match;
+    }
+
+    JsonAdapter {
+        id: _btConfig
+        property string preferredAdapter: ""
+    }
+
+    FileView {
+        path: root._configPath
+        adapter: _btConfig
+        onLoaded: root._restoreAdapter()
+    }
+
+    Connections {
+        target: Bluetooth.adapters
+        function onValuesChanged() { root._restoreAdapter(); }
+    }
+
+    Process {
+        id: _writeProc
+    }
+
     function deviceIcon(iconStr, deviceName) {
         var i = (iconStr || "").toLowerCase();
         var n = (deviceName || "").toLowerCase();

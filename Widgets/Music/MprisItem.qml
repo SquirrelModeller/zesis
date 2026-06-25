@@ -69,26 +69,6 @@ Rectangle {
     clip: true
     color: Colors.bg
 
-    // Blurred album art background
-    Image {
-        anchors.fill: parent
-        source: mprisroot._artUrl
-        fillMode: Image.PreserveAspectCrop
-        retainWhileLoading: true
-        opacity: 0.75
-        layer.enabled: true
-        layer.effect: MultiEffect {
-            blurEnabled: true
-            blur: 1.0
-            blurMax: 48
-            saturation: 0.15
-            maskEnabled: true
-            maskThresholdMin: 0.5
-            maskSpreadAtMin: 1.0
-            maskSource: _cornerMask
-        }
-    }
-
     Rectangle {
         id: _cornerMask
         anchors.fill: parent
@@ -99,13 +79,37 @@ Rectangle {
         layer.enabled: true
     }
 
-    // Dark warm overlay
-    Rectangle {
+    // Blurred album art background + overlay, masked together to rounded corners
+    Item {
         anchors.fill: parent
-        radius: mprisroot.radius
-        topLeftRadius: 0
-        topRightRadius: 0
-        color: mprisroot.colOverlay
+        layer.enabled: true
+        layer.effect: MultiEffect {
+            maskEnabled: true
+            maskThresholdMin: 0.5
+            maskSpreadAtMin: 1.0
+            maskSource: _cornerMask
+        }
+
+        Image {
+            anchors.fill: parent
+            source: mprisroot._artUrl
+            fillMode: Image.PreserveAspectCrop
+            retainWhileLoading: true
+            opacity: 0.75
+            layer.enabled: true
+            layer.effect: MultiEffect {
+                blurEnabled: true
+                blur: 1.0
+                blurMax: 48
+                saturation: 0.15
+            }
+        }
+
+        // Dark warm overlay
+        Rectangle {
+            anchors.fill: parent
+            color: mprisroot.colOverlay
+        }
     }
 
     // Teto

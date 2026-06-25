@@ -19,6 +19,7 @@ import "Widgets/Display"
 import "Widgets/Calendar"
 import "Widgets/Home"
 import "Widgets/Sound"
+import "Widgets/PumpPanel"
 // These imports are needed for BarItemsService to function correctly
 import "Widgets/Brightness"
 import "Widgets/Mic"
@@ -248,6 +249,7 @@ Scope {
 
     // PumpPanel {}
     // ValvePanel {}
+    // WheelTest {}
 
     IpcHandler {
         target: "home"

@@ -2,8 +2,8 @@ pragma Singleton
 pragma ComponentBehavior: Bound
 import QtQuick
 import Quickshell
-import Quickshell.Bluetooth
 import Quickshell.Io
+import "../Bluetooth"
 
 Singleton {
     id: root
@@ -42,7 +42,7 @@ Singleton {
     // when it disconnects and it was our active device, stop the daemon.
 
     Instantiator {
-        model: Bluetooth.defaultAdapter?.devices.values ?? []
+        model: BluetoothService.activeAdapter?.devices.values ?? []
 
         delegate: QtObject {
             id: deviceWatcher
@@ -71,18 +71,37 @@ Singleton {
 
     // UUID checker
     // One-shot: bluetoothctl info <mac> - looks for the AAP UUID in output.
+    // Checks are queued so concurrent connect events don't race each other.
 
     Process {
         id: _checker
         property string _mac: ""
         property string _name: ""
+        property var _queue: []
 
         function check(mac, name) {
             if (_daemon.running)
                 return;
+            if (running) {
+                _queue.push({
+                    mac: mac,
+                    name: name
+                });
+                return;
+            }
             _mac = mac;
             _name = name;
             command = ["bluetoothctl", "info", mac];
+            running = true;
+        }
+
+        function _runNext() {
+            if (_daemon.running || _queue.length === 0)
+                return;
+            const next = _queue.shift();
+            _mac = next.mac;
+            _name = next.name;
+            command = ["bluetoothctl", "info", next.mac];
             running = true;
         }
 
@@ -94,8 +113,14 @@ Singleton {
                     return;
                 root._activeMac = _checker._mac;
                 _state.deviceName = _checker._name;
+                _checker._queue = [];
                 _daemon.running = true;
             }
+        }
+
+        onRunningChanged: {
+            if (!running)
+                Qt.callLater(_checker._runNext);
         }
     }
 

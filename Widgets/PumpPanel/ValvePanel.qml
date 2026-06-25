@@ -13,7 +13,7 @@ PanelWindow {
     readonly property int valveDiam: Math.round(42 * UIScale.value)
     readonly property real requiredDeg: 720.0
 
-    property real openness: 0.0
+    readonly property real openness: Math.max(0, Math.min(1.0, drag.accumulated / root.requiredDeg))
     property bool latched: false
 
     WlrLayershell.namespace: "zesis:valvePanel"
@@ -32,40 +32,8 @@ PanelWindow {
     mask: Region {
         x: 0
         y: 0
-        width: root.triggerW + (root.panelW - root.triggerW) * root.openness
+        width: drag.active ? root.panelW : root.triggerW + (root.panelW - root.triggerW) * root.openness
         height: 4096
-    }
-
-    function latch() {
-        if (root.latched)
-            return;
-        root.latched = true;
-        drag.active = false;
-        openAnim.start();
-    }
-
-    function unlatch() {
-        root.latched = false;
-        springAnim.start();
-        closeAnim.start();
-    }
-
-    NumberAnimation {
-        id: openAnim
-        target: root
-        property: "openness"
-        to: 1.0
-        duration: Anim.slow
-        easing.type: Easing.OutCubic
-    }
-
-    NumberAnimation {
-        id: closeAnim
-        target: root
-        property: "openness"
-        to: 0.0
-        duration: Anim.slow
-        easing.type: Easing.InCubic
     }
 
     QtObject {
@@ -80,7 +48,6 @@ PanelWindow {
         id: springAnim
         target: drag
         property: "accumulated"
-        to: 0
         duration: Anim.slow
         easing.type: Easing.OutBack
         easing.overshoot: 0.7
@@ -190,7 +157,6 @@ PanelWindow {
                 MouseArea {
                     anchors.fill: parent
                     preventStealing: true
-                    enabled: !root.latched
 
                     function angleAt(mx, my) {
                         return Math.atan2(my - height / 2, mx - width / 2) * 180 / Math.PI;
@@ -198,7 +164,6 @@ PanelWindow {
 
                     onPressed: mouse => {
                         springAnim.stop();
-                        drag.accumulated = 0;
                         drag.lastAngle = angleAt(mouse.x, mouse.y);
                         drag.active = true;
                     }
@@ -212,16 +177,18 @@ PanelWindow {
                             delta -= 360;
                         if (delta < -180)
                             delta += 360;
-                        drag.accumulated += delta;
+                        drag.accumulated = Math.max(0, Math.min(root.requiredDeg, drag.accumulated + delta));
                         drag.lastAngle = a;
-                        if (drag.accumulated >= root.requiredDeg)
-                            root.latch();
+                        if (!root.latched && drag.accumulated >= root.requiredDeg)
+                            root.latched = true;
+                        else if (root.latched && drag.accumulated <= 0)
+                            root.latched = false;
                     }
 
                     onReleased: {
                         drag.active = false;
-                        if (!root.latched)
-                            springAnim.start();
+                        springAnim.to = root.latched ? root.requiredDeg : 0;
+                        springAnim.start();
                     }
                 }
             }
@@ -233,47 +200,6 @@ PanelWindow {
                     bottom: parent.bottom
                     left: parent.left
                     right: triggerStrip.left
-                }
-            }
-
-            // Unlatch button
-            Rectangle {
-                anchors.bottom: parent.bottom
-                anchors.right: triggerStrip.left
-                anchors.rightMargin: UIScale.spacingMd
-                anchors.bottomMargin: UIScale.spacingMd
-                width: Math.round(90 * UIScale.value)
-                height: Math.round(32 * UIScale.value)
-                radius: UIScale.radiusMd
-                color: closeMa.containsMouse ? Colors.withAlpha(Colors.text, 0.12) : Colors.withAlpha(Colors.text, 0.06)
-                border.color: Colors.withAlpha(Colors.text, 0.10)
-                border.width: 1
-                opacity: root.latched ? 1.0 : 0.0
-                Behavior on color {
-                    ColorAnimation {
-                        duration: Anim.micro
-                    }
-                }
-                Behavior on opacity {
-                    NumberAnimation {
-                        duration: Anim.medium
-                    }
-                }
-
-                Text {
-                    anchors.centerIn: parent
-                    text: "CLOSE"
-                    color: Colors.textDim
-                    font.pixelSize: UIScale.fontCaption
-                    font.letterSpacing: 1
-                }
-
-                MouseArea {
-                    id: closeMa
-                    anchors.fill: parent
-                    hoverEnabled: true
-                    enabled: root.latched
-                    onClicked: root.unlatch()
                 }
             }
         }

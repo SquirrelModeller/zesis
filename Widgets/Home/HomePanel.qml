@@ -16,6 +16,7 @@ import "../Sound"
 import "../SysMon"
 import "../ThemeSwitcher"
 import "../NixPurity"
+import "../Config"
 import "../User"
 import "../Wifi"
 import "../../"
@@ -336,7 +337,7 @@ Item {
 
                         Text {
                             visible: root.searchText !== ""
-                            text: ""
+                            text: ""
                             font.family: "Material Icons"
                             font.pixelSize: UIScale.fontLead
                             color: Colors.muted
@@ -384,7 +385,6 @@ Item {
                             Layout.fillWidth: true
                             Layout.bottomMargin: Math.round(2 * UIScale.value)
                         }
-
                         NavItem {
                             navId: "user"
                             navLabel: "User"
@@ -395,7 +395,37 @@ Item {
                             Layout.bottomMargin: Math.round(2 * UIScale.value)
                         }
 
-                        // WIDGETS section
+                        Text {
+                            text: "PERSONALIZATION"
+                            color: Colors.muted
+                            font.pixelSize: UIScale.fontTiny
+                            font.weight: Font.Bold
+                            font.letterSpacing: 1.5
+                            leftPadding: UIScale.spacingSm
+                            Layout.topMargin: UIScale.radiusMd
+                            Layout.bottomMargin: UIScale.spacingXs
+                            visible: root.searchText === "" || ["appearance", "wallpaper"].some(s => s.includes(root.searchText.toLowerCase()))
+                        }
+
+                        NavItem {
+                            navId: "appearance"
+                            navLabel: "Appearance"
+                            navIcon: "󰘮"
+                            isNavSelected: root.section === "appearance"
+                            visible: root.searchText === "" || "appearance".includes(root.searchText.toLowerCase())
+                            Layout.fillWidth: true
+                            Layout.bottomMargin: Math.round(2 * UIScale.value)
+                        }
+                        NavItem {
+                            navId: "wallpaper"
+                            navLabel: "Wallpaper"
+                            navIcon: ""
+                            isNavSelected: root.section === "wallpaper"
+                            visible: root.searchText === "" || "wallpaper".includes(root.searchText.toLowerCase())
+                            Layout.fillWidth: true
+                            Layout.bottomMargin: Math.round(2 * UIScale.value)
+                        }
+
                         Text {
                             text: "WIDGETS"
                             color: Colors.muted
@@ -403,16 +433,35 @@ Item {
                             font.weight: Font.Bold
                             font.letterSpacing: 1.5
                             leftPadding: UIScale.spacingSm
+                            Layout.topMargin: UIScale.radiusMd
                             Layout.bottomMargin: UIScale.spacingXs
-                            visible: root.searchText === "" || ["wallpaper", "sound", "notifications", "display & scale", "app switcher"].some(s => s.includes(root.searchText.toLowerCase()))
+                            visible: root.searchText === "" || ["bar", "clock", "calendar", "sound", "app switcher", "workspace", "notifications"].some(s => s.includes(root.searchText.toLowerCase()))
                         }
 
                         NavItem {
-                            navId: "wallpaper"
-                            navLabel: "Wallpaper"
-                            navIcon: ""
-                            isNavSelected: root.section === "wallpaper"
-                            visible: root.searchText === "" || "wallpaper".includes(root.searchText.toLowerCase())
+                            navId: "bar"
+                            navLabel: "Bar"
+                            navIcon: "󰕪"
+                            isNavSelected: root.section === "bar"
+                            visible: root.searchText === "" || "bar".includes(root.searchText.toLowerCase())
+                            Layout.fillWidth: true
+                            Layout.bottomMargin: Math.round(2 * UIScale.value)
+                        }
+                        NavItem {
+                            navId: "clock"
+                            navLabel: "Clock"
+                            navIcon: ""
+                            isNavSelected: root.section === "clock"
+                            visible: root.searchText === "" || "clock".includes(root.searchText.toLowerCase())
+                            Layout.fillWidth: true
+                            Layout.bottomMargin: Math.round(2 * UIScale.value)
+                        }
+                        NavItem {
+                            navId: "calendar"
+                            navLabel: "Calendar"
+                            navIcon: "󰺻"
+                            isNavSelected: root.section === "calendar"
+                            visible: root.searchText === "" || "calendar".includes(root.searchText.toLowerCase())
                             Layout.fillWidth: true
                             Layout.bottomMargin: Math.round(2 * UIScale.value)
                         }
@@ -452,36 +501,7 @@ Item {
                             Layout.fillWidth: true
                             Layout.bottomMargin: Math.round(2 * UIScale.value)
                         }
-                        NavItem {
-                            navId: "display"
-                            navLabel: "Display & Scale"
-                            navIcon: ""
-                            isNavSelected: root.section === "display"
-                            visible: root.searchText === "" || "display & scale".includes(root.searchText.toLowerCase())
-                            Layout.fillWidth: true
-                            Layout.bottomMargin: Math.round(2 * UIScale.value)
-                        }
 
-                        NavItem {
-                            navId: "clock"
-                            navLabel: "Clock"
-                            navIcon: ""
-                            isNavSelected: root.section === "clock"
-                            visible: root.searchText === "" || "clock".includes(root.searchText.toLowerCase())
-                            Layout.fillWidth: true
-                            Layout.bottomMargin: Math.round(2 * UIScale.value)
-                        }
-                        NavItem {
-                            navId: "calendar"
-                            navLabel: "Calendar"
-                            navIcon: "󰺻"
-                            isNavSelected: root.section === "calendar"
-                            visible: root.searchText === "" || "calendar".includes(root.searchText.toLowerCase())
-                            Layout.fillWidth: true
-                            Layout.bottomMargin: Math.round(2 * UIScale.value)
-                        }
-
-                        // SYSTEM section
                         Text {
                             text: "SYSTEM"
                             color: Colors.muted
@@ -491,9 +511,18 @@ Item {
                             leftPadding: UIScale.spacingSm
                             Layout.topMargin: UIScale.radiusMd
                             Layout.bottomMargin: UIScale.spacingXs
-                            visible: root.searchText === "" || ["bluetooth", "wi-fi", "network", "system monitor", "about"].concat(NixPurityService.isNixOS ? ["nix purity"] : []).some(s => s.includes(root.searchText.toLowerCase()))
+                            visible: root.searchText === "" || ["display & scale", "bluetooth", "wi-fi", "network", "system monitor", "about"].concat(NixPurityService.isNixOS ? ["nix purity"] : []).some(s => s.includes(root.searchText.toLowerCase()))
                         }
 
+                        NavItem {
+                            navId: "display"
+                            navLabel: "Display & Scale"
+                            navIcon: ""
+                            isNavSelected: root.section === "display"
+                            visible: root.searchText === "" || "display & scale".includes(root.searchText.toLowerCase())
+                            Layout.fillWidth: true
+                            Layout.bottomMargin: Math.round(2 * UIScale.value)
+                        }
                         NavItem {
                             navId: "bluetooth"
                             navLabel: "Bluetooth"
@@ -607,6 +636,10 @@ Item {
                 sourceComponent: {
                     if (root.section === "home")
                         return dashboardComp;
+                    if (root.section === "appearance")
+                        return appearancePanelComp;
+                    if (root.section === "bar")
+                        return barPanelComp;
                     if (root.section === "user")
                         return userPanelComp;
                     if (root.section === "bluetooth")
@@ -648,6 +681,14 @@ Item {
             Component {
                 id: userPanelComp
                 UserPanel {}
+            }
+            Component {
+                id: appearancePanelComp
+                AppearancePanel {}
+            }
+            Component {
+                id: barPanelComp
+                BarPanel {}
             }
             Component {
                 id: bluetoothPanelComp

@@ -9,7 +9,7 @@ Item {
     id: root
 
     visible: AirPodsService.connected
-    implicitWidth: pill.implicitWidth
+    implicitWidth: AirPodsService.connected ? pill.implicitWidth : 0
     implicitHeight: Math.round(30 * UIScale.value)
 
     // bar indicator

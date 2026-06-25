@@ -5,6 +5,7 @@ import QtQuick.Controls
 import "../Calendar"
 import "../User"
 import "../../"
+import "../Weather"
 
 Item {
     id: root
@@ -312,15 +313,26 @@ Item {
                 color: Colors.withAlpha(Colors.outline, 0.5)
             }
 
-            // Right: mini calendar + jump
+            // Right: weather + calendar stacked
             Item {
-                Layout.preferredWidth: Math.round(296 * UIScale.value)
-                Layout.maximumWidth: Math.round(296 * UIScale.value)
+                Layout.preferredWidth: Math.round(320 * UIScale.value)
+                Layout.maximumWidth: Math.round(320 * UIScale.value)
                 Layout.fillHeight: true
 
                 ColumnLayout {
                     anchors.fill: parent
                     spacing: 0
+
+                    WeatherReport {
+                        Layout.fillWidth: true
+                        Layout.fillHeight: true
+                    }
+
+                    Rectangle {
+                        Layout.fillWidth: true
+                        implicitHeight: 1
+                        color: Colors.withAlpha(Colors.outline, 0.5)
+                    }
 
                     Item {
                         implicitHeight: UIScale.spacingMd
@@ -331,7 +343,7 @@ Item {
                     }
 
                     Item {
-                        Layout.fillHeight: true
+                        implicitHeight: UIScale.spacingMd
                     }
 
                     Rectangle {

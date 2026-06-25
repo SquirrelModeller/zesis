@@ -19,6 +19,11 @@ import "Widgets/Display"
 import "Widgets/Calendar"
 import "Widgets/Home"
 import "Widgets/Sound"
+// These imports are needed for BarItemsService to function correctly
+import "Widgets/Brightness"
+import "Widgets/Mic"
+import "Widgets/Battery"
+import "Widgets/Record"
 
 Scope {
     // Singletons instantiated at startup for startup-apply logic
@@ -90,7 +95,7 @@ Scope {
             }
 
             Connections {
-                target: trayWidget
+                target: LockService
                 function onLockRequested() {
                     lockScreen.triggerLock();
                 }

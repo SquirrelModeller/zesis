@@ -2,8 +2,8 @@ import QtQuick
 import "../../"
 
 Item {
-    implicitWidth: Math.round(30 * UIScale.value)
-    implicitHeight: Math.round(30 * UIScale.value)
+    implicitWidth: visible ? Math.round(30 * UIScale.value) : 0
+    implicitHeight: visible ? Math.round(30 * UIScale.value) : 0
 
     property string icon: ""
     property bool active: false

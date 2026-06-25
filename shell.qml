@@ -19,7 +19,6 @@ import "Widgets/Display"
 import "Widgets/Calendar"
 import "Widgets/Home"
 import "Widgets/Sound"
-import "Widgets/PumpPanel"
 
 Scope {
     // Singletons instantiated at startup for startup-apply logic
@@ -243,6 +242,7 @@ Scope {
     }
 
     // PumpPanel {}
+    // ValvePanel {}
 
     IpcHandler {
         target: "home"

@@ -14,6 +14,8 @@ Item {
     readonly property var _colonModes: ["breathe", "on", "off", "hidden"]
     readonly property var _widthOptions: ["Fixed", "Fluid"]
     readonly property var _widthModes: ["fixed", "fluid"]
+    readonly property var _showDateOptions: ["Off", "On"]
+    readonly property var _showDateValues: [false, true]
 
     ColumnLayout {
         anchors.fill: parent
@@ -164,6 +166,50 @@ Item {
                             model: root._widthOptions
                             currentIndex: root._widthModes.indexOf(ClockSettings.widthMode)
                             onActivated: idx => ClockSettings.writeWidthMode(root._widthModes[idx])
+                        }
+                    }
+                }
+
+                Rectangle {
+                    Layout.fillWidth: true
+                    Layout.leftMargin: UIScale.panelPad
+                    Layout.rightMargin: UIScale.panelPad
+                    implicitHeight: Math.round(56 * UIScale.value)
+                    radius: UIScale.radiusMd
+                    color: Colors.withAlpha(Colors.text, 0.03)
+                    border.color: Colors.withAlpha(Colors.text, 0.06)
+                    border.width: 1
+
+                    RowLayout {
+                        anchors.fill: parent
+                        anchors.leftMargin: UIScale.spacingMd
+                        anchors.rightMargin: UIScale.spacingMd
+                        spacing: UIScale.spacingSm
+
+                        Column {
+                            spacing: Math.round(2 * UIScale.value)
+                            Text {
+                                text: "Show Date"
+                                color: Colors.text
+                                font.pixelSize: UIScale.fontSmall
+                                font.weight: Font.DemiBold
+                            }
+                            Text {
+                                text: "Prefix with day and date"
+                                color: Colors.textDim
+                                font.pixelSize: UIScale.fontTiny
+                            }
+                        }
+
+                        Item {
+                            Layout.fillWidth: true
+                        }
+
+                        StyledComboBox {
+                            Layout.preferredWidth: Math.round(140 * UIScale.value)
+                            model: root._showDateOptions
+                            currentIndex: ClockSettings.showDate ? 1 : 0
+                            onActivated: idx => ClockSettings.writeShowDate(root._showDateValues[idx])
                         }
                     }
                 }

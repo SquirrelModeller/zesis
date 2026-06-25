@@ -36,8 +36,14 @@ Item {
         return 4 * cellW + colonW + 4 * charGap;
     }
 
-    // Pill resizes with content, in fixed mode it never shrinks below HH:MM width
-    implicitWidth: BarConfig.isVertical ? (2 * cellW + charGap + hPad * 2) : ((widthMode === "fixed" ? Math.max(charsRow.implicitWidth, _minContentW) : charsRow.implicitWidth) + hPad * 2)
+    // 14 chars total in date mode, time colon disappears in hidden mode -> 13
+    readonly property real _dateMinContentW: {
+        var n = colonMode === "hidden" ? 13 : 14;
+        return n * cellW + (n - 1) * charGap;
+    }
+
+    // Fixed mode never shrinks below the full date/time width, fluid follows content freely
+    implicitWidth: BarConfig.isVertical ? (2 * cellW + charGap + hPad * 2) : ((widthMode === "fixed" ? Math.max(charsRow.implicitWidth, ClockSettings.showDate ? _dateMinContentW : _minContentW) : charsRow.implicitWidth) + hPad * 2)
     implicitHeight: BarConfig.isVertical ? (2 * cellH + vPad * 3) : (cellH + vPad * 2)
 
     ListModel {
@@ -86,12 +92,35 @@ Item {
         return [Math.floor(h / 10).toString(), (h % 10).toString(), ":", Math.floor(m / 10).toString(), (m % 10).toString()];
     }
 
+    function _dateTimeChars(date) {
+        var days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+        var day = days[date.getDay()];
+        var d = date.getDate();
+        var h = date.getHours();
+        var m = date.getMinutes();
+        var arr = day.split("");
+        arr.push(" ");
+        arr.push(d >= 10 ? Math.floor(d / 10).toString() : " ");
+        arr.push((d % 10).toString());
+        arr.push(" ");
+        arr.push("/");
+        arr.push(" ");
+        arr.push(Math.floor(h / 10).toString());
+        arr.push((h % 10).toString());
+        arr.push(":");
+        arr.push(Math.floor(m / 10).toString());
+        arr.push((m % 10).toString());
+        return arr;
+    }
+
     function _resolveTarget(date) {
         var h = date.getHours();
         if (h >= 2 && h < 5 && !root._altLatch) {
             root._altLatch = true;
             return ["U", " ", "U", "P", " ", "L", "8", "?"];
         }
+        if (ClockSettings.showDate && !BarConfig.isVertical)
+            return _dateTimeChars(date);
         return _timeChars(h, date.getMinutes());
     }
 
@@ -155,6 +184,9 @@ Item {
 
     Component.onCompleted: {
         ClockSettings.altModeRequested.connect(root.triggerAltMode);
+        ClockSettings.showDateChanged.connect(function () {
+            root._animateTo(root._resolveTarget(root._date));
+        });
         var chars = _resolveTarget(new Date());
         for (var i = 0; i < chars.length; i++)
             slotsModel.append({
@@ -167,7 +199,10 @@ Item {
     function snapTo(h, m) {
         _state = 0;
         slotsModel.clear();
-        var chars = _timeChars(h, m);
+        var d = new Date();
+        d.setHours(h);
+        d.setMinutes(m);
+        var chars = ClockSettings.showDate && !BarConfig.isVertical ? _dateTimeChars(d) : _timeChars(h, m);
         for (var i = 0; i < chars.length; i++)
             slotsModel.append({
                 ch: chars[i]
@@ -177,7 +212,10 @@ Item {
 
     // Trigger typewriter animation to the given time (used by test panel)
     function simulateTo(h, m) {
-        _animateTo(_timeChars(h, m));
+        var d = new Date();
+        d.setHours(h);
+        d.setMinutes(m);
+        _animateTo(ClockSettings.showDate && !BarConfig.isVertical ? _dateTimeChars(d) : _timeChars(h, m));
     }
 
     function triggerAltMode() {
@@ -317,7 +355,7 @@ Item {
 
         Text {
             anchors.centerIn: parent
-            text: parent.ch
+            text: parent.ch === "/" ? ":" : parent.ch
             font.pixelSize: Math.round(21 * UIScale.value)
             font.bold: true
             font.family: "monospace"

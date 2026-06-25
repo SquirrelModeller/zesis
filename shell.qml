@@ -19,6 +19,7 @@ import "Widgets/Display"
 import "Widgets/Calendar"
 import "Widgets/Home"
 import "Widgets/Sound"
+import "Widgets/PumpPanel"
 
 Scope {
     // Singletons instantiated at startup for startup-apply logic
@@ -240,6 +241,8 @@ Scope {
             anchors.fill: parent
         }
     }
+
+    // PumpPanel {}
 
     IpcHandler {
         target: "home"

@@ -11,6 +11,7 @@ Singleton {
             label: "System Tray",
             src: "SystrayItems.qml"
         },
+        // The repaint of this widget causes 0.6% hits on the CPU in regular intervals
         {
             id: "sysmon",
             label: "System Monitor",

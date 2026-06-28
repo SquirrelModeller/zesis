@@ -22,35 +22,29 @@ Item {
     property bool _colonOn: true
 
     property var _date: new Date()
-    property bool _altLatch: false  // consumed on first fire, resets after 5 AM
-    property int _state: 0     // 0=IDLE  1=DELETING  2=TYPING
-    property var _target: []
-    property int _from: 0
-    property int _cursor: 0
-    property bool _cursorOn: true
+    property bool _altLatch: false
 
-    // Minimum content width for standard HH:MM display (respects colon visibility)
     readonly property real _minContentW: {
         if (colonMode === "hidden")
             return 4 * cellW + 3 * charGap;
         return 4 * cellW + colonW + 4 * charGap;
     }
 
-    // 14 chars total in date mode, time colon disappears in hidden mode -> 13
     readonly property real _dateMinContentW: {
         var n = colonMode === "hidden" ? 13 : 14;
         return n * cellW + (n - 1) * charGap;
     }
 
-    // Fixed mode never shrinks below the full date/time width, fluid follows content freely
     implicitWidth: BarConfig.isVertical ? (2 * cellW + charGap + hPad * 2) : ((widthMode === "fixed" ? Math.max(charsRow.implicitWidth, ClockSettings.showDate ? _dateMinContentW : _minContentW) : charsRow.implicitWidth) + hPad * 2)
     implicitHeight: BarConfig.isVertical ? (2 * cellH + vPad * 3) : (cellH + vPad * 2)
 
-    ListModel {
-        id: slotsModel
+    TypewriterEngine {
+        id: engine
     }
 
-    // Second tick: colon blink + minute change detection
+    // Clock-specific logic
+
+    // Second tick: colon blink + minute-change detection
     Timer {
         running: true
         repeat: true
@@ -66,37 +60,20 @@ Item {
             var h = now.getHours();
             if (h < 2 || h >= 5)
                 root._altLatch = false;
-            root._animateTo(root._resolveTarget(now));
+            engine.animateTo(root._resolveTarget(now));
         }
     }
 
-    // Cursor blink, only active during TYPING
-    Timer {
-        interval: 450
-        repeat: true
-        running: root._state === 2
-        onTriggered: root._cursorOn = !root._cursorOn
-        onRunningChanged: if (!running)
-            root._cursorOn = true
-    }
-
-    // Keystroke stepping
-    Timer {
-        interval: 100
-        repeat: true
-        running: root._state !== 0
-        onTriggered: root._step()
-    }
-
     function _timeChars(h, m) {
-        return [Math.floor(h / 10).toString(), (h % 10).toString(), ":", Math.floor(m / 10).toString(), (m % 10).toString()];
+        var displayH = ClockSettings.use12Hour ? (h % 12 || 12) : h;
+        return [Math.floor(displayH / 10).toString(), (displayH % 10).toString(), ":", Math.floor(m / 10).toString(), (m % 10).toString()];
     }
 
     function _dateTimeChars(date) {
         var days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
         var day = days[date.getDay()];
         var d = date.getDate();
-        var h = date.getHours();
+        var h = ClockSettings.use12Hour ? (date.getHours() % 12 || 12) : date.getHours();
         var m = date.getMinutes();
         var arr = day.split("");
         arr.push(" ");
@@ -124,102 +101,34 @@ Item {
         return _timeChars(h, date.getMinutes());
     }
 
-    function _currentChars() {
-        var arr = [];
-        for (var i = 0; i < slotsModel.count; i++)
-            arr.push(slotsModel.get(i).ch);
-        return arr;
-    }
-
-    function _animateTo(newTarget) {
-        if (_state !== 0) {
-            // Snap to in-progress target so we compare from a clean slate
-            _state = 0;
-            slotsModel.clear();
-            for (var j = 0; j < _target.length; j++)
-                slotsModel.append({
-                    ch: _target[j]
-                });
-        }
-        var old = _currentChars();
-        var minLen = Math.min(old.length, newTarget.length);
-        var from = minLen;
-        for (var i = 0; i < minLen; i++) {
-            if (old[i] !== newTarget[i]) {
-                from = i;
-                break;
-            }
-        }
-        if (from === old.length && old.length === newTarget.length)
-            // identical, nothing to do
-            return;
-        _target = newTarget;
-        _from = from;
-        if (slotsModel.count > from) {
-            _state = 1;  // delete excess from the right first
-        } else {
-            _cursor = from;
-            _state = 2;  // nothing to delete, go straight to typing
-        }
-    }
-
-    function _step() {
-        if (_state === 1) {
-            slotsModel.remove(slotsModel.count - 1);
-            if (slotsModel.count <= _from) {
-                _cursor = _from;
-                _state = 2;
-            }
-        } else if (_state === 2) {
-            if (_cursor < _target.length) {
-                slotsModel.append({
-                    ch: _target[_cursor]
-                });
-                _cursor++;
-            } else {
-                _state = 0;
-            }
-        }
-    }
-
     Component.onCompleted: {
         ClockSettings.altModeRequested.connect(root.triggerAltMode);
         ClockSettings.showDateChanged.connect(function () {
-            root._animateTo(root._resolveTarget(root._date));
+            engine.animateTo(root._resolveTarget(root._date));
         });
-        var chars = _resolveTarget(new Date());
-        for (var i = 0; i < chars.length; i++)
-            slotsModel.append({
-                ch: chars[i]
-            });
-        _target = chars;
+        ClockSettings.use12HourChanged.connect(function () {
+            engine.animateTo(root._resolveTarget(root._date));
+        });
+        engine.snapTo(_resolveTarget(new Date()));
     }
 
-    // Instantly display a given time (used by test panel)
+    // Used by ClockPanel test UI
     function snapTo(h, m) {
-        _state = 0;
-        slotsModel.clear();
         var d = new Date();
         d.setHours(h);
         d.setMinutes(m);
-        var chars = ClockSettings.showDate && !BarConfig.isVertical ? _dateTimeChars(d) : _timeChars(h, m);
-        for (var i = 0; i < chars.length; i++)
-            slotsModel.append({
-                ch: chars[i]
-            });
-        _target = chars;
+        engine.snapTo(ClockSettings.showDate && !BarConfig.isVertical ? _dateTimeChars(d) : _timeChars(h, m));
     }
 
-    // Trigger typewriter animation to the given time (used by test panel)
     function simulateTo(h, m) {
         var d = new Date();
         d.setHours(h);
         d.setMinutes(m);
-        _animateTo(ClockSettings.showDate && !BarConfig.isVertical ? _dateTimeChars(d) : _timeChars(h, m));
+        engine.animateTo(ClockSettings.showDate && !BarConfig.isVertical ? _dateTimeChars(d) : _timeChars(h, m));
     }
 
     function triggerAltMode() {
-        _animateTo(["U", " ", "U", "P", " ", "L", "8", "?"]);
+        engine.animateTo(["U", " ", "U", "P", " ", "L", "8", "?"]);
     }
 
     Rectangle {
@@ -240,13 +149,12 @@ Item {
         spacing: root.charGap
 
         Repeater {
-            model: slotsModel
+            model: engine.model
             delegate: SlotItem {}
         }
 
-        // Blinking cursor at the typing frontier
         Item {
-            visible: root._state === 2 && root._cursor < root._target.length
+            visible: engine.cursorVisible
             width: root.cellW
             height: root.cellH
             Text {
@@ -255,24 +163,24 @@ Item {
                 font.pixelSize: Math.round(21 * UIScale.value)
                 font.bold: true
                 font.family: "monospace"
-                color: root._cursorOn ? Colors.accent : Colors.withAlpha(Colors.accent, 0.12)
+                color: engine.cursorOn ? Colors.accent : Colors.withAlpha(Colors.accent, 0.12)
             }
         }
     }
 
-    // Vertical stacked layout, same slotsModel, two filtered views
+    // Vertical stacked layout (bar on left/right)
     Column {
         visible: BarConfig.isVertical
         anchors.centerIn: parent
         spacing: root.vPad
 
-        // Hours row: indices 0–1
+        // Hours row, model slots 0–1
         Row {
             anchors.horizontalCenter: parent.horizontalCenter
             spacing: root.charGap
 
             Repeater {
-                model: slotsModel
+                model: engine.model
                 delegate: Item {
                     required property string ch
                     required property int index
@@ -290,7 +198,7 @@ Item {
                 }
             }
             Item {
-                visible: root._state === 2 && root._cursor < 2
+                visible: engine.animState === 2 && engine.cursor < 2
                 width: root.cellW
                 height: root.cellH
                 Text {
@@ -299,18 +207,18 @@ Item {
                     font.pixelSize: Math.round(21 * UIScale.value)
                     font.bold: true
                     font.family: "monospace"
-                    color: root._cursorOn ? Colors.accent : Colors.withAlpha(Colors.accent, 0.12)
+                    color: engine.cursorOn ? Colors.accent : Colors.withAlpha(Colors.accent, 0.12)
                 }
             }
         }
 
-        // Minutes row: indices > 2 (colon at index 2 is skipped)
+        // Minutes row, model slots > 2 (colon at index 2 is skipped)
         Row {
             anchors.horizontalCenter: parent.horizontalCenter
             spacing: root.charGap
 
             Repeater {
-                model: slotsModel
+                model: engine.model
                 delegate: Item {
                     required property string ch
                     required property int index
@@ -328,7 +236,7 @@ Item {
                 }
             }
             Item {
-                visible: root._state === 2 && root._cursor > 2
+                visible: engine.animState === 2 && engine.cursor > 2
                 width: root.cellW
                 height: root.cellH
                 Text {
@@ -337,7 +245,7 @@ Item {
                     font.pixelSize: Math.round(21 * UIScale.value)
                     font.bold: true
                     font.family: "monospace"
-                    color: root._cursorOn ? Colors.accent : Colors.withAlpha(Colors.accent, 0.12)
+                    color: engine.cursorOn ? Colors.accent : Colors.withAlpha(Colors.accent, 0.12)
                 }
             }
         }
@@ -348,7 +256,6 @@ Item {
 
         readonly property bool _isColon: ch === ":"
 
-        // Hidden colon takes no space so the pill tightens
         visible: !(_isColon && root.colonMode === "hidden")
         width: _isColon ? root.colonW : root.cellW
         height: root.cellH

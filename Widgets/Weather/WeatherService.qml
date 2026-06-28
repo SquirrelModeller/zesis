@@ -21,6 +21,7 @@ Singleton {
     property int weatherCode: 0
     property bool isDay: true
     property real windspeed: 0
+    property int humidity: 0
 
     property var hourly: []    // [{timeLabel, hour, temperature, weatherCode, precipProb}]
     property var daily: []     // [{label, weatherCode, tempMax, tempMin, precipProb}]
@@ -128,7 +129,7 @@ Singleton {
 
     function _fetchWeather(lat, lon, name) {
         root.locationName = name;
-        var url = "https://api.open-meteo.com/v1/forecast" + "?latitude=" + lat.toFixed(4) + "&longitude=" + lon.toFixed(4) + "&hourly=temperature_2m,precipitation_probability,weathercode" + "&daily=weathercode,temperature_2m_max,temperature_2m_min,precipitation_probability_max" + "&current_weather=true&forecast_days=7&timezone=auto";
+        var url = "https://api.open-meteo.com/v1/forecast" + "?latitude=" + lat.toFixed(4) + "&longitude=" + lon.toFixed(4) + "&current=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m,is_day" + "&hourly=temperature_2m,precipitation_probability,weathercode" + "&daily=weathercode,temperature_2m_max,temperature_2m_min,precipitation_probability_max" + "&forecast_days=7&timezone=auto";
         weatherProc._buf = "";
         weatherProc.command = ["sh", "-c", "curl -sf --max-time 10 '" + url + "'"];
         weatherProc.running = false;
@@ -136,11 +137,12 @@ Singleton {
     }
 
     function _parseWeather(data) {
-        var cw = data.current_weather;
-        root.temperature = Math.round(cw.temperature);
-        root.weatherCode = cw.weathercode;
+        var cw = data.current;
+        root.temperature = Math.round(cw.temperature_2m);
+        root.weatherCode = cw.weather_code;
         root.isDay = cw.is_day === 1;
-        root.windspeed = Math.round(cw.windspeed);
+        root.windspeed = Math.round(cw.wind_speed_10m);
+        root.humidity = Math.round(cw.relative_humidity_2m);
 
         // Find the index of the current hour in the hourly array.
         // cw.time is "YYYY-MM-DDTHH:MM"; hourly times share the same format.

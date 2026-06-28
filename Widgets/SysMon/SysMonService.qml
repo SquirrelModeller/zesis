@@ -11,6 +11,7 @@ Singleton {
     readonly property string _configDir: (Quickshell.env("XDG_CACHE_HOME") || (Quickshell.env("HOME") + "/.cache")) + "/zesis"
     readonly property string _configPath: _configDir + "/sysmon.json"
 
+    property bool desktopWidgetActive: false
     property bool popupOpen: false
     property bool panelOpen: false
     property int activeTab: 0  // 0=CPU, 1=Memory, 2=GPU, 3=Net, 4=Disk, 5=Settings
@@ -104,6 +105,7 @@ Singleton {
                 value: p.rss
             }))
 
+    onDesktopWidgetActiveChanged: sendRequest()
     onPopupOpenChanged: sendRequest()
     onPanelOpenChanged: sendRequest()
     onActiveTabChanged: sendRequest()
@@ -145,30 +147,43 @@ Singleton {
     }
 
     function sendRequest() {
-        var tokens = ["cpu"];
+        var wantMem = desktopWidgetActive;
+        var wantGpu = desktopWidgetActive;
+        var wantNet = desktopWidgetActive;
+        var wantDisk = desktopWidgetActive;
+        var wantProcs = false;
+
         if (popupOpen || panelOpen) {
-            if (activeTab === 0) {
-                tokens.push("procs");
-                if (filterZero)
-                    tokens.push("nozero");
-                tokens.push("limit", String(procLimit));
-            }
+            if (activeTab === 0)
+                wantProcs = true;
             if (activeTab === 1) {
-                tokens.push("mem", "procs");
-                if (filterZero)
-                    tokens.push("nozero");
-                tokens.push("limit", String(procLimit));
+                wantMem = true;
+                wantProcs = true;
             }
             if (activeTab === 2) {
-                tokens.push("gpu", "procs");
-                if (filterZero)
-                    tokens.push("nozero");
-                tokens.push("limit", String(procLimit));
+                wantGpu = true;
+                wantProcs = true;
             }
             if (activeTab === 3)
-                tokens.push("net");
+                wantNet = true;
             if (activeTab === 4)
-                tokens.push("disk");
+                wantDisk = true;
+        }
+
+        var tokens = ["cpu"];
+        if (wantMem)
+            tokens.push("mem");
+        if (wantGpu)
+            tokens.push("gpu");
+        if (wantNet)
+            tokens.push("net");
+        if (wantDisk)
+            tokens.push("disk");
+        if (wantProcs) {
+            tokens.push("procs");
+            if (filterZero)
+                tokens.push("nozero");
+            tokens.push("limit", String(procLimit));
         }
         proc.write(tokens.join(" ") + "\n");
     }
@@ -177,7 +192,7 @@ Singleton {
         id: proc
         running: true
         stdinEnabled: true
-        command: ["athroisma"]
+        command: ["athroisma", "cpu"]
         stdout: SplitParser {
             onRead: data => {
                 try {

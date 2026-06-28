@@ -33,6 +33,7 @@ Rectangle {
                 id: trayDelegate
                 required property var modelData
                 Layout.alignment: Qt.AlignCenter
+                active: BarItemsService.isEnabled(trayDelegate.modelData.id)
                 visible: BarItemsService.isEnabled(trayDelegate.modelData.id)
 
                 Component.onCompleted: {

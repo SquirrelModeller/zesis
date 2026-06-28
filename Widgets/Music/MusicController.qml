@@ -1,3 +1,5 @@
+pragma ComponentBehavior: Bound
+
 import QtQuick
 import QtQuick.Controls
 import Quickshell
@@ -7,6 +9,8 @@ import "../../"
 Item {
     id: root
     anchors.fill: parent
+
+    property bool popupVisible: false
 
     SwipeView {
         id: swiper
@@ -22,6 +26,7 @@ Item {
             MprisItem {
                 required property MprisPlayer modelData
                 player: modelData
+                popupVisible: root.popupVisible
                 discScale: 0.7
                 width: swiper.width
                 height: swiper.height

@@ -1,3 +1,5 @@
+pragma ComponentBehavior: Bound
+
 import QtQuick
 import QtQuick.Effects
 import QtQuick.Shapes
@@ -9,10 +11,10 @@ Rectangle {
 
     required property MprisPlayer player
     required property real discScale
-    readonly property real rotationStep: 3
-
+    property bool popupVisible: false
     readonly property color colOverlay: Colors.withAlpha(Colors.bg, 0.70)
     readonly property color colSeekKnob: Colors.accent
+    property real _discAngle: 0
 
     // Cache art URL per-track: clear on title change (shows fallback vinyl
     // while the new thumbnail downloads), latch on non-empty URL so Firefox's
@@ -25,6 +27,8 @@ Rectangle {
         var h = mprisroot._now.getHours();
         return h >= 3 && h < 5;
     }
+
+    readonly property bool _isPlaying: player.playbackState === MprisPlaybackState.Playing
 
     Component.onCompleted: {
         if (player.trackArtUrl !== "")
@@ -63,6 +67,17 @@ Rectangle {
         onTriggered: mprisroot._now = new Date()
     }
 
+    // 30fps driver for disc rotation + seeker position
+    Timer {
+        interval: 33
+        repeat: true
+        running: mprisroot._isPlaying && mprisroot.popupVisible
+        onTriggered: {
+            mprisroot._discAngle = (mprisroot._discAngle + interval * 6.0 / 1000.0) % 360;
+            mprisroot.player.positionChanged();
+        }
+    }
+
     radius: Math.round(20 * UIScale.value)
     topLeftRadius: 0
     topRightRadius: 0
@@ -79,7 +94,7 @@ Rectangle {
         layer.enabled: true
     }
 
-    // Blurred album art background + overlay, masked together to rounded corners
+    // Blurred album art background + overlay, masked to rounded corners
     Item {
         anchors.fill: parent
         layer.enabled: true
@@ -105,7 +120,6 @@ Rectangle {
             }
         }
 
-        // Dark warm overlay
         Rectangle {
             anchors.fill: parent
             color: mprisroot.colOverlay
@@ -127,6 +141,7 @@ Rectangle {
             Repeater {
                 model: 40
                 Text {
+                    required property int index
                     width: parent.width
                     text: "TETOTETOTETOTETOTETOTETOTETOTETOTETOTETO"
                     color: Qt.rgba(1, 1, 1, 0.07)
@@ -174,39 +189,37 @@ Rectangle {
         }
     }
 
-    // Spinning album art, layered on top of vinyl
-    Image {
-        id: albumArt
+    // Spinning album art
+    Item {
+        id: spinWrapper
         anchors.verticalCenter: mprisroot.bottom
         anchors.horizontalCenter: mprisroot.horizontalCenter
-        fillMode: Image.PreserveAspectCrop
-        source: mprisroot._artUrl
-        retainWhileLoading: true
-        cache: false
         width: parent.width * mprisroot.discScale
         height: width
-        layer.enabled: true
-        layer.smooth: true
-        rotation: 0
+        rotation: mprisroot._discAngle
 
-        layer.effect: MultiEffect {
-            antialiasing: true
-            maskEnabled: true
-            maskSpreadAtMin: 1.0
-            maskThresholdMax: 1.0
-            maskThresholdMin: 0.5
-            maskSource: Image {
-                layer.smooth: true
-                mipmap: true
-                smooth: true
-                source: "../../Assets/AlbumCover.svg"
-            }
-        }
+        Image {
+            id: albumArt
+            anchors.fill: parent
+            fillMode: Image.PreserveAspectCrop
+            source: mprisroot._artUrl
+            retainWhileLoading: true
+            cache: false
+            layer.enabled: true
+            layer.smooth: true
 
-        Behavior on rotation {
-            NumberAnimation {
-                duration: rotateTimer.interval
-                easing.type: Easing.Linear
+            layer.effect: MultiEffect {
+                antialiasing: true
+                maskEnabled: true
+                maskSpreadAtMin: 1.0
+                maskThresholdMax: 1.0
+                maskThresholdMin: 0.5
+                maskSource: Image {
+                    layer.smooth: true
+                    mipmap: true
+                    smooth: true
+                    source: "../../Assets/AlbumCover.svg"
+                }
             }
         }
     }
@@ -233,7 +246,7 @@ Rectangle {
             width: parent.width
             height: parent.height
             layer.enabled: true
-            layer.samples: 3
+            layer.samples: 4
 
             ShapePath {
                 strokeWidth: Math.round(10 * UIScale.value)
@@ -269,6 +282,7 @@ Rectangle {
             width: Math.round(14 * UIScale.value)
             height: Math.round(14 * UIScale.value)
             radius: Math.round(7 * UIScale.value)
+            antialiasing: true
             color: mprisroot.colSeekKnob
             x: circularSeeker.width / 2 + circularSeeker.radius * Math.cos((circularSeeker.startAngle + circularSeeker.displayedAngle) * Math.PI / 180) - width / 2
             y: circularSeeker.height / 2 + circularSeeker.radius * Math.sin((circularSeeker.startAngle + circularSeeker.displayedAngle) * Math.PI / 180) - height / 2
@@ -294,9 +308,7 @@ Rectangle {
                         mprisroot.player.togglePlaying();
                 }
             }
-            onReleased: {
-                Qt.callLater(() => circularSeeker.userIsDragging = false);
-            }
+            onReleased: Qt.callLater(() => circularSeeker.userIsDragging = false)
             onPositionChanged: mevent => {
                 if (circularSeeker.userIsDragging)
                     updateAngle(mevent.x, mevent.y);
@@ -322,7 +334,7 @@ Rectangle {
         }
     }
 
-    // Track info, lives in the top zone above the disc
+    // Track info
     Column {
         anchors.top: parent.top
         anchors.topMargin: Math.round(16 * UIScale.value)
@@ -410,19 +422,5 @@ Rectangle {
             hoverEnabled: true
             onClicked: mprisroot.player.next()
         }
-    }
-
-    Timer {
-        id: rotateTimer
-        interval: 500
-        repeat: true
-        running: mprisroot.player.playbackState === MprisPlaybackState.Playing
-        onRunningChanged: albumArt.rotation += rotateTimer.running ? mprisroot.rotationStep : 0
-        onTriggered: albumArt.rotation += mprisroot.rotationStep
-    }
-
-    FrameAnimation {
-        running: mprisroot.player.playbackState === MprisPlaybackState.Playing
-        onTriggered: mprisroot.player.positionChanged()
     }
 }

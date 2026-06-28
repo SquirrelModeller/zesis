@@ -16,6 +16,8 @@ Item {
     readonly property var _widthModes: ["fixed", "fluid"]
     readonly property var _showDateOptions: ["Off", "On"]
     readonly property var _showDateValues: [false, true]
+    readonly property var _formatOptions: ["24-hour", "12-hour"]
+    readonly property var _formatValues: [false, true]
 
     ColumnLayout {
         anchors.fill: parent
@@ -214,6 +216,50 @@ Item {
                     }
                 }
 
+                Rectangle {
+                    Layout.fillWidth: true
+                    Layout.leftMargin: UIScale.panelPad
+                    Layout.rightMargin: UIScale.panelPad
+                    implicitHeight: Math.round(56 * UIScale.value)
+                    radius: UIScale.radiusMd
+                    color: Colors.withAlpha(Colors.text, 0.03)
+                    border.color: Colors.withAlpha(Colors.text, 0.06)
+                    border.width: 1
+
+                    RowLayout {
+                        anchors.fill: parent
+                        anchors.leftMargin: UIScale.spacingMd
+                        anchors.rightMargin: UIScale.spacingMd
+                        spacing: UIScale.spacingSm
+
+                        Column {
+                            spacing: Math.round(2 * UIScale.value)
+                            Text {
+                                text: "Hour Format"
+                                color: Colors.text
+                                font.pixelSize: UIScale.fontSmall
+                                font.weight: Font.DemiBold
+                            }
+                            Text {
+                                text: "12-hour or 24-hour time"
+                                color: Colors.textDim
+                                font.pixelSize: UIScale.fontTiny
+                            }
+                        }
+
+                        Item {
+                            Layout.fillWidth: true
+                        }
+
+                        StyledComboBox {
+                            Layout.preferredWidth: Math.round(140 * UIScale.value)
+                            model: root._formatOptions
+                            currentIndex: ClockSettings.use12Hour ? 1 : 0
+                            onActivated: idx => ClockSettings.writeUse12Hour(root._formatValues[idx])
+                        }
+                    }
+                }
+
                 Text {
                     text: "ANIMATION TEST"
                     color: Colors.muted
@@ -406,6 +452,112 @@ Item {
                 //         }
                 //     }
                 // }
+
+                Text {
+                    text: "DESKTOP CLOCK"
+                    color: Colors.muted
+                    font.pixelSize: UIScale.fontTiny
+                    font.weight: Font.Bold
+                    font.letterSpacing: 1.5
+                    Layout.leftMargin: UIScale.panelPad
+                    Layout.topMargin: UIScale.spacingXs
+                }
+
+                // Dark preview card so white text is visible
+                Rectangle {
+                    Layout.fillWidth: true
+                    Layout.leftMargin: UIScale.panelPad
+                    Layout.rightMargin: UIScale.panelPad
+                    implicitHeight: Math.round(140 * UIScale.value)
+                    radius: UIScale.radiusMd
+                    color: Qt.rgba(0.07, 0.07, 0.09, 1)
+                    border.color: Colors.withAlpha(Colors.text, 0.08)
+                    border.width: 1
+
+                    DesktopClock {
+                        id: desktopPreview
+                        anchors.centerIn: parent
+                    }
+
+                    Text {
+                        anchors.bottom: parent.bottom
+                        anchors.right: parent.right
+                        anchors.margins: UIScale.spacingSm
+                        text: "PREVIEW"
+                        color: Qt.rgba(1, 1, 1, 0.18)
+                        font.pixelSize: UIScale.fontTiny
+                        font.letterSpacing: 1.5
+                        font.weight: Font.Bold
+                    }
+                }
+
+                // Desktop clock, midnight rollover test (snap to 23:59 then chain date->time)
+                Rectangle {
+                    Layout.fillWidth: true
+                    Layout.leftMargin: UIScale.panelPad
+                    Layout.rightMargin: UIScale.panelPad
+                    implicitHeight: Math.round(56 * UIScale.value)
+                    radius: UIScale.radiusMd
+                    color: Colors.withAlpha(Colors.text, 0.03)
+                    border.color: Colors.withAlpha(Colors.text, 0.06)
+                    border.width: 1
+
+                    RowLayout {
+                        anchors.fill: parent
+                        anchors.leftMargin: UIScale.spacingMd
+                        anchors.rightMargin: UIScale.spacingMd
+                        spacing: UIScale.spacingSm
+
+                        Column {
+                            spacing: Math.round(2 * UIScale.value)
+                            Layout.preferredWidth: Math.round(52 * UIScale.value)
+                            Text {
+                                text: "Midnight"
+                                color: Colors.text
+                                font.pixelSize: UIScale.fontSmall
+                                font.weight: Font.DemiBold
+                            }
+                            Text {
+                                text: "Rolls over to date"
+                                color: Colors.textDim
+                                font.pixelSize: UIScale.fontTiny
+                            }
+                        }
+
+                        Item {
+                            Layout.fillWidth: true
+                        }
+
+                        TimeSpinner {
+                            id: dayMonth
+                            maxVal: 12
+                            value: 6
+                        }
+
+                        Text {
+                            text: "/"
+                            color: Colors.muted
+                            font.pixelSize: UIScale.fontSubhead
+                            font.bold: true
+                            verticalAlignment: Text.AlignVCenter
+                        }
+
+                        TimeSpinner {
+                            id: dayDay
+                            maxVal: 31
+                            value: 27
+                        }
+
+                        Item {
+                            Layout.fillWidth: true
+                        }
+
+                        ActionButton {
+                            label: "Go"
+                            onActivated: desktopPreview.simulateMidnight(dayMonth.value - 1, dayDay.value)
+                        }
+                    }
+                }
 
                 Item {
                     implicitHeight: UIScale.spacingXs

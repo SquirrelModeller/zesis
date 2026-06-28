@@ -5,7 +5,7 @@ Item {
     id: root
 
     implicitWidth: contentRow.implicitWidth
-    implicitHeight: Math.round(74 * UIScale.value)
+    implicitHeight: Math.round(80 * UIScale.value)
 
     Row {
         id: contentRow
@@ -21,7 +21,7 @@ Item {
 
         Column {
             anchors.verticalCenter: parent.verticalCenter
-            spacing: Math.round(3 * UIScale.value)
+            spacing: Math.round(2 * UIScale.value)
 
             Text {
                 text: WeatherService.temperature + "°C"
@@ -31,30 +31,26 @@ Item {
             }
 
             Text {
-                text: "Wind  " + WeatherService.windspeed + " km/h"
+                text: WeatherService.conditionText(WeatherService.weatherCode)
                 font.pixelSize: UIScale.fontCaption
                 color: Colors.textDim
             }
-        }
-    }
 
-    Row {
-        anchors.right: parent.right
-        anchors.verticalCenter: parent.verticalCenter
-        spacing: Math.round(4 * UIScale.value)
-        visible: WeatherService.currentPrecipProb > 0
+            Row {
+                spacing: Math.round(10 * UIScale.value)
 
-        Text {
-            anchors.verticalCenter: parent.verticalCenter
-            text: "󰖗"
-            font.pixelSize: Math.round(13 * UIScale.value)
-            color: "#4A9EFF"
-        }
-        Text {
-            anchors.verticalCenter: parent.verticalCenter
-            text: WeatherService.currentPrecipProb + "%"
-            font.pixelSize: UIScale.fontCaption
-            color: "#4A9EFF"
+                Text {
+                    text: "󰖌 " + WeatherService.humidity + "%"
+                    font.pixelSize: UIScale.fontCaption
+                    color: Colors.textDim
+                }
+
+                Text {
+                    text: "󰖝 " + WeatherService.windspeed + " km/h"
+                    font.pixelSize: UIScale.fontCaption
+                    color: Colors.textDim
+                }
+            }
         }
     }
 }

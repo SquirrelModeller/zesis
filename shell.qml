@@ -20,6 +20,8 @@ import "Widgets/Calendar"
 import "Widgets/Home"
 import "Widgets/Sound"
 import "Widgets/PumpPanel"
+import "Widgets/Clock"
+import "Widgets/Desktop"
 // These imports are needed for BarItemsService to function correctly
 import "Widgets/Brightness"
 import "Widgets/Mic"
@@ -142,7 +144,9 @@ Scope {
                 Loader {
                     anchors.fill: parent
                     active: Mpris.players.values.length > 0
-                    sourceComponent: MusicController {}
+                    sourceComponent: MusicController {
+                        popupVisible: musicPopup.visible
+                    }
                 }
             }
         }
@@ -296,6 +300,25 @@ Scope {
     WidgetHomeSidebar {}
 
     VolumeOsd {}
+
+    // Desktop widgets
+    IpcHandler {
+        target: "desktop"
+        function toggleConfig() {
+            DesktopWidgetStore.configMode = !DesktopWidgetStore.configMode;
+        }
+    }
+
+    DesktopConfigOverlay {}
+
+    Instantiator {
+        model: DesktopWidgetStore.enabledKeys
+        delegate: DesktopWidget {
+            required property string modelData
+            storeKey: modelData
+            content: DesktopWidgetCatalog.componentFor(modelData)
+        }
+    }
 
     // Notification toasts, top-right overlay, stacks below the bar
     PanelWindow {

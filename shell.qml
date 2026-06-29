@@ -326,6 +326,7 @@ Scope {
         readonly property real notifW: Math.round(340 * UIScale.value)
 
         WlrLayershell.layer: WlrLayer.Overlay
+        WlrLayershell.keyboardFocus: NotifServer.replyActive ? WlrKeyboardFocus.OnDemand : WlrKeyboardFocus.None
         anchors {
             top: true
             right: true
@@ -334,7 +335,7 @@ Scope {
         implicitWidth: notifW + 140
         implicitHeight: 600
         color: "transparent"
-        visible: NotifServer.count > 0
+        visible: NotifServer.count > 0 && !NotifServer.muted
 
         Column {
             anchors.top: parent.top

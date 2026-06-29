@@ -33,6 +33,30 @@ Item {
             }
 
             Text {
+                text: "Mute"
+                color: muteMouseArea.containsMouse ? Colors.accent : (NotifServer.muted ? Colors.accent : Colors.muted)
+                font.pixelSize: UIScale.fontBody
+                opacity: muteMouseArea.containsMouse || NotifServer.muted ? 1.0 : 0.5
+                Behavior on color {
+                    ColorAnimation {
+                        duration: Anim.fast
+                    }
+                }
+                Behavior on opacity {
+                    NumberAnimation {
+                        duration: Anim.fast
+                    }
+                }
+
+                MouseArea {
+                    id: muteMouseArea
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    onClicked: NotifServer.muted = !NotifServer.muted
+                }
+            }
+
+            Text {
                 visible: NotifServer.history.count > 0
                 text: "Clear all"
                 color: clearMouseArea.containsMouse ? Colors.accent : Colors.muted

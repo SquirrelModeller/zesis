@@ -28,6 +28,35 @@ QtObject {
         Hyprland.dispatch("hl.dsp.window.move({ workspace = \"name:" + name + "\", window = \"address:" + addr + "\", follow = false })");
     }
 
+    function focusWindowByPid(pid) {
+        var toplevels = Hyprland.toplevels.values;
+        var best = null;
+        var bestScore = -1;
+        for (var i = 0; i < toplevels.length; i++) {
+            var obj = toplevels[i].lastIpcObject;
+            if (obj && obj["pid"] == pid) {
+                var score = obj["focusHistoryID"] ?? 0;
+                if (score > bestScore) {
+                    bestScore = score;
+                    best = obj;
+                }
+            }
+        }
+        if (best)
+            Hyprland.dispatch("hl.dsp.focus({ window = \"address:" + best["address"] + "\" })");
+    }
+
+    function focusWindowByClass(cls) {
+        var toplevels = Hyprland.toplevels.values;
+        for (var i = 0; i < toplevels.length; i++) {
+            var obj = toplevels[i].lastIpcObject;
+            if (obj && (obj["class"] ?? "").toLowerCase() === cls.toLowerCase()) {
+                Hyprland.dispatch("hl.dsp.focus({ window = \"address:" + obj["address"] + "\" })");
+                return;
+            }
+        }
+    }
+
     function preselect(dir) {
         Hyprland.dispatch("hl.dsp.layout(\"preselect " + dir + "\")");
     }

@@ -39,6 +39,14 @@ Singleton {
     function moveWindowToName(addr, name) {
         _backend.moveWindowToName(addr, name);
     }
+    // focus window by sender PID, falls back to class
+    function focusWindowByPid(pid) {
+        _backend.focusWindowByPid(pid);
+    }
+    // focus window by app class string (case-insensitive)
+    function focusWindowByClass(cls) {
+        _backend.focusWindowByClass(cls);
+    }
     // dwindle layout preselect (u/d/l/r)
     function preselect(dir) {
         _backend.preselect(dir);

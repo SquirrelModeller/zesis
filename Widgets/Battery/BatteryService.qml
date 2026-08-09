@@ -17,7 +17,7 @@ Singleton {
     readonly property var _dev: UPower.displayDevice
 
     readonly property bool available: testMode ? true : _dev.ready && _dev.isPresent
-    readonly property int percent: testMode ? testPercent : Math.round(_dev.percentage)
+    readonly property int percent: testMode ? testPercent : Math.round(_dev.percentage * 100)
     readonly property real powerW: testMode ? testPowerW : Math.abs(_dev.changeRate)
 
     readonly property bool charging: testMode ? testCharging : _dev.state === UPowerDeviceState.Charging || _dev.state === UPowerDeviceState.PendingCharge

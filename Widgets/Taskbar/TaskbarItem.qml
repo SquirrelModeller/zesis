@@ -52,13 +52,13 @@ Item {
         return (mon && mon.width > 0) ? Math.round(root._thumbW * mon.height / mon.width) : Math.round(root._thumbW * 9 / 16);
     }
 
-    readonly property bool _show: TaskbarService.activeAppId === root.appId
+    readonly property bool _show: TaskbarService.activeItem === root
 
     HoverHandler {
         id: hov
         onHoveredChanged: {
             if (hovered) {
-                TaskbarService.hover(root.appId);
+                TaskbarService.hover(root);
             } else if (!popupHov.hovered && root._show) {
                 TaskbarService.leave();
             }
@@ -187,7 +187,7 @@ Item {
             id: popupHov
             onHoveredChanged: {
                 if (hovered) {
-                    TaskbarService.hover(root.appId);
+                    TaskbarService.hover(root);
                 } else if (!hov.hovered && root._show) {
                     TaskbarService.leave();
                 }
@@ -278,7 +278,7 @@ Item {
                                     TapHandler {
                                         onTapped: {
                                             winCard.modelData.activate();
-                                            TaskbarService.activeAppId = "";
+                                            TaskbarService.activeItem = null;
                                         }
                                     }
 

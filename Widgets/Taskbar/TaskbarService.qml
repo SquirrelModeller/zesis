@@ -6,17 +6,18 @@ import Quickshell
 Singleton {
     id: root
 
-    // Which appId currently owns the popup. Empty = none.
-    property string activeAppId: ""
+    // Which TaskbarItem instance currently owns the popup. Null = none.
+    // Keyed by instance.
+    property var activeItem: null
 
     Timer {
         id: closeTimer
         interval: 350
-        onTriggered: root.activeAppId = ""
+        onTriggered: root.activeItem = null
     }
 
-    function hover(appId) {
-        activeAppId = appId;
+    function hover(item) {
+        activeItem = item;
         closeTimer.stop();
     }
 

@@ -17,6 +17,14 @@ Item {
     property string targetMonitor: ""
     readonly property string _displayedWallpaper: root.targetMonitor === "" ? ThemeState.lastWallpaper : (ThemeState.perMonitorWallpaper[root.targetMonitor] || ThemeState.lastWallpaper)
 
+    readonly property bool _currentBackendHasDaemon: {
+        for (var i = 0; i < ThemeState.wallpaperBackends.length; i++) {
+            if (ThemeState.wallpaperBackends[i].id === ThemeState.wallpaperBackend)
+                return !!ThemeState.wallpaperBackends[i].daemonProcess;
+        }
+        return false;
+    }
+
     readonly property real paneMargin: Math.round(28 * UIScale.value)
 
     // Container-aware split, see docs/qml-patterns.md #2. Both sides of the threshold are
@@ -610,6 +618,7 @@ Item {
                         onChosen: value => {
                             ThemeState.wallpaperBackend = value;
                             ThemeState._persistState();
+                            ThemeState.ensureWallpaperDaemon();
                         }
                     }
 
@@ -628,6 +637,32 @@ Item {
                     Item {
                         Layout.fillWidth: true
                         visible: !customCmdField.visible
+                    }
+                }
+
+                // Whether to launch the backend's daemon on startup if it's not already running
+                RowLayout {
+                    id: daemonRow
+                    Layout.fillWidth: true
+                    Layout.bottomMargin: UIScale.spacingLg
+                    spacing: UIScale.spacingSm
+                    visible: root._currentBackendHasDaemon
+
+                    Text {
+                        text: "Auto-start wallpaper daemon"
+                        color: Colors.text
+                        font.pixelSize: UIScale.fontBody
+                        Layout.fillWidth: true
+                    }
+
+                    ToggleSwitch {
+                        checked: ThemeState.autoStartWallpaperDaemon
+                        onToggled: {
+                            ThemeState.autoStartWallpaperDaemon = !ThemeState.autoStartWallpaperDaemon;
+                            ThemeState._persistState();
+                            if (ThemeState.autoStartWallpaperDaemon)
+                                ThemeState.ensureWallpaperDaemon();
+                        }
                     }
                 }
 

@@ -16,6 +16,7 @@ Singleton {
     property string schemeType: "scheme-tonal-spot"
     property string wallpaperBackend: "awww"
     property string customWallpaperCommand: ""
+    property bool autoStartWallpaperDaemon: true
     property bool applying: false
     property string lastError: ""
     // Per-monitor overrides: { "DP-1": "/path/to/wall.png", ... }. A monitor with no entry
@@ -29,32 +30,39 @@ Singleton {
             id: "awww",
             label: "awww",
             command: "awww img \"$1\" --transition-type fade --transition-duration 1",
-            monitorCommand: "awww img \"$1\" --transition-type fade --transition-duration 1 --outputs \"$2\""
+            monitorCommand: "awww img \"$1\" --transition-type fade --transition-duration 1 --outputs \"$2\"",
+            // Process name of the background daemon this backend talks to, so it can be
+            // auto-started if it isn't running yet. "" shrimply means no daemon to manage.
+            daemonProcess: "awww-daemon"
         },
         {
             id: "swww",
             label: "swww",
             command: "swww img \"$1\" --transition-type fade --transition-duration 1",
-            monitorCommand: "swww img \"$1\" --transition-type fade --transition-duration 1 --outputs \"$2\""
+            monitorCommand: "swww img \"$1\" --transition-type fade --transition-duration 1 --outputs \"$2\"",
+            daemonProcess: "swww-daemon"
         },
         {
             id: "hyprpaper",
             label: "hyprpaper",
             command: "hyprctl hyprpaper preload \"$1\" && hyprctl hyprpaper wallpaper \",$1\"",
-            monitorCommand: "hyprctl hyprpaper preload \"$1\" && hyprctl hyprpaper wallpaper \"$2,$1\""
+            monitorCommand: "hyprctl hyprpaper preload \"$1\" && hyprctl hyprpaper wallpaper \"$2,$1\"",
+            daemonProcess: "hyprpaper"
         },
         {
             id: "feh",
             label: "feh (X11)",
             // feh has no concept of named Wayland outputs, idk what to do here
             command: "feh --bg-fill \"$1\"",
-            monitorCommand: "feh --bg-fill \"$1\""
+            monitorCommand: "feh --bg-fill \"$1\"",
+            daemonProcess: ""
         },
         {
             id: "custom",
             label: "Custom command...",
             command: "",
-            monitorCommand: ""
+            monitorCommand: "",
+            daemonProcess: ""
         }
     ]
 
@@ -81,6 +89,7 @@ Singleton {
         property string schemeType: "scheme-tonal-spot"
         property string wallpaperBackend: "awww"
         property string customWallpaperCommand: ""
+        property bool autoStartWallpaperDaemon: true
         property var perMonitorWallpaper: ({})
         property string colorSourceMonitor: ""
     }
@@ -94,8 +103,36 @@ Singleton {
             root.schemeType = stateData.schemeType;
             root.wallpaperBackend = stateData.wallpaperBackend;
             root.customWallpaperCommand = stateData.customWallpaperCommand;
+            root.autoStartWallpaperDaemon = stateData.autoStartWallpaperDaemon;
             root.perMonitorWallpaper = stateData.perMonitorWallpaper;
             root.colorSourceMonitor = stateData.colorSourceMonitor;
+            root.ensureWallpaperDaemon();
+        }
+    }
+
+    function ensureWallpaperDaemon() {
+        if (!root.autoStartWallpaperDaemon)
+            return;
+        var proc = "";
+        for (var i = 0; i < root.wallpaperBackends.length; i++) {
+            if (root.wallpaperBackends[i].id === root.wallpaperBackend) {
+                proc = root.wallpaperBackends[i].daemonProcess;
+                break;
+            }
+        }
+        if (!proc)
+            return;
+        daemonCheckProcess._daemonProcess = proc;
+        daemonCheckProcess.command = ["pgrep", "-x", proc];
+        daemonCheckProcess.running = true;
+    }
+
+    Process {
+        id: daemonCheckProcess
+        property string _daemonProcess: ""
+        onExited: code => {
+            if (code !== 0 && daemonCheckProcess._daemonProcess)
+                Quickshell.execDetached([daemonCheckProcess._daemonProcess]);
         }
     }
 
@@ -234,6 +271,7 @@ Singleton {
             schemeType: root.schemeType,
             wallpaperBackend: root.wallpaperBackend,
             customWallpaperCommand: root.customWallpaperCommand,
+            autoStartWallpaperDaemon: root.autoStartWallpaperDaemon,
             perMonitorWallpaper: root.perMonitorWallpaper,
             colorSourceMonitor: root.colorSourceMonitor
         });

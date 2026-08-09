@@ -75,7 +75,10 @@ Item {
 
                 readonly property int wsId: parseInt(tile.modelData.name) || (tile.index + 1)
                 readonly property bool isSelected: AppSwitcherService.selectedWorkspace === tile.wsId
-                readonly property real scaleFactor: root.monW > 0 ? (root.tileW / root.monW) : 1
+
+                readonly property var wsMon: tile.modelData.monitor ? tile.modelData.monitor : root.wsMonitor
+                readonly property real _wsMonW: tile.wsMon ? tile.wsMon.width / (tile.wsMon.scale || 1) : root.monW
+                readonly property real scaleFactor: tile._wsMonW > 0 ? (root.tileW / tile._wsMonW) : 1
 
                 readonly property var stackedToplevels: {
                     var arr = tile.modelData.toplevels.values.slice();
@@ -93,8 +96,8 @@ Item {
 
                 function findDropTarget(dx, dy) {
                     var tops = tile.stackedToplevels;
-                    var monOX = root.wsMonitor ? root.wsMonitor.x : 0;
-                    var monOY = root.wsMonitor ? root.wsMonitor.y : 0;
+                    var monOX = tile.wsMon ? tile.wsMon.x : 0;
+                    var monOY = tile.wsMon ? tile.wsMon.y : 0;
                     var sf = tile.scaleFactor;
                     // Walk topmost-first so an overlapping floating window wins
                     // the hit test over a tiled window underneath it.
@@ -253,8 +256,8 @@ Item {
                             opacity: winTile.isDragging ? 0 : 1
                             readonly property var _at: winTile.modelData.lastIpcObject["at"]
                             readonly property var _sz: winTile.modelData.lastIpcObject["size"]
-                            readonly property real monOffX: root.wsMonitor ? root.wsMonitor.x : 0
-                            readonly property real monOffY: root.wsMonitor ? root.wsMonitor.y : 0
+                            readonly property real monOffX: tile.wsMon ? tile.wsMon.x : 0
+                            readonly property real monOffY: tile.wsMon ? tile.wsMon.y : 0
 
                             x: (_at && _at.length >= 2) ? (_at[0] - monOffX) * tile.scaleFactor : 0
                             y: (_at && _at.length >= 2) ? (_at[1] - monOffY) * tile.scaleFactor : 0

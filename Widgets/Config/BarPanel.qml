@@ -2,6 +2,7 @@ pragma ComponentBehavior: Bound
 import QtQuick
 import QtQuick.Layouts
 import QtQuick.Controls
+import Quickshell
 import "../../"
 import "../Bar"
 import "../Shared"
@@ -133,6 +134,64 @@ Item {
                     value: BarConfig.endGap
                     onMoved: function (v) {
                         BarConfig.writeEndGap(Math.round(v));
+                    }
+                }
+
+                Divider {
+                    visible: Quickshell.screens.length > 1
+                    color: Colors.withAlpha(Colors.accent, 0.1)
+                }
+
+                // Bar monitor
+                Text {
+                    visible: Quickshell.screens.length > 1
+                    text: "Bar monitor"
+                    color: Colors.text
+                    font.bold: true
+                    font.pixelSize: UIScale.fontBody
+                }
+                Text {
+                    visible: Quickshell.screens.length > 1
+                    Layout.fillWidth: true
+                    text: "Choose which connected displays show the bar. Leave every monitor on to show it everywhere."
+                    color: Colors.textDim
+                    font.pixelSize: UIScale.fontCaption
+                    wrapMode: Text.WordWrap
+                }
+
+                Repeater {
+                    model: Quickshell.screens
+                    delegate: RowLayout {
+                        id: monitorRow
+                        required property var modelData
+                        readonly property string _name: monitorRow.modelData.name
+                        visible: Quickshell.screens.length > 1
+                        Layout.fillWidth: true
+
+                        Text {
+                            text: monitorRow._name + " (" + monitorRow.modelData.width + "×" + monitorRow.modelData.height + ")"
+                            color: Colors.text
+                            font.pixelSize: UIScale.fontBody
+                            Layout.fillWidth: true
+                        }
+                        ToggleSwitch {
+                            checked: BarConfig.monitors.length === 0 || BarConfig.monitors.includes(monitorRow._name)
+                            onToggled: {
+                                var current = BarConfig.monitors.length === 0 ? Quickshell.screens.map(s => s.name) : BarConfig.monitors.slice();
+                                var idx = current.indexOf(monitorRow._name);
+                                if (idx >= 0) {
+                                    // Refuse to uncheck the last monitor.
+                                    if (current.length <= 1)
+                                        return;
+                                    current.splice(idx, 1);
+                                } else {
+                                    current.push(monitorRow._name);
+                                }
+                                if (current.length === Quickshell.screens.length)
+                                    current = [];
+                                BarConfig.writeMonitors(current);
+                            }
+                        }
                     }
                 }
 

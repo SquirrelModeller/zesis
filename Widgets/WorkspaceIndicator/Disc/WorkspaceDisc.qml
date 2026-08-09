@@ -16,6 +16,10 @@ Item {
     readonly property int workSpaceAmount: WorkspaceDiscService.workSpaceAmount
     readonly property int peekOffset: Math.round(WorkspaceDiscService.peekOffset * UIScale.value)
 
+    // Which output this disc represents. When unset, falls back to the single globally
+    // focused monitor.
+    property var screen: null
+
     implicitWidth: (discRadius + pad) * 2
     implicitHeight: (discRadius + pad) * 2
 
@@ -28,7 +32,7 @@ Item {
     readonly property int effectiveN: WorkspaceDiscService.expressive ? Math.max(WorkspaceDiscService.minWorkSpaceAmount, root.sortedWsIds.length) : root.workSpaceAmount
 
     readonly property int activeIndex: {
-        var active = WmService.focusedMonitor?.activeWorkspace;
+        var active = root.screen ? WmService.activeWorkspaceFor(root.screen) : WmService.focusedMonitor?.activeWorkspace;
         if (!active)
             return 0;
         var id = parseInt(active.name);

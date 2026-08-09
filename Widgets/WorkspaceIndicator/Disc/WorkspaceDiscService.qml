@@ -19,6 +19,7 @@ Singleton {
     property int peekOffset: settingsData.peekOffset
     property bool expressive: settingsData.expressive
     property string skin: settingsData.skin
+    property var monitors: settingsData.monitors
 
     property bool _loaded: false
     Component.onCompleted: Qt.callLater(function () {
@@ -45,6 +46,8 @@ Singleton {
         _write()
     onSkinChanged: if (_loaded)
         _write()
+    onMonitorsChanged: if (_loaded)
+        _write()
 
     function _write() {
         writeProc.command = ["sh", "-c", "mkdir -p '" + root._configDir + "' && echo '" + JSON.stringify({
@@ -57,7 +60,8 @@ Singleton {
                 chamberSize: root.chamberSize,
                 peekOffset: root.peekOffset,
                 expressive: root.expressive,
-                skin: root.skin
+                skin: root.skin,
+                monitors: root.monitors
             }) + "' > '" + root._configPath + "'"];
         writeProc.running = true;
     }
@@ -74,6 +78,7 @@ Singleton {
         property int peekOffset: 16
         property bool expressive: false
         property string skin: "default"
+        property var monitors: []
     }
 
     FileView {

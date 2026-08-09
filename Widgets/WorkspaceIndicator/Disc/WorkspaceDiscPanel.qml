@@ -3,6 +3,7 @@ pragma ComponentBehavior: Bound
 import QtQuick
 import QtQuick.Layouts
 import Qt.labs.folderlistmodel
+import Quickshell
 import "../../../"
 import "../../Shared"
 
@@ -525,6 +526,70 @@ Item {
                     model: root._skinLabels
                     currentIndex: root._currentSkinIndex
                     onActivated: index => WorkspaceDiscService.skin = root._skinId(skinFiles.get(index, "fileName"))
+                }
+
+                Divider {
+                    Layout.leftMargin: UIScale.panelPad
+                    Layout.rightMargin: UIScale.panelPad
+                    visible: Quickshell.screens.length > 1
+                }
+
+                // Monitors
+                Text {
+                    visible: Quickshell.screens.length > 1
+                    text: "Monitors"
+                    color: Colors.text
+                    font.pixelSize: UIScale.fontBody
+                    font.bold: true
+                    Layout.leftMargin: UIScale.panelPad
+                }
+                Text {
+                    visible: Quickshell.screens.length > 1
+                    Layout.fillWidth: true
+                    Layout.leftMargin: UIScale.panelPad
+                    Layout.rightMargin: UIScale.panelPad
+                    text: "Choose which connected displays show the indicator. Leave every monitor on to show it everywhere."
+                    color: Colors.textDim
+                    font.pixelSize: UIScale.fontCaption
+                    wrapMode: Text.WordWrap
+                }
+
+                Repeater {
+                    model: Quickshell.screens
+                    delegate: RowLayout {
+                        id: monitorRow
+                        required property var modelData
+                        readonly property string _name: monitorRow.modelData.name
+                        visible: Quickshell.screens.length > 1
+                        Layout.fillWidth: true
+                        Layout.leftMargin: UIScale.panelPad
+                        Layout.rightMargin: UIScale.panelPad
+
+                        Text {
+                            text: monitorRow._name + " (" + monitorRow.modelData.width + "×" + monitorRow.modelData.height + ")"
+                            color: Colors.text
+                            font.pixelSize: UIScale.fontBody
+                            Layout.fillWidth: true
+                        }
+                        ToggleSwitch {
+                            checked: WorkspaceDiscService.monitors.length === 0 || WorkspaceDiscService.monitors.includes(monitorRow._name)
+                            onToggled: {
+                                var current = WorkspaceDiscService.monitors.length === 0 ? Quickshell.screens.map(s => s.name) : WorkspaceDiscService.monitors.slice();
+                                var idx = current.indexOf(monitorRow._name);
+                                if (idx >= 0) {
+                                    // TODO: We need a seperate option to generally disable the workspace indicator
+                                    if (current.length <= 1)
+                                        return;
+                                    current.splice(idx, 1);
+                                } else {
+                                    current.push(monitorRow._name);
+                                }
+                                if (current.length === Quickshell.screens.length)
+                                    current = [];
+                                WorkspaceDiscService.monitors = current;
+                            }
+                        }
+                    }
                 }
 
                 Item {

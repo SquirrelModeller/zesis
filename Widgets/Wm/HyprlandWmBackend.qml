@@ -18,6 +18,10 @@ QtObject {
     readonly property var toplevels: Hyprland.toplevels.values
     readonly property var focusedMonitor: Hyprland.focusedMonitor
 
+    function activeWorkspaceFor(screen) {
+        return Hyprland.monitorFor(screen)?.activeWorkspace ?? null;
+    }
+
     function focusWorkspace(id) {
         Hyprland.dispatch("hl.dsp.focus({ workspace = " + id + " })");
     }

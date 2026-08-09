@@ -19,6 +19,12 @@ Singleton {
     //current monitor ({ width, height, scale, x, y, activeWorkspace })
     readonly property var focusedMonitor: _backend.focusedMonitor
 
+    // active workspace on a given ShellScreen (for per-monitor widgets, vs. the single
+    // globally-focused monitor above)
+    function activeWorkspaceFor(screen) {
+        return _backend.activeWorkspaceFor(screen);
+    }
+
     // switch to workspace by numeric id
     function focusWorkspace(id) {
         _backend.focusWorkspace(id);

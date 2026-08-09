@@ -7,6 +7,7 @@ Item {
 
     property string corner: "topLeft"
     property bool forceExpanded: false
+    property var screen: null
 
     implicitWidth: disc.implicitWidth
     implicitHeight: disc.implicitHeight
@@ -22,5 +23,6 @@ Item {
         anchors.fill: parent
         corner: root.corner
         forceExpanded: root.forceExpanded
+        screen: root.screen
     }
 }

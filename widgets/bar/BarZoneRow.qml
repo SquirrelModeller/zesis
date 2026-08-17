@@ -24,7 +24,6 @@ Item {
     readonly property int _spawnHoldMs: 500
 
     readonly property int _spawnZoneHoldMs: 400
-    readonly property real _zoneCatchmentMargin: Math.round(14 * UIScale.value)
     readonly property real _zoneTickRadius: Math.round(24 * UIScale.value)
     readonly property real _emptyZoneCatchmentHalfWidth: Math.round(40 * UIScale.value)
 
@@ -476,15 +475,16 @@ Item {
     }
 
     // Zone catchment for island-spawn hit-testing.
-    // A zone's own rendered bounds, or an empty zone's placeholder bounds
-    // expanded by marginPx. Returns the RAW zone index directly.
-    function _zoneIndexAtPos(pos, marginPx) {
+    function _zoneIndexAtPos(pos) {
         var coord = BarConfig.isVertical ? pos.y : pos.x;
         var origin = BarConfig.endGap;
         var bounds = root._allZoneBounds;
+        var cands = root._zoneGapCandidates;
         for (var i = 0; i < bounds.length; i++) {
-            var lo = origin + bounds[i].start - marginPx;
-            var hi = origin + bounds[i].end + marginPx;
+            var loCand = cands[i];
+            var hiCand = cands[i + 1];
+            var lo = Math.min(origin + bounds[i].start, origin + loCand.pos + root._zoneTickRadius);
+            var hi = Math.max(origin + bounds[i].end, origin + hiCand.pos - root._zoneTickRadius);
             if (coord >= lo && coord <= hi)
                 return bounds[i].rawIndex;
         }
@@ -639,7 +639,7 @@ Item {
         root._dropTargetIslandIds = null;
         root._dropBeforeId = "";
 
-        var rawIdx = root._zoneIndexAtPos(p, root._zoneCatchmentMargin);
+        var rawIdx = root._zoneIndexAtPos(p);
         if (rawIdx >= 0) {
             root._spawnTargetZoneRawIdx = rawIdx;
             root._spawnBeforeIslandIdx = root._islandInsertionIndexInZone(rawIdx, p);
@@ -705,7 +705,7 @@ Item {
     function _updateIslandDragPos(p) {
         root._islandDragPos = p;
 
-        var rawIdx = root._zoneIndexAtPos(p, root._zoneCatchmentMargin);
+        var rawIdx = root._zoneIndexAtPos(p);
         if (rawIdx >= 0) {
             root._setHoldTarget("");
             root._islandDropZoneRawIdx = rawIdx;

@@ -3,54 +3,85 @@ pragma ComponentBehavior: Bound
 import QtQuick
 import Quickshell.Services.Mpris
 import "../../"
+import "../shared"
 
 Item {
     id: root
 
-    readonly property alias isHovered: chipHover.hovered
-
     readonly property var _player: Mpris.players.values.length > 0 ? Mpris.players.values[0] : null
 
+    readonly property bool available: Mpris.players.values.length > 0
+    visible: available
+    onVisibleChanged: if (!visible)
+        musicPopup.close()
+
     readonly property int _textW: Math.round(110 * UIScale.value)
-    readonly property int _padH: Math.round(12 * UIScale.value)
-    readonly property int _pillH: Math.round(50 * UIScale.value)
 
-    implicitWidth: iconText.implicitWidth + Math.round(UIScale.spacingSm) + _textW + _padH * 2
-    implicitHeight: _pillH
+    implicitWidth: iconText.implicitWidth + Math.round(UIScale.spacingSm) + _textW
+    implicitHeight: Math.round(30 * UIScale.value)
 
-    Rectangle {
+    Row {
         anchors.centerIn: parent
-        width: parent.implicitWidth
-        height: root._pillH
-        radius: 100
-        clip: true
-        color: Colors.barBg
+        spacing: Math.round(UIScale.spacingSm)
 
-        Row {
-            anchors.centerIn: parent
-            spacing: Math.round(UIScale.spacingSm)
+        Text {
+            id: iconText
+            anchors.verticalCenter: parent.verticalCenter
+            text: "󰝚"
+            color: Colors.muted
+            font.pixelSize: UIScale.fontLead
+        }
 
-            Text {
-                id: iconText
-                anchors.verticalCenter: parent.verticalCenter
-                text: "󰝚"
-                color: Colors.muted
-                font.pixelSize: UIScale.fontLead
+        Text {
+            anchors.verticalCenter: parent.verticalCenter
+            text: root._player ? root._player.trackTitle : ""
+            width: root._textW
+            elide: Text.ElideRight
+            color: Colors.text
+            font.pixelSize: UIScale.fontSmall
+            font.bold: true
+        }
+    }
+
+    HoverHandler {
+        id: chipHover
+        onHoveredChanged: {
+            if (chipHover.hovered) {
+                hideTimer.stop();
+                musicPopup.open();
+            } else if (!popupHover.hovered) {
+                hideTimer.restart();
             }
+        }
+    }
 
-            Text {
-                anchors.verticalCenter: parent.verticalCenter
-                text: root._player ? root._player.trackTitle : ""
-                width: root._textW
-                elide: Text.ElideRight
-                color: Colors.text
-                font.pixelSize: UIScale.fontSmall
-                font.bold: true
+    Timer {
+        id: hideTimer
+        interval: 300
+        onTriggered: musicPopup.close()
+    }
+
+    AnimatedPopup {
+        id: musicPopup
+        anchorItem: root
+        grabFocus: false
+        implicitWidth: 400
+        implicitHeight: 260
+
+        HoverHandler {
+            id: popupHover
+            onHoveredChanged: {
+                if (popupHover.hovered)
+                    hideTimer.stop();
+                else if (!chipHover.hovered)
+                    hideTimer.restart();
             }
         }
 
-        HoverHandler {
-            id: chipHover
+        content: Component {
+            MusicController {
+                popupVisible: musicPopup.visible
+            }
         }
     }
 }

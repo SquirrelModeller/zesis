@@ -12,6 +12,8 @@
   "endGap": "End gap",
   "items": "Bar items",
   "itemSystray": "System Tray",
+  "itemTaskbar": "Taskbar",
+  "itemMusic": "Music Player",
   "itemSysmon": "System Monitor",
   "itemTheme": "Theme Switcher",
   "itemKeybinds": "Keybinds",

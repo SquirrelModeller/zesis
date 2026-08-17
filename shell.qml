@@ -4,11 +4,9 @@ import QtQuick
 import Quickshell
 import Quickshell.Io
 import Quickshell.Wayland
-import Quickshell.Services.Mpris
 import "widgets/bar"
 import "widgets/workspaceindicator"
 import "widgets/workspaceindicator/disc"
-import "widgets/music"
 import "widgets/notifications"
 import "widgets/lockscreen"
 import "widgets/keybinds"
@@ -27,12 +25,13 @@ import "widgets/sound"
 import "widgets/pumppanel"
 import "widgets/clock"
 import "widgets/desktop"
-import "widgets/taskbar"
 // These imports are needed for BarItemsService to function correctly
 import "widgets/brightness"
 import "widgets/mic"
 import "widgets/battery"
 import "widgets/record"
+import "widgets/taskbar"
+import "widgets/music"
 
 Scope {
     // Singletons instantiated at startup for startup-apply logic
@@ -71,97 +70,8 @@ Scope {
 
             color: "transparent"
 
-            readonly property bool _hasMusic: Mpris.players.values.length > 0
-            property bool wantsMusic: false
-
-            // Gap kept between the taskbar/music island and the systray pill before the
-            // tray starts collapsing
-            readonly property real _islandGap: Math.round(16 * UIScale.value)
-
-            SysTray {
-                id: trayWidget
-                x: BarConfig.isVertical ? 0 : (parent.width - width - BarConfig.endGap)
-                y: BarConfig.isVertical ? (parent.height - height - BarConfig.endGap) : 0
-                // Budget = space from the island's right edge to the tray's own right
-                // boundary. Depends only on islandRow's geometry, never trayWidget's own
-                // width/x, so it can't be circular.
-                maxWidth: BarConfig.isVertical ? -1 : Math.max(0, (root.width - BarConfig.endGap) - (islandRow.x + islandRow.width) - root._islandGap)
-            }
-
-            Row {
-                id: islandRow
-                anchors.centerIn: parent
-                spacing: Math.round(6 * UIScale.value)
-
-                MusicChip {
-                    id: musicChip
-                    visible: root._hasMusic && !BarConfig.isVertical
-                    onIsHoveredChanged: {
-                        if (isHovered) {
-                            root.wantsMusic = true;
-                            musicHideTimer.stop();
-                        } else if (!popupHover.hovered) {
-                            musicHideTimer.restart();
-                        }
-                    }
-                }
-
-                Taskbar {
-                    id: taskbarPill
-                }
-            }
-
-            Timer {
-                id: musicHideTimer
-                interval: 300
-                onTriggered: root.wantsMusic = false
-            }
-
-            PopupWindow {
-                id: musicPopup
-                visible: root.wantsMusic && root._hasMusic
-                grabFocus: false
-                color: "transparent"
-                implicitWidth: 400
-                implicitHeight: 260
-
-                anchor {
-                    window: root
-                    rect.x: {
-                        if (BarConfig.side === "left")
-                            return root.width;
-                        if (BarConfig.side === "right")
-                            return -musicPopup.implicitWidth;
-                        return islandRow.x + musicChip.implicitWidth / 2 - musicPopup.implicitWidth / 2;
-                    }
-                    rect.y: {
-                        if (BarConfig.side === "bottom")
-                            return -musicPopup.implicitHeight;
-                        if (BarConfig.isVertical)
-                            return islandRow.y + musicChip.implicitHeight / 2 - musicPopup.implicitHeight / 2;
-                        return islandRow.y + islandRow.height;
-                    }
-                }
-
-                HoverHandler {
-                    id: popupHover
-                    onHoveredChanged: {
-                        if (hovered) {
-                            musicHideTimer.stop();
-                            root.wantsMusic = true;
-                        } else if (!musicChip.isHovered) {
-                            musicHideTimer.restart();
-                        }
-                    }
-                }
-
-                Loader {
-                    anchors.fill: parent
-                    active: root._hasMusic
-                    sourceComponent: MusicController {
-                        popupVisible: musicPopup.visible
-                    }
-                }
+            BarZoneRow {
+                anchors.fill: parent
             }
 
             Connections {

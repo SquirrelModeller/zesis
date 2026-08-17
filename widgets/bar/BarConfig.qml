@@ -13,38 +13,45 @@ Singleton {
     property int edgeGap: barData.edgeGap
     property int endGap: barData.endGap
     property var itemStates: barData.itemStates
-    property var itemOrder: barData.itemOrder
+
+    property var zones: barData.zones
+
+    // Legacy migration step
+    readonly property var _legacyItemIslands: barData.itemIslands
     // Names of screens (ShellScreen.name) the bar should appear on
     property var monitors: barData.monitors
 
     readonly property bool isVertical: side === "left" || side === "right"
 
+    // True when FileView completes loading
+    property bool ready: false
+
     function write(newSide) {
-        _save(newSide, root.edgeGap, root.endGap, root.itemStates, root.itemOrder, root.monitors);
+        _save(newSide, root.edgeGap, root.endGap, root.itemStates, root.zones, root.monitors);
     }
 
     function writeEdgeGap(newGap) {
-        _save(root.side, newGap, root.endGap, root.itemStates, root.itemOrder, root.monitors);
+        _save(root.side, newGap, root.endGap, root.itemStates, root.zones, root.monitors);
     }
 
     function writeEndGap(newGap) {
-        _save(root.side, root.edgeGap, newGap, root.itemStates, root.itemOrder, root.monitors);
+        _save(root.side, root.edgeGap, newGap, root.itemStates, root.zones, root.monitors);
     }
 
     function writeItemStates(states) {
-        _save(root.side, root.edgeGap, root.endGap, states, root.itemOrder, root.monitors);
+        _save(root.side, root.edgeGap, root.endGap, states, root.zones, root.monitors);
     }
 
-    function writeItemOrder(order) {
-        _save(root.side, root.edgeGap, root.endGap, root.itemStates, order, root.monitors);
+    function writeZones(zones) {
+        _save(root.side, root.edgeGap, root.endGap, root.itemStates, zones, root.monitors);
     }
 
     function writeMonitors(monitors) {
-        _save(root.side, root.edgeGap, root.endGap, root.itemStates, root.itemOrder, monitors);
+        _save(root.side, root.edgeGap, root.endGap, root.itemStates, root.zones, monitors);
     }
 
-    function _save(s, eg, en, states, order, monitors) {
-        const json = '{"side":"' + s + '","edgeGap":' + eg + ',"endGap":' + en + ',"itemStates":' + JSON.stringify(states) + ',"itemOrder":' + JSON.stringify(order) + ',"monitors":' + JSON.stringify(monitors) + '}';
+    function _save(s, eg, en, states, zones, monitors) {
+        const json = '{"side":"' + s + '","edgeGap":' + eg + ',"endGap":' + en + ',"itemStates":' + JSON.stringify(states) + ',"zones":' + JSON.stringify(zones) + ',"monitors":' + JSON.stringify(monitors) + '}';
         writeProc.command = ["sh", "-c", "mkdir -p '" + root._configDir + "' && printf '%s' '" + json + "' > '" + root._configPath + "'"];
         writeProc.running = true;
     }
@@ -55,15 +62,20 @@ Singleton {
         property int edgeGap: 8
         property int endGap: 20
         property var itemStates: ({})
-        property var itemOrder: []
+        property var zones: []
+        // Legacy variable
+        property var itemIslands: []
         property var monitors: []
     }
 
     FileView {
         path: root._configPath
         watchChanges: true
+        printErrors: false
         adapter: barData
         onFileChanged: reload()
+        onLoaded: root.ready = true
+        onLoadFailed: root.ready = true
     }
 
     Process {

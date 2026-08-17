@@ -12,6 +12,16 @@ Singleton {
             label: I18n.t("bar.itemSystray"),
             src: "SystrayItems.qml"
         },
+        {
+            id: "taskbar",
+            label: I18n.t("bar.itemTaskbar"),
+            src: "../taskbar/Taskbar.qml"
+        },
+        {
+            id: "music",
+            label: I18n.t("bar.itemMusic"),
+            src: "../music/MusicChip.qml"
+        },
         // The repaint of this widget causes 0.6% hits on the CPU in regular intervals
         {
             id: "sysmon",
@@ -117,22 +127,22 @@ Singleton {
         return s;
     }
 
-    property var order: []
+    // Ordered list going from Zones -> Islands -> Atom ids Atoms are catalog
+    // items, tray icons, taskbar and so on.
+    property var zones: []
 
-    // items reordered per the persisted order Any id missing from order
-    // (not yet merged, example before first load) falls back to catalog
-    // position, so this is always safe to read.
+    // Flattened, catalog-object view of zones, for consumers that only care
+    // about a flat list.
     readonly property var orderedItems: {
         const byId = {};
         for (const item of items)
             byId[item.id] = item;
         const result = [];
-        for (const id of order)
-            if (byId[id])
-                result.push(byId[id]);
-        for (const item of items)
-            if (order.indexOf(item.id) < 0)
-                result.push(item);
+        for (const zone of root.zones)
+            for (const group of zone)
+                for (const id of group)
+                    if (byId[id])
+                        result.push(byId[id]);
         return result;
     }
 
@@ -152,19 +162,180 @@ Singleton {
         BarConfig.writeItemStates(s);
     }
 
-    // Inserts id immediately before beforeId in the persisted order, or at the
-    // end when beforeId is "". Works against the full order, so disabled/
-    // overflowed ids keep their relative position untouched.
-    function moveItemBefore(id, beforeId) {
-        const cur = root.order.length ? root.order.slice() : items.map(i => i.id);
-        const from = cur.indexOf(id);
-        if (from < 0)
+    // Clones the current zones structure into mutable arrays, for mutation
+    // functions to work on before committing via _commitZones.
+    function _cloneZones() {
+        return root.zones.map(zone => zone.map(arr => arr.slice()));
+    }
+
+    // Removes id from wherever it currently lives (any zone, any island),
+    // pruning the island it leaves behind if that empties it. Returns the
+    // raw zone index id was removed from (-1 if not found), so the caller
+    // can targeted-prune that specific zone via _maybePruneEmptyZone below
+    // if it's now empty.
+    function _removeAtom(zonesList, id) {
+        for (let zi = 0; zi < zonesList.length; zi++) {
+            const zone = zonesList[zi];
+            for (let ii = 0; ii < zone.length; ii++) {
+                const idx = zone[ii].indexOf(id);
+                if (idx >= 0) {
+                    zone[ii].splice(idx, 1);
+                    if (zone[ii].length === 0)
+                        zone.splice(ii, 1);
+                    return zi;
+                }
+            }
+        }
+        return -1;
+    }
+
+    // Removes zonesList[rawIdx] if it's now empty and doing so wouldn't
+    // bring the total zone count below the floor of 3.
+    function _maybePruneEmptyZone(zonesList, rawIdx) {
+        if (rawIdx >= 0 && rawIdx < zonesList.length && zonesList[rawIdx].length === 0 && zonesList.length > 3)
+            zonesList.splice(rawIdx, 1);
+    }
+
+    // Floor guarantee
+    function _commitZones(zonesList) {
+        while (zonesList.length < 3)
+            zonesList.push([]);
+        root.zones = zonesList;
+        BarConfig.writeZones(zonesList);
+    }
+
+    // Moves id to an explicit position within a specific island in
+    // targetZoneIdx. targetIslandIds is a snapshot of that island's other
+    // member ids (id itself excluded, whether or not it was already a
+    // member there). beforeId is one of targetIslandIds to insert
+    // before, or "" to append at that island's own end.
+    function moveIconToIsland(id, targetZoneIdx, targetIslandIds, beforeId) {
+        if (targetIslandIds.length === 0)
+            return; // id dropped back into its own solo island, so no-op
+        const zonesList = root._cloneZones();
+        const sourceZoneIdx = root._removeAtom(zonesList, id);
+        const targetZone = zonesList[targetZoneIdx];
+        if (!targetZone)
             return;
-        cur.splice(from, 1);
-        const toIdx = beforeId ? cur.indexOf(beforeId) : -1;
-        cur.splice(toIdx < 0 ? cur.length : toIdx, 0, id);
-        root.order = cur;
-        BarConfig.writeItemOrder(cur);
+        const target = targetZone.find(arr => arr.indexOf(targetIslandIds[0]) >= 0);
+        if (!target)
+            return;
+        const at = beforeId ? target.indexOf(beforeId) : -1;
+        target.splice(at < 0 ? target.length : at, 0, id);
+
+        root._maybePruneEmptyZone(zonesList, sourceZoneIdx);
+        root._commitZones(zonesList);
+    }
+
+    // Removes id from wherever it is and inserts it as a brand-new
+    // single-item island in targetZoneIdx, immediately before the island
+    // containing beforeIslandAnchorId, or at the end of that zone when "".
+    function spawnIsland(id, targetZoneIdx, beforeIslandAnchorId) {
+        const zonesList = root._cloneZones();
+        const targetZone = zonesList[targetZoneIdx];
+        if (!targetZone)
+            return;
+        let at = beforeIslandAnchorId ? targetZone.findIndex(arr => arr.indexOf(beforeIslandAnchorId) >= 0) : -1;
+        let fromIdx = -1;
+        for (let i = 0; i < targetZone.length; i++) {
+            const idx = targetZone[i].indexOf(id);
+            if (idx >= 0) {
+                targetZone[i].splice(idx, 1);
+                fromIdx = i;
+                break;
+            }
+        }
+        if (fromIdx >= 0) {
+            if (targetZone[fromIdx].length === 0) {
+                targetZone.splice(fromIdx, 1);
+                if (at > fromIdx)
+                    at--;
+            }
+        } else {
+            const sourceZoneIdx = root._removeAtom(zonesList, id);
+            root._maybePruneEmptyZone(zonesList, sourceZoneIdx);
+        }
+        targetZone.splice(at < 0 ? targetZone.length : at, 0, [id]);
+        root._commitZones(zonesList);
+    }
+
+    // Moves a whole island (identified by any current member id in
+    // islandIds. Its first is used as the anchor) into targetZoneIdx, to
+    // sit immediately before the island containing beforeIslandAnchorId, or
+    // at the end of that zone when "".
+    function moveIsland(islandIds, targetZoneIdx, beforeIslandAnchorId) {
+        if (islandIds.length === 0)
+            return;
+        const zonesList = root._cloneZones();
+        let fromZoneIdx = -1, fromIslandIdx = -1;
+        for (let zi = 0; zi < zonesList.length; zi++) {
+            const idx = zonesList[zi].findIndex(arr => arr.indexOf(islandIds[0]) >= 0);
+            if (idx >= 0) {
+                fromZoneIdx = zi;
+                fromIslandIdx = idx;
+                break;
+            }
+        }
+        if (fromZoneIdx < 0)
+            return;
+        const moving = zonesList[fromZoneIdx].splice(fromIslandIdx, 1)[0];
+        const targetZone = zonesList[targetZoneIdx];
+        if (!targetZone)
+            return;
+        const at = beforeIslandAnchorId ? targetZone.findIndex(arr => arr.indexOf(beforeIslandAnchorId) >= 0) : -1;
+        targetZone.splice(at < 0 ? targetZone.length : at, 0, moving);
+        root._maybePruneEmptyZone(zonesList, fromZoneIdx);
+        root._commitZones(zonesList);
+    }
+
+    // Removes id from wherever it is and inserts it as a brand-new zone
+    // (a single island containing just id) at atIndex in the zones list.
+    // One of the N+1 candidate insertion slots (before zone 0, between each
+    // adjacent pair, or after the last zone), resolved by the caller from
+    // live rendered gap geometry.
+    function spawnZone(id, atIndex) {
+        const zonesList = root._cloneZones();
+        const sourceZoneIdx = root._removeAtom(zonesList, id);
+        let at = atIndex;
+        if (sourceZoneIdx >= 0 && zonesList[sourceZoneIdx] && zonesList[sourceZoneIdx].length === 0 && zonesList.length > 3) {
+            zonesList.splice(sourceZoneIdx, 1);
+            if (at > sourceZoneIdx)
+                at--;
+        }
+        at = Math.max(0, Math.min(at, zonesList.length));
+        zonesList.splice(at, 0, [[id]]);
+        root._commitZones(zonesList);
+    }
+
+    // Whole-island equivalent of spawnZone: removes the whole island
+    // (islandIds, identified by its first member) from wherever it is and
+    // inserts it as a brand-new zone containing exactly that island (all
+    // its members, intact as one block) at atIndex.
+    function spawnZoneWithIsland(islandIds, atIndex) {
+        if (islandIds.length === 0)
+            return;
+        const zonesList = root._cloneZones();
+        let fromZoneIdx = -1, fromIslandIdx = -1;
+        for (let zi = 0; zi < zonesList.length; zi++) {
+            const idx = zonesList[zi].findIndex(arr => arr.indexOf(islandIds[0]) >= 0);
+            if (idx >= 0) {
+                fromZoneIdx = zi;
+                fromIslandIdx = idx;
+                break;
+            }
+        }
+        if (fromZoneIdx < 0)
+            return;
+        const moving = zonesList[fromZoneIdx].splice(fromIslandIdx, 1)[0];
+        let at = atIndex;
+        if (zonesList[fromZoneIdx].length === 0 && zonesList.length > 3) {
+            zonesList.splice(fromZoneIdx, 1);
+            if (at > fromZoneIdx)
+                at--;
+        }
+        at = Math.max(0, Math.min(at, zonesList.length));
+        zonesList.splice(at, 0, [moving]);
+        root._commitZones(zonesList);
     }
 
     function _merge() {
@@ -189,21 +360,54 @@ Singleton {
             BarConfig.writeItemStates(s);
     }
 
-    function _mergeOrder() {
+    // Drops ids/islands that no longer exist, appends brand-new catalog ids
+    // into the last zone's last island, enforces the zones.length >= 3 floor.
+    //
+    // Also handles one-time migration.
+    function _mergeZones() {
         const known = new Set(items.map(x => x.id));
-        const raw = BarConfig.itemOrder || [];
-        const result = raw.filter(id => known.has(id));
-        let dirty = result.length !== raw.length;
-        const present = new Set(result);
-        for (const item of items) {
-            if (!present.has(item.id)) {
-                result.push(item.id);
-                dirty = true;
-            }
+        let raw = BarConfig.zones;
+        let dirty = false;
+
+        if (!raw || raw.length === 0) {
+            dirty = true;
+            const legacy = BarConfig._legacyItemIslands;
+            raw = [[], [["music"], ["taskbar"]], (legacy && legacy.length > 0) ? legacy : []];
         }
-        root.order = result;
+
+        const seen = new Set();
+        const result = [];
+        for (const zone of raw) {
+            const resultZone = [];
+            for (const group of (zone || [])) {
+                const filtered = group.filter(id => known.has(id) && !seen.has(id));
+                if (filtered.length !== group.length)
+                    dirty = true;
+                filtered.forEach(id => seen.add(id));
+                if (filtered.length > 0)
+                    resultZone.push(filtered);
+            }
+            result.push(resultZone);
+        }
+
+        while (result.length < 3) {
+            result.push([]);
+            dirty = true;
+        }
+
+        const newIds = items.map(i => i.id).filter(id => !seen.has(id));
+        if (newIds.length > 0) {
+            dirty = true;
+            const lastZone = result[result.length - 1];
+            if (lastZone.length > 0)
+                lastZone[lastZone.length - 1] = lastZone[lastZone.length - 1].concat(newIds);
+            else
+                lastZone.push(newIds);
+        }
+
+        root.zones = result;
         if (dirty)
-            BarConfig.writeItemOrder(result);
+            BarConfig.writeZones(result);
     }
 
     Connections {
@@ -211,8 +415,14 @@ Singleton {
         function onItemStatesChanged() {
             root._merge();
         }
-        function onItemOrderChanged() {
-            root._mergeOrder();
+        function onZonesChanged() {
+            root._mergeZones();
+        }
+        function onReadyChanged() {
+            if (BarConfig.ready) {
+                root._merge();
+                root._mergeZones();
+            }
         }
     }
 }

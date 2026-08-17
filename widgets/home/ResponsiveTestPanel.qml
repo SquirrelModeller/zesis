@@ -612,15 +612,17 @@ Item {
             }
 
             Text {
-                text: "5 - Bar collapse test: live SysTray"
+                text: "5 - Bar collapse test: live BarZoneRow"
                 color: Colors.textDim
                 font.pixelSize: UIScale.fontSmall
                 font.weight: Font.Bold
                 font.letterSpacing: 1.3
                 Layout.topMargin: UIScale.spacingXs
             }
+            // This test is screwed up right now
+            // Someone spare me and fix this shit
             Text {
-                text: "The actual production SysTray.qml (same instance type as the live bar), fed a synthetic maxWidth from the width slider instead of shell.qml's real collision geometry."
+                text: "The actual production BarZoneRow.qml (same instance type as the live bar), sized to the width slider instead of shell.qml's real PanelWindow geometry."
                 color: Colors.withAlpha(Colors.textDim, 0.6)
                 font.pixelSize: UIScale.fontCaption
                 wrapMode: Text.WordWrap
@@ -630,13 +632,17 @@ Item {
 
             Item {
                 Layout.fillWidth: true
-                implicitHeight: realSysTrayTest.implicitHeight
+                implicitHeight: Math.round(50 * UIScale.value)
 
-                SysTray {
-                    id: realSysTrayTest
-                    x: BarConfig.isVertical ? 0 : (parent.width - width)
-                    y: BarConfig.isVertical ? (parent.height - height) : 0
-                    maxWidth: root.testWidth
+                Item {
+                    id: zoneRowTestContainer
+                    anchors.right: parent.right
+                    width: BarConfig.isVertical ? Math.round(50 * UIScale.value) : root.testWidth
+                    height: BarConfig.isVertical ? root.testWidth : Math.round(50 * UIScale.value)
+
+                    BarZoneRow {
+                        anchors.fill: parent
+                    }
                 }
 
                 EdgeOverlay {

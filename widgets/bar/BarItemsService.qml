@@ -8,6 +8,11 @@ Singleton {
 
     readonly property var items: [
         {
+            id: "workspace",
+            label: I18n.t("bar.itemWorkspace"),
+            src: "../workspaceindicator/WorkspaceIndicator.qml"
+        },
+        {
             id: "systray",
             label: I18n.t("bar.itemSystray"),
             src: "SystrayItems.qml"
@@ -160,6 +165,23 @@ Singleton {
         s[id] = !isEnabled(id);
         _state = s;
         BarConfig.writeItemStates(s);
+    }
+
+    property var pinnedIds: BarConfig.pinnedIds
+
+    function isPinned(id) {
+        return root.pinnedIds.indexOf(id) >= 0;
+    }
+
+    function togglePin(id) {
+        const next = root.pinnedIds.slice();
+        const idx = next.indexOf(id);
+        if (idx >= 0)
+            next.splice(idx, 1);
+        else
+            next.push(id);
+        root.pinnedIds = next;
+        BarConfig.writePinnedIds(next);
     }
 
     // Clones the current zones structure into mutable arrays, for mutation
@@ -372,7 +394,7 @@ Singleton {
         if (!raw || raw.length === 0) {
             dirty = true;
             const legacy = BarConfig._legacyItemIslands;
-            raw = [[], [["music"], ["taskbar"]], (legacy && legacy.length > 0) ? legacy : []];
+            raw = [[["workspace"]], [["music"], ["taskbar"]], (legacy && legacy.length > 0) ? legacy : []];
         }
 
         const seen = new Set();
@@ -395,7 +417,13 @@ Singleton {
             dirty = true;
         }
 
-        const newIds = items.map(i => i.id).filter(id => !seen.has(id));
+        if (!seen.has("workspace") && known.has("workspace")) {
+            dirty = true;
+            result[0].unshift(["workspace"]);
+            seen.add("workspace");
+        }
+
+        const newIds = items.map(i => i.id).filter(id => id !== "workspace" && !seen.has(id));
         if (newIds.length > 0) {
             dirty = true;
             const lastZone = result[result.length - 1];

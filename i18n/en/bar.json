@@ -32,5 +32,8 @@
   "itemHome": "Home",
   "itemSettings": "Settings",
   "itemLock": "Lock",
-  "itemClock": "Clock"
+  "itemClock": "Clock",
+  "itemWorkspace": "Workspace Indicator",
+  "pinnedToCenter": "Pinned to center",
+  "pinnedToCenterHint": "Temporary: fixes an atom to the exact center of whatever interior zone it's currently in."
 }

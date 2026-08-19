@@ -458,38 +458,6 @@ Item {
                     onMoved: v => WorkspaceDiscService.chamberRadius = v
                 }
 
-                // Corner peek
-                RowLayout {
-                    Layout.fillWidth: true
-                    Layout.leftMargin: UIScale.panelPad
-                    Layout.rightMargin: UIScale.panelPad
-
-                    Text {
-                        text: I18n.t("workspaceindicator.cornerPeek")
-                        color: Colors.text
-                        font.pixelSize: UIScale.fontBody
-                        font.bold: true
-                        Layout.fillWidth: true
-                    }
-                    Text {
-                        text: WorkspaceDiscService.peekOffset + " px"
-                        color: Colors.accent
-                        font.pixelSize: UIScale.fontBody
-                        font.weight: Font.Bold
-                        font.family: "monospace"
-                    }
-                }
-
-                SettingSlider {
-                    Layout.fillWidth: true
-                    Layout.leftMargin: UIScale.panelPad
-                    Layout.rightMargin: UIScale.panelPad
-                    from: 4
-                    to: 28
-                    value: WorkspaceDiscService.peekOffset
-                    onMoved: v => WorkspaceDiscService.peekOffset = v
-                }
-
                 Divider {
                     Layout.leftMargin: UIScale.panelPad
                     Layout.rightMargin: UIScale.panelPad
@@ -526,6 +494,110 @@ Item {
                     model: root._skinLabels
                     currentIndex: root._currentSkinIndex
                     onActivated: index => WorkspaceDiscService.skin = root._skinId(skinFiles.get(index, "fileName"))
+                }
+
+                Divider {
+                    Layout.leftMargin: UIScale.panelPad
+                    Layout.rightMargin: UIScale.panelPad
+                }
+
+                // Tuck to edge
+                RowLayout {
+                    Layout.fillWidth: true
+                    Layout.leftMargin: UIScale.panelPad
+                    Layout.rightMargin: UIScale.panelPad
+
+                    Column {
+                        Layout.fillWidth: true
+                        spacing: Math.round(2 * UIScale.value)
+
+                        Text {
+                            text: I18n.t("workspaceindicator.tuckEnabled")
+                            color: Colors.text
+                            font.pixelSize: UIScale.fontBody
+                            font.bold: true
+                        }
+                        Text {
+                            width: parent.width
+                            text: I18n.t("workspaceindicator.tuckEnabledHint")
+                            color: Colors.textDim
+                            font.pixelSize: UIScale.fontCaption
+                            wrapMode: Text.WordWrap
+                        }
+                    }
+
+                    ToggleSwitch {
+                        checked: WorkspaceDiscService.tuckEnabled
+                        onToggled: WorkspaceDiscService.tuckEnabled = !WorkspaceDiscService.tuckEnabled
+                    }
+                }
+
+                // Show island background
+                RowLayout {
+                    Layout.fillWidth: true
+                    Layout.leftMargin: UIScale.panelPad
+                    Layout.rightMargin: UIScale.panelPad
+                    visible: !WorkspaceDiscService.tuckEnabled
+
+                    Column {
+                        Layout.fillWidth: true
+                        spacing: Math.round(2 * UIScale.value)
+
+                        Text {
+                            text: I18n.t("workspaceindicator.showIslandBackground")
+                            color: Colors.text
+                            font.pixelSize: UIScale.fontBody
+                            font.bold: true
+                        }
+                        Text {
+                            width: parent.width
+                            text: I18n.t("workspaceindicator.showIslandBackgroundHint")
+                            color: Colors.textDim
+                            font.pixelSize: UIScale.fontCaption
+                            wrapMode: Text.WordWrap
+                        }
+                    }
+
+                    ToggleSwitch {
+                        checked: WorkspaceDiscService.showIslandBackground
+                        onToggled: WorkspaceDiscService.showIslandBackground = !WorkspaceDiscService.showIslandBackground
+                    }
+                }
+
+                Divider {
+                    Layout.leftMargin: UIScale.panelPad
+                    Layout.rightMargin: UIScale.panelPad
+                }
+
+                // Animate on hover
+                RowLayout {
+                    Layout.fillWidth: true
+                    Layout.leftMargin: UIScale.panelPad
+                    Layout.rightMargin: UIScale.panelPad
+
+                    Column {
+                        Layout.fillWidth: true
+                        spacing: Math.round(2 * UIScale.value)
+
+                        Text {
+                            text: I18n.t("workspaceindicator.animateTransition")
+                            color: Colors.text
+                            font.pixelSize: UIScale.fontBody
+                            font.bold: true
+                        }
+                        Text {
+                            width: parent.width
+                            text: I18n.t("workspaceindicator.animateTransitionHint")
+                            color: Colors.textDim
+                            font.pixelSize: UIScale.fontCaption
+                            wrapMode: Text.WordWrap
+                        }
+                    }
+
+                    ToggleSwitch {
+                        checked: WorkspaceDiscService.animateTransition
+                        onToggled: WorkspaceDiscService.animateTransition = !WorkspaceDiscService.animateTransition
+                    }
                 }
 
                 Divider {

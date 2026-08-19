@@ -6,6 +6,7 @@ import "../home"
 import "../settings"
 import "../lockscreen"
 import "../shared"
+import "../workspaceindicator/disc"
 
 // This is the entire bar layout.
 // It consists of "zones" laid which are divided out into fractions.
@@ -14,6 +15,9 @@ import "../shared"
 // Each zone has an island, and each island atoms.
 Item {
     id: root
+
+    // Screen name this bar instance renders on
+    property string screenName: ""
 
     readonly property real _pad: Math.round(24 * UIScale.value)
     readonly property real _gap: 4
@@ -127,12 +131,20 @@ Item {
         return count;
     }
 
+    // Is this idlands pill background and padding suppressed?
+    function _islandPad(ids) {
+        var isWorkspaceOnly = ids.length === 1 && ids[0] === "workspace";
+        var suppressed = isWorkspaceOnly && (WorkspaceDiscService.tuckEnabled || !WorkspaceDiscService.showIslandBackground);
+        return suppressed ? 0 : root._pad;
+    }
+
     // Minimum width of a non-empty island when collapsed.
     function _islandMinWidth(ids) {
         var avail = root._availableIdsIn(ids);
         if (avail.length === 0)
             return 0;
-        return Math.min(root._islandNaturalWidth(ids) + root._pad, root._pad + root._chevronWidth);
+        var pad = root._islandPad(ids);
+        return Math.min(root._islandNaturalWidth(ids) + pad, pad + root._chevronWidth);
     }
 
     // Per-island width budget within a zone, given that zone's own
@@ -160,7 +172,7 @@ Item {
                 continue;
             }
             mins[i] = root._islandMinWidth(ids);
-            naturals[i] = Math.max(mins[i], root._islandNaturalWidth(ids) + root._pad);
+            naturals[i] = Math.max(mins[i], root._islandNaturalWidth(ids) + root._islandPad(ids));
             totalMin += mins[i];
             budgets[i] = mins[i];
             visibleCount++;
@@ -180,27 +192,91 @@ Item {
         return budgets;
     }
 
-    // Uncollapsed width of everything currently available in a zone.
-    function _zoneIslandNaturalWidths(rawIndex) {
+    // Per-island x offset and width, in islandGroups order.
+    // When there are no pinned atoms, we just use a singular row instead
+    function _islandLayout(rawIndex) {
         var groups = root._allZoneIslandGroups[rawIndex] || [];
-        var out = [];
-        for (var i = 0; i < groups.length; i++) {
+        var n = groups.length;
+        var widths = new Array(n).fill(0);
+        var visible = new Array(n).fill(false);
+        var anchorIdx = -1;
+        var totalRaw = BarItemsService.zones.length;
+        var canPin = rawIndex !== 0 && rawIndex !== totalRaw - 1;
+        for (var i = 0; i < n; i++) {
             var avail = root._availableIdsIn(groups[i]);
             if (avail.length === 0)
                 continue;
-            out.push(Math.max(root._islandMinWidth(groups[i]), root._islandNaturalWidth(groups[i]) + root._pad));
+            visible[i] = true;
+            widths[i] = Math.max(root._islandMinWidth(groups[i]), root._islandNaturalWidth(groups[i]) + root._islandPad(groups[i]));
+            if (canPin && anchorIdx < 0)
+                for (var j = 0; j < avail.length; j++)
+                    if (BarItemsService.isPinned(avail[j])) {
+                        anchorIdx = i;
+                        break;
+                    }
         }
-        return out;
+
+        var xs = new Array(n).fill(0);
+        var totalWidth = 0;
+
+        if (anchorIdx < 0) {
+            var flowW = 0;
+            for (var k = 0; k < n; k++)
+                if (visible[k])
+                    flowW += (flowW > 0 ? root._pillGap : 0) + widths[k];
+            var cursor = -flowW / 2;
+            for (var m = 0; m < n; m++) {
+                if (!visible[m])
+                    continue;
+                if (cursor > -flowW / 2)
+                    cursor += root._pillGap;
+                xs[m] = cursor;
+                cursor += widths[m];
+            }
+            totalWidth = flowW;
+        } else {
+            var leftW = 0, rightW = 0;
+            for (var l = 0; l < anchorIdx; l++)
+                if (visible[l])
+                    leftW += (leftW > 0 ? root._pillGap : 0) + widths[l];
+            for (var r = anchorIdx + 1; r < n; r++)
+                if (visible[r])
+                    rightW += (rightW > 0 ? root._pillGap : 0) + widths[r];
+            var side = Math.max(leftW, rightW);
+            totalWidth = widths[anchorIdx] + 2 * (side + root._pillGap);
+
+            var anchorX = -widths[anchorIdx] / 2;
+            xs[anchorIdx] = anchorX;
+
+            var leftEdge = anchorX - root._pillGap;
+            for (var li = anchorIdx - 1; li >= 0; li--) {
+                if (!visible[li])
+                    continue;
+                leftEdge -= widths[li];
+                xs[li] = leftEdge;
+                leftEdge -= root._pillGap;
+            }
+
+            var rightEdge = anchorX + widths[anchorIdx] + root._pillGap;
+            for (var ri = anchorIdx + 1; ri < n; ri++) {
+                if (!visible[ri])
+                    continue;
+                xs[ri] = rightEdge;
+                rightEdge += widths[ri] + root._pillGap;
+            }
+        }
+
+        return {
+            xs: xs,
+            widths: widths,
+            visible: visible,
+            anchorIdx: anchorIdx,
+            totalWidth: totalWidth
+        };
     }
 
     function _zoneNaturalWidth(rawIndex) {
-        var widths = root._zoneIslandNaturalWidths(rawIndex);
-        if (widths.length === 0)
-            return 0;
-        var sum = 0;
-        for (var i = 0; i < widths.length; i++)
-            sum += widths[i] + (i > 0 ? root._pillGap : 0);
-        return sum;
+        return root._islandLayout(rawIndex).totalWidth;
     }
 
     // Minimum rendered width of a non-empty zone. All of its islands collapsed
@@ -217,7 +293,6 @@ Item {
         }
         return sum;
     }
-
 
     // Positions are absolute for all zones. They are at fixed fractions.
     // I.e. the raw index divided by  zone count total.
@@ -747,6 +822,89 @@ Item {
         root._spawnZoneAtIndex = -1;
     }
 
+    // The workspace renders beyond the bar for its popup effect.
+    // This means its atom has no pixels of its own. PanelWindow is just
+    // embedded into it.
+    function _publishWorkspaceRect() {
+        var slot = root._slotFor("workspace");
+        if (!slot || !slot.itemRef)
+            return;
+        if (!slot.visible) {
+            slot.itemRef.clearAtomRect();
+            return;
+        }
+        var tl = slot.mapToItem(root, 0, 0);
+        var size = BarConfig.isVertical ? slot.height : slot.width;
+        var corner = root._workspaceCorner();
+        slot.itemRef.setAtomRect({
+            pos: (BarConfig.isVertical ? tl.y : tl.x) + size / 2,
+            size: size,
+            atCorner: corner.at,
+            cornerFlip: corner.flip
+        });
+    }
+
+    function _workspaceCorner() {
+        var raw = BarItemsService.zones;
+        if (raw.length === 0)
+            return {
+                at: false,
+                flip: false
+            };
+        var firstZone = raw[0];
+        if (firstZone.length > 0 && firstZone[0].length > 0 && firstZone[0][0] === "workspace")
+            return {
+                at: true,
+                flip: false
+            };
+        var lastZone = raw[raw.length - 1];
+        var lastIsland = lastZone.length > 0 ? lastZone[lastZone.length - 1] : null;
+        if (!!lastIsland && lastIsland.length > 0 && lastIsland[lastIsland.length - 1] === "workspace")
+            return {
+                at: true,
+                flip: true
+            };
+        return {
+            at: false,
+            flip: false
+        };
+    }
+
+    on_ZoneLayoutChanged: Qt.callLater(root._publishWorkspaceRect)
+    on_WidthMapChanged: Qt.callLater(root._publishWorkspaceRect)
+    on_AvailabilityMapChanged: Qt.callLater(root._publishWorkspaceRect)
+
+    Connections {
+        target: BarItemsService
+        function onZonesChanged() {
+            Qt.callLater(root._publishWorkspaceRect);
+        }
+    }
+
+    function beginWorkspaceDrag(w, h, barLocalX, barLocalY) {
+        root._dragItemData = root._catalogItem("workspace");
+        root._dragItemW = w;
+        root._dragItemH = h;
+        root._dragGrab = null;
+        root._setHoldTarget("");
+        root._dropTargetIslandIds = null;
+        root._dropTargetZoneRawIdx = -1;
+        root._dropBeforeId = "";
+        root._dragPos = Qt.point(barLocalX, barLocalY);
+    }
+    function updateWorkspaceDragPos(barLocalX, barLocalY) {
+        root._updateDragPos(Qt.point(barLocalX, barLocalY));
+    }
+    function setWorkspaceDragGrab(result) {
+        root._dragGrab = result;
+    }
+    function endWorkspaceDrag() {
+        root._endDrag();
+    }
+
+    onScreenNameChanged: Qt.callLater(root._publishWorkspaceRect)
+    Component.onCompleted: Qt.callLater(root._publishWorkspaceRect)
+
     Timer {
         id: spawnHoldTimer
         interval: root._spawnHoldMs
@@ -875,6 +1033,9 @@ Item {
                             LockService.triggerLock();
                         });
                     }
+                } else if (slot.itemData.id === "workspace") {
+                    content.item.screenName = Qt.binding(() => root.screenName);
+                    content.item.barZoneRow = root;
                 }
             }
         }
@@ -888,11 +1049,13 @@ Item {
         required property int islandIndex
         required property var ids
 
+        readonly property bool _suppressBackground: root._islandPad(pill.ids) === 0
+
         radius: 100
-        color: Colors.barBg
+        color: pill._suppressBackground ? "transparent" : Colors.barBg
         visible: pill._availableIds.length > 0
-        implicitWidth: BarConfig.isVertical ? Math.round(50 * UIScale.value) : (pillLayout.implicitWidth + root._pad)
-        implicitHeight: BarConfig.isVertical ? (pillLayout.implicitHeight + root._pad) : Math.round(50 * UIScale.value)
+        implicitWidth: BarConfig.isVertical ? Math.round(50 * UIScale.value) : (pillLayout.implicitWidth + (pill._suppressBackground ? 0 : root._pad))
+        implicitHeight: BarConfig.isVertical ? (pillLayout.implicitHeight + (pill._suppressBackground ? 0 : root._pad)) : Math.round(50 * UIScale.value)
 
         readonly property var _availableIds: root._availableIdsIn(pill.ids)
         readonly property real _budget: root._islandBudgetsForZone(pill.zoneRawIndex, root._zoneWidthFor(pill.zoneRawIndex))[pill.islandIndex] ?? -1
@@ -1047,8 +1210,13 @@ Item {
 
         visible: _availableIslandGroups.length > 0
 
-        implicitWidth: BarConfig.isVertical ? Math.round(50 * UIScale.value) : pillRow.implicitWidth
-        implicitHeight: BarConfig.isVertical ? pillRow.implicitHeight : Math.round(50 * UIScale.value)
+        // Islands position and width calculate here. A pinned atom has a zone
+        // which needs one atom fixed at the exact center with two independent
+        // flanking runs around it.
+        readonly property var _layout: root._islandLayout(zoneGroup.rawIndex)
+
+        implicitWidth: BarConfig.isVertical ? Math.round(50 * UIScale.value) : _layout.totalWidth
+        implicitHeight: BarConfig.isVertical ? _layout.totalWidth : Math.round(50 * UIScale.value)
 
         function pillFor(id) {
             for (var i = 0; i < islandsRepeaterInner.count; i++) {
@@ -1059,25 +1227,22 @@ Item {
             return null;
         }
 
-        GridLayout {
-            id: pillRow
-            anchors.centerIn: parent
-            rowSpacing: root._pillGap
-            columnSpacing: root._pillGap
-            rows: BarConfig.isVertical ? -1 : 1
-            columns: BarConfig.isVertical ? 1 : -1
+        Repeater {
+            id: islandsRepeaterInner
+            model: zoneGroup.islandGroups
+            delegate: IslandPill {
+                id: pill
+                required property var modelData
+                required property int index
+                zoneRawIndex: zoneGroup.rawIndex
+                islandIndex: index
+                ids: modelData
 
-            Repeater {
-                id: islandsRepeaterInner
-                model: zoneGroup.islandGroups
-                delegate: IslandPill {
-                    required property var modelData
-                    required property int index
-                    zoneRawIndex: zoneGroup.rawIndex
-                    islandIndex: index
-                    ids: modelData
-                    Layout.alignment: Qt.AlignCenter
-                }
+                readonly property var _zoneLayout: zoneGroup._layout
+                visible: pill._zoneLayout.visible[pill.index] ?? false
+
+                x: BarConfig.isVertical ? (zoneGroup.width - pill.width) / 2 : zoneGroup.width / 2 + (pill._zoneLayout.xs[pill.index] ?? 0)
+                y: BarConfig.isVertical ? zoneGroup.height / 2 + (pill._zoneLayout.xs[pill.index] ?? 0) : (zoneGroup.height - pill.height) / 2
             }
         }
     }

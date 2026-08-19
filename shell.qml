@@ -5,8 +5,6 @@ import Quickshell
 import Quickshell.Io
 import Quickshell.Wayland
 import "widgets/bar"
-import "widgets/workspaceindicator"
-import "widgets/workspaceindicator/disc"
 import "widgets/notifications"
 import "widgets/lockscreen"
 import "widgets/keybinds"
@@ -72,57 +70,13 @@ Scope {
 
             BarZoneRow {
                 anchors.fill: parent
+                screenName: root.modelData.name
             }
 
             Connections {
                 target: LockService
                 function onLockRequested() {
                     lockScreen.triggerLock();
-                }
-            }
-        }
-    }
-
-    Variants {
-        // Empty WorkspaceDiscService.monitors means "all monitors" (default), same
-        // convention as BarConfig.monitors above.
-        model: WorkspaceDiscService.monitors.length === 0 ? Quickshell.screens : Quickshell.screens.filter(s => WorkspaceDiscService.monitors.includes(s.name))
-        delegate: PanelWindow {
-            id: wsRoot
-
-            required property ShellScreen modelData
-            screen: modelData
-
-            WlrLayershell.layer: WlrLayer.Top
-            anchors {
-                top: BarConfig.side !== "bottom"
-                bottom: BarConfig.side === "bottom"
-                left: BarConfig.side !== "right"
-                right: BarConfig.side === "right"
-            }
-            exclusiveZone: -1
-            implicitWidth: indicator.implicitWidth
-            implicitHeight: indicator.implicitHeight
-            color: "transparent"
-
-            mask: Region {
-                shape: indicator.maskShape
-                x: indicator.maskX
-                y: indicator.maskY
-                width: indicator.maskWidth
-                height: indicator.maskHeight
-            }
-
-            WorkspaceIndicator {
-                id: indicator
-                anchors.fill: parent
-                screen: wsRoot.modelData
-                corner: {
-                    if (BarConfig.side === "bottom")
-                        return "bottomLeft";
-                    if (BarConfig.side === "right")
-                        return "topRight";
-                    return "topLeft";
                 }
             }
         }

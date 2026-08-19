@@ -12,6 +12,8 @@
   "endGap": "Espaço final",
   "items": "Itens da barra",
   "itemSystray": "Bandeja do Sistema",
+  "itemTaskbar": "Barra de Tarefas",
+  "itemMusic": "Player de Música",
   "itemSysmon": "Monitor do Sistema",
   "itemTheme": "Seletor de Tema",
   "itemKeybinds": "Atalhos",

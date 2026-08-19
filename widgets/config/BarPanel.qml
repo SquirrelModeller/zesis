@@ -48,19 +48,24 @@ Item {
                     Layout.fillWidth: true
                     spacing: UIScale.spacingSm
                     Repeater {
-                        model: [{
+                        model: [
+                            {
                                 value: "top",
                                 label: I18n.t("bar.top")
-                            }, {
+                            },
+                            {
                                 value: "bottom",
                                 label: I18n.t("bar.bottom")
-                            }, {
+                            },
+                            {
                                 value: "left",
                                 label: I18n.t("bar.left")
-                            }, {
+                            },
+                            {
                                 value: "right",
                                 label: I18n.t("bar.right")
-                            }]
+                            }
+                        ]
                         delegate: Rectangle {
                             id: sideBtn
                             required property var modelData
@@ -235,6 +240,50 @@ Item {
                         ToggleSwitch {
                             checked: BarItemsService.isEnabled(itemRow.modelData.id)
                             onToggled: BarItemsService.toggle(itemRow.modelData.id)
+                        }
+                    }
+                }
+
+                Divider {
+                    color: Colors.withAlpha(Colors.accent, 0.1)
+                }
+
+                // Pinned to center, probably temporary...
+                Column {
+                    Layout.fillWidth: true
+                    spacing: Math.round(2 * UIScale.value)
+
+                    Text {
+                        text: I18n.t("bar.pinnedToCenter")
+                        color: Colors.text
+                        font.bold: true
+                        font.pixelSize: UIScale.fontBody
+                    }
+                    Text {
+                        width: parent.width
+                        text: I18n.t("bar.pinnedToCenterHint")
+                        color: Colors.textDim
+                        font.pixelSize: UIScale.fontCaption
+                        wrapMode: Text.WordWrap
+                    }
+                }
+
+                Repeater {
+                    model: BarItemsService.orderedItems
+                    delegate: RowLayout {
+                        id: pinRow
+                        required property var modelData
+                        Layout.fillWidth: true
+
+                        Text {
+                            text: pinRow.modelData.label
+                            color: Colors.text
+                            font.pixelSize: UIScale.fontBody
+                            Layout.fillWidth: true
+                        }
+                        ToggleSwitch {
+                            checked: BarItemsService.isPinned(pinRow.modelData.id)
+                            onToggled: BarItemsService.togglePin(pinRow.modelData.id)
                         }
                     }
                 }

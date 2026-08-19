@@ -4,6 +4,9 @@ import QtQuick.Layouts
 import Quickshell.Services.SystemTray
 
 GridLayout {
+    readonly property bool available: SystemTray.items.values.length > 0
+    visible: available
+
     rows: BarConfig.isVertical ? -1 : 1
     columns: BarConfig.isVertical ? 1 : -1
     rowSpacing: 4

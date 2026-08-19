@@ -16,10 +16,12 @@ Singleton {
     property int valleyDepth: settingsData.valleyDepth
     property int chamberRadius: settingsData.chamberRadius
     property int chamberSize: settingsData.chamberSize
-    property int peekOffset: settingsData.peekOffset
     property bool expressive: settingsData.expressive
     property string skin: settingsData.skin
     property var monitors: settingsData.monitors
+    property bool tuckEnabled: settingsData.tuckEnabled
+    property bool showIslandBackground: settingsData.showIslandBackground
+    property bool animateTransition: settingsData.animateTransition
 
     property bool _loaded: false
     Component.onCompleted: Qt.callLater(function () {
@@ -40,13 +42,17 @@ Singleton {
         _write()
     onChamberSizeChanged: if (_loaded)
         _write()
-    onPeekOffsetChanged: if (_loaded)
-        _write()
     onExpressiveChanged: if (_loaded)
         _write()
     onSkinChanged: if (_loaded)
         _write()
     onMonitorsChanged: if (_loaded)
+        _write()
+    onTuckEnabledChanged: if (_loaded)
+        _write()
+    onShowIslandBackgroundChanged: if (_loaded)
+        _write()
+    onAnimateTransitionChanged: if (_loaded)
         _write()
 
     function _write() {
@@ -58,10 +64,12 @@ Singleton {
                 valleyDepth: root.valleyDepth,
                 chamberRadius: root.chamberRadius,
                 chamberSize: root.chamberSize,
-                peekOffset: root.peekOffset,
                 expressive: root.expressive,
                 skin: root.skin,
-                monitors: root.monitors
+                monitors: root.monitors,
+                tuckEnabled: root.tuckEnabled,
+                showIslandBackground: root.showIslandBackground,
+                animateTransition: root.animateTransition
             }) + "' > '" + root._configPath + "'"];
         writeProc.running = true;
     }
@@ -75,10 +83,12 @@ Singleton {
         property int valleyDepth: 28
         property int chamberRadius: 30
         property int chamberSize: 26
-        property int peekOffset: 16
         property bool expressive: false
         property string skin: "default"
         property var monitors: []
+        property bool tuckEnabled: true
+        property bool showIslandBackground: false
+        property bool animateTransition: true
     }
 
     FileView {

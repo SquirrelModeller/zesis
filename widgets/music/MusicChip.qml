@@ -4,6 +4,7 @@ import QtQuick
 import Quickshell.Services.Mpris
 import "../../"
 import "../shared"
+import "../bar"
 
 Item {
     id: root
@@ -15,12 +16,15 @@ Item {
     onVisibleChanged: if (!visible)
         musicPopup.close()
 
+    readonly property bool _vertical: BarConfig.isVertical
     readonly property int _textW: Math.round(110 * UIScale.value)
+    readonly property int _crossAxis: Math.round(30 * UIScale.value)
 
-    implicitWidth: iconText.implicitWidth + Math.round(UIScale.spacingSm) + _textW
-    implicitHeight: Math.round(30 * UIScale.value)
+    implicitWidth: root._vertical ? root._crossAxis : (iconText.implicitWidth + Math.round(UIScale.spacingSm) + root._textW)
+    implicitHeight: root._vertical ? (iconTextV.implicitHeight + Math.round(UIScale.spacingSm) + root._textW) : root._crossAxis
 
     Row {
+        visible: !root._vertical
         anchors.centerIn: parent
         spacing: Math.round(UIScale.spacingSm)
 
@@ -40,6 +44,39 @@ Item {
             color: Colors.text
             font.pixelSize: UIScale.fontSmall
             font.bold: true
+        }
+    }
+
+    // Vertical bar
+    Column {
+        visible: root._vertical
+        anchors.centerIn: parent
+        spacing: Math.round(UIScale.spacingSm)
+
+        Text {
+            id: iconTextV
+            anchors.horizontalCenter: parent.horizontalCenter
+            text: "󰝚"
+            color: Colors.muted
+            font.pixelSize: UIScale.fontLead
+        }
+
+        Item {
+            anchors.horizontalCenter: parent.horizontalCenter
+            width: titleTextV.implicitHeight
+            height: root._textW
+
+            Text {
+                id: titleTextV
+                anchors.centerIn: parent
+                width: root._textW
+                text: root._player ? root._player.trackTitle : ""
+                elide: Text.ElideRight
+                color: Colors.text
+                font.pixelSize: UIScale.fontSmall
+                font.bold: true
+                rotation: 90
+            }
         }
     }
 

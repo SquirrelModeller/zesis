@@ -94,11 +94,12 @@ Item {
         return out;
     }
 
+    // Whatever axis the flows on is the natural width
     function _islandNaturalWidth(ids) {
         var avail = root._availableIdsIn(ids);
         var used = 0;
         for (var i = 0; i < avail.length; i++)
-            used += (i > 0 ? root._gap : 0) + root._itemWidth(avail[i]);
+            used += (i > 0 ? root._gap : 0) + (BarConfig.isVertical ? root._itemHeight(avail[i]) : root._itemWidth(avail[i]));
         return used;
     }
 

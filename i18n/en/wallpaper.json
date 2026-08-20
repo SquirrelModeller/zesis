@@ -17,5 +17,6 @@
   "applyTo": "Apply to",
   "allMonitors": "All monitors",
   "resetToGlobal": "Reset to global",
-  "colorsFromLabel": "Colors from"
+  "colorsFromLabel": "Colors from",
+  "templateWarning": "Your own matugen template failed to run: %1"
 }

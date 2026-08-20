@@ -10,6 +10,11 @@ Singleton {
     readonly property string _cacheDir: _home + "/.cache/zesis"
     readonly property string _stateFile: _cacheDir + "/state.json"
     readonly property string thumbsDir: _cacheDir + "/thumbs"
+    readonly property string _matugenConfigPath: Quickshell.shellDir + "/matugen/config.toml"
+    // Sentinel prefix - anything on stderr after this came from the user's own optional
+    // matugen template run, not ours, so it can be reported separately without being
+    // mistaken for a fatal apply failure.
+    readonly property string _templateErrorMarker: "__ZESIS_USER_TEMPLATE_ERROR__"
 
     property string palette: "dark"
     property string lastWallpaper: ""
@@ -22,6 +27,9 @@ Singleton {
     property bool autoStartWallpaperDaemon: true
     property bool applying: false
     property string lastError: ""
+    // Non-fatal: set when our own theming succeeded but the user's own matugen
+    // templates (outside our shipped config) failed to run.
+    property string lastTemplateWarning: ""
     // Per-monitor overrides: { "DP-1": "/path/to/wall.png", ... }. A monitor with no entry
     // here just shows lastWallpaper.
     property var perMonitorWallpaper: ({})
@@ -68,6 +76,22 @@ Singleton {
             daemonProcess: ""
         }
     ]
+
+    // Zesis ships its own matugen template. This way we guarantee the theme gets applied
+    // when switching wallpapers. After that we attempt to apply the user's own templates.
+    // We also surface whatever potential error the user has in their own configuration.
+    function _matugenCmd(img, type, mode, cfg) {
+        var ours = "matugen -c \"" + cfg + "\" image \"" + img + "\" --source-color-index 0 --type \"" + type + "\" --mode \"" + mode + "\"";
+        var theirs = "matugen image \"" + img + "\" --source-color-index 0 --type \"" + type + "\" --mode \"" + mode + "\"";
+        var theirsGuarded = "tpl_err=$(" + theirs + " 2>&1 1>/dev/null); tpl_ec=$?; " + "[ \"$tpl_ec\" -ne 0 ] && printf '%s' \"" + root._templateErrorMarker + "$tpl_err\" 1>&2; true";
+        return ours + " && (" + theirsGuarded + ")";
+    }
+
+    // Matugen likes fancy colors, we hae to strip those, otherwise it's garbage
+    // output.
+    function _stripAnsi(text) {
+        return text.replace(/\x1b\[[0-9;]*m/g, "");
+    }
 
     // monitor is "" for the global/all-monitors wallpaper.
     function _wallpaperSetCmd(monitor) {
@@ -206,10 +230,11 @@ Singleton {
     function _runRecolor(path) {
         root.applying = true;
         root.lastError = "";
+        root.lastTemplateWarning = "";
         applyProcess._wallpaperPath = path;
         applyProcess._monitor = "";
         applyProcess._persistOverride = false;
-        applyProcess.command = ["bash", "-c", "matugen image \"$1\" --source-color-index 0 --type \"$2\" --mode \"$3\"", "--", path, root.schemeType, root.palette];
+        applyProcess.command = ["bash", "-c", root._matugenCmd("$1", "$2", "$3", "$4"), "--", path, root.schemeType, root.palette, root._matugenConfigPath];
         applyProcess.running = true;
     }
 
@@ -230,6 +255,7 @@ Singleton {
     function _runApply(wallpaperPath, monitor, recolor, persistOverride) {
         root.applying = true;
         root.lastError = "";
+        root.lastTemplateWarning = "";
         applyProcess._wallpaperPath = wallpaperPath;
         applyProcess._monitor = monitor;
         applyProcess._persistOverride = persistOverride;
@@ -238,9 +264,9 @@ Singleton {
         if (setCmd.length > 0)
             parts.push(setCmd);
         if (recolor)
-            parts.push("matugen image \"$1\" --source-color-index 0 --type \"$3\" --mode \"$4\"");
+            parts.push(root._matugenCmd("$1", "$3", "$4", "$5"));
         var script = parts.length > 0 ? parts.join(" && ") : "true";
-        applyProcess.command = ["bash", "-c", script, "--", wallpaperPath, monitor, root.schemeType, root.palette];
+        applyProcess.command = ["bash", "-c", script, "--", wallpaperPath, monitor, root.schemeType, root.palette, root._matugenConfigPath];
         applyProcess.running = true;
     }
 
@@ -279,6 +305,15 @@ Singleton {
 
         onExited: (code, status) => { // qmllint disable signal-handler-parameters
             root.applying = false;
+            var stderrText = applyStderr.text;
+            var markerIdx = stderrText.indexOf(root._templateErrorMarker);
+            if (markerIdx !== -1) {
+                root.lastTemplateWarning = root._stripAnsi(stderrText.slice(markerIdx + root._templateErrorMarker.length)).trim();
+                stderrText = stderrText.slice(0, markerIdx);
+            } else {
+                root.lastTemplateWarning = "";
+            }
+            stderrText = root._stripAnsi(stderrText);
             if (code === 0) {
                 if (applyProcess._persistOverride) {
                     if (applyProcess._monitor === "") {
@@ -297,7 +332,7 @@ Singleton {
                 if (!hookProcess.running)
                     hookProcess.running = true;
             } else {
-                root.lastError = applyStderr.text.trim() || ("Command exited with code " + code);
+                root.lastError = stderrText.trim() || ("Command exited with code " + code);
             }
             root._runNextQueued();
         }

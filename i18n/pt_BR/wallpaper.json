@@ -17,5 +17,6 @@
   "applyTo": "Aplicar em",
   "allMonitors": "Todos os monitores",
   "resetToGlobal": "Restaurar para global",
-  "colorsFromLabel": "Cores de"
+  "colorsFromLabel": "Cores de",
+  "templateWarning": "Seu próprio modelo do matugen falhou ao executar: %1"
 }

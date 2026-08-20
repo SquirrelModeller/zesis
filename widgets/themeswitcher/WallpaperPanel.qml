@@ -782,6 +782,16 @@ Item {
                     wrapMode: Text.WordWrap
                 }
 
+                Text {
+                    Layout.fillWidth: true
+                    Layout.bottomMargin: UIScale.spacingSm
+                    visible: ThemeState.lastTemplateWarning !== ""
+                    text: I18n.t("wallpaper.templateWarning", [ThemeState.lastTemplateWarning])
+                    color: "#e0a15c"
+                    font.pixelSize: UIScale.fontTiny
+                    wrapMode: Text.WordWrap
+                }
+
                 // Current wallpaper preview
                 Rectangle {
                     Layout.fillWidth: true

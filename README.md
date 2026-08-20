@@ -52,7 +52,7 @@ It's built for **Hyprland**, that's the only compositor backend implemented so f
 - A [Nerd Font](https://www.nerdfonts.com/) or the `nerd-fonts.symbols-only` package for icons.
 - One wallpaper-setting backend: [awww](https://codeberg.org/LGFae/awww) (default), [swww](https://codeberg.org/LGFae/awww), `hyprpaper`, `feh`, or a custom command, configurable in the Wallpaper settings panel.
 - `bash`, `curl`, `python3` - widgets shell out to these directly for core features: theming, weather, AirPods, the 3D globe's starfield generation.
-- A handful of standard desktop utilities most Linux systems already have: `bluez` (`bluetoothctl`, for Bluetooth/AirPods), `libnotify` (`notify-send`), `brightnessctl`, `slurp`, `xdg-utils` (`xdg-open`), `procps` (`pkill`, `pgrep`), `gawk`, `hostname`. On NixOS, the [NixOS module](#nixos-module)'s `services.zesis.batteriesIncluded.enable = true;` puts all of these on the service's `PATH` for you, if you don't already have them.
+- A handful of standard desktop utilities most Linux systems already have: `bluez` (`bluetoothctl`, for Bluetooth/AirPods), `libnotify` (`notify-send`), `brightnessctl`, `slurp`, `xdg-utils` (`xdg-open`), `procps` (`pkill`, `pgrep`), `gawk`, `hostname`. On Nix, each module's `batteriesIncluded.enable = true;` puts all of these on the service's `PATH` for you, if you don't already have them - see [Nix](#nix).
 
 ### Optional
 
@@ -70,7 +70,7 @@ Nothing below is required to get a working bar, each of these lights up one extr
 ## Setup
 
 > [!TIP]
-> On NixOS, skip straight to the [NixOS module](#nixos-module) below, it handles the clone, shader compilation, and the athroisma/congeries wiring in one `services.zesis.enable = true;`.
+> On Nix, skip straight to [Nix](#nix) below - it handles the clone, shader compilation, and the athroisma/congeries wiring in one `enable = true;`.
 
 > [!WARNING]
 > This clones straight into `~/.config/quickshell`. If you already have something there, back it up first.
@@ -86,62 +86,9 @@ That starts zesis in the foreground, you should see the bar appear on your prima
 exec-once = quickshell
 ```
 
-### NixOS module
+### Nix
 
-The flake exposes `nixosModules.default`, which builds zesis (source + compiled shaders) and deploys it as a *named* Quickshell config (`zesis`), wired into a `systemd --user` service. This covers the whole optional-dependency nonsense above automatically. Shaders are compiled at build time, `athroisma` is put on the service's `PATH`, and `congeries` is put on its `QML_IMPORT_PATH`.
-
-```nix
-{
-  inputs.zesis.url = "github:zesis-shell/zesis";
-
-  outputs = {nixpkgs, zesis, ...}: {
-    nixosConfigurations.mymachine = nixpkgs.lib.nixosSystem {
-      modules = [
-        zesis.nixosModules.default
-        {services.zesis.enable = true;}
-      ];
-    };
-  };
-}
-```
-
-Zesis puts the built config at `/etc/xdg/quickshell/zesis`, and starts a `zesis.service` wanted by `graphical-session.target`.
-
-Both optional deps can be turned off or repointed per-widget:
-
-```nix
-services.zesis = {
-  enable = true;
-  athroisma.enable = false; # or: athroisma.package = ...;
-  congeries.enable = false; # or: congeries.package = ...;
-};
-```
-
-Beyond athroisma/congeries, plenty of widgets shell out to ordinary desktop tools - matugen, awww, bluetoothctl, curl, notify-send, and so on. By default the service just inherits your normal desktop `PATH` (system-wide installs plus your own per-user profile) for those, so if your system already has them, there's nothing to do. If it doesn't, like a minimal box, or you just want zesis working with zero prior setup, then set `services.zesis.batteriesIncluded.enable = true;` to put the whole set on the service's `PATH` outright:
-
-```nix
-services.zesis = {
-  enable = true;
-  batteriesIncluded.enable = true; # or: batteriesIncluded.packages = [...];
-};
-```
-
-If you'd rather the service *not* inherit your desktop `PATH` at all, an explicit, reproducible dependency surface instead of whatever happens to be installed, or just tighter isolation, then set `services.zesis.inheritPath = false;`. You'll almost certainly want `batteriesIncluded.enable = true;` alongside it:
-
-```nix
-services.zesis = {
-  enable = true;
-  inheritPath = false;
-  batteriesIncluded.enable = true; # or: batteriesIncluded.packages = [...];
-};
-```
-
-> [!IMPORTANT]
-> Because this is a *named* config, any manual `quickshell`/`qs` invocation, IPC calls in your compositor keybinds, `hypridle.conf`, debugging, etc., needs `-c zesis` (or `QS_CONFIG_NAME=zesis`) or it won't find this instance. See [IPC dispatch](#ipc-dispatch) below.
-
-The module doesn't set up the [lock screen's PAM service](#lock-screen), that's still a separate step.
-
-If you'd rather launch zesis yourself, e.g. with `exec-once = quickshell -c zesis` in your compositor config, instead of the `systemd --user` service, set `services.zesis.systemdService.enable = false;`. The config still lands at `/etc/xdg/quickshell/zesis` either way, only the service is skipped. Note this also skips the service's automatic `athroisma` `PATH` and `congeries` `QML_IMPORT_PATH` wiring, so an `exec-once` launch needs those set up wherever you invoke `quickshell` from (your compositor config's own environment, a wrapper script, etc.) if you use those optional deps.
+zesis ships a NixOS module, a Home Manager module, and an Hjem module, each of which builds zesis (source + compiled shaders) and wires up the PATH/`QML_IMPORT_PATH` details above automatically, in one `enable = true;`. See [docs/nix.md](docs/nix.md).
 
 ### Keybinds
 
@@ -149,11 +96,11 @@ zesis doesn't ship any default keybinds. App switcher, home panel, keybind cheat
 
 For a complete working example, see this author's own [Hyprland config](https://github.com/SquirrelModeller/squirrel-nixos/blob/main/users/squirrel/dotfiles/.config/hypr/hyprland.lua).
 
-The keybind cheatsheet widget reads binds straight from `hyprctl binds -j`, so any bind with a description formatted as `"Category: Label"` shows up there automatically.
+The keybind cheatsheet widget reads binds straight from Hyprland's IPC socket (the same data `hyprctl binds -j` returns), so any bind with a description formatted as `"Category: Label"` shows up there automatically.
 
 ### Lock screen
 
-Add PAM support for the lock screen.
+Add PAM support for the lock screen. (zesis's [NixOS module](#nix) does this for you automatically; Home Manager and Hjem can't, see [docs/nix.md](docs/nix.md#pam-lock-screen).)
 
 **NixOS:**
 
@@ -167,7 +114,7 @@ security.pam.services.quickshell = {};
 
 `ShaderEffect`-based widgets (currently the 2D globe) load a pre-baked `.qsb` binary, not the `.frag` source directly. `*.qsb` files are gitignored build artifacts, so they need to be compiled locally before those widgets will render. If a `.qsb` is missing or invalid, the affected widget just shows an on-screen warning.
 
-On NixOS via the [NixOS module](#nixos-module), shaders are already compiled as part of `services.zesis.configPackage`, nothing to do here.
+Via any of [zesis's Nix modules](#nix), shaders are already compiled as part of `configPackage`, nothing to do here.
 
 With Nix otherwise:
 
@@ -192,7 +139,7 @@ find widgets -name '*.frag' -exec sh -c 'qsb --qt6 -o "${1%.frag}.qsb" "$1"' _ {
 
 The System Monitor widget shells out to a bare `athroisma` command, so it needs to be on `PATH`, it's otherwise entirely optional, the rest of zesis is unaffected if it's missing.
 
-On NixOS via the [NixOS module](#nixos-module), `services.zesis.athroisma.enable` is on by default and already puts it on the service's `PATH`.
+Via any of [zesis's Nix modules](#nix), `athroisma.enable` is on by default and already puts it on the service's `PATH`.
 
 With Nix otherwise, `flake.nix` declares `athroisma` as a flake input and puts it on the devshell's `PATH`.
 
@@ -213,7 +160,7 @@ Make sure `~/.local/bin` (or wherever you installed it) is on `PATH` for whateve
 
 The Home panel's 3D geodesic rod globe needs [Congeries](https://github.com/zesis-shell/congeries), a native QtQuick3D plugin from a sibling repo. It's entirely optional, if it's missing, that panel just shows a "3D globe unavailable" message instead of failing.
 
-On NixOS via the [NixOS module](#nixos-module), `services.zesis.congeries.enable` is on by default and already wires it into the service's `QML_IMPORT_PATH`.
+Via any of [zesis's Nix modules](#nix), `congeries.enable` is on by default and already wires it into the service's `QML_IMPORT_PATH`.
 
 With Nix otherwise, `flake.nix` declares `congeries` as a flake input and wires it into the devshell's `QML_IMPORT_PATH`/`QT_PLUGIN_PATH`.
 
@@ -230,6 +177,8 @@ export QML_IMPORT_PATH="$HOME/.local/lib/qt-6/qml:$QML_IMPORT_PATH"
 ```
 
 Dependencies: Qt 6.6+ (`Core`, `Qml`, `Quick3D`) and `libpipewire-0.3`. See Congeries' own README for details.
+
+The globe's starfield (a ~34MB star catalog) is downloaded and processed once via `scripts/ensure_starfield.sh`, into a per-user cache on a manual install. On Nix, where it's cached instead depends on which module you use, see [docs/nix.md](docs/nix.md#3d-globe-starfield-cache).
 
 ---
 

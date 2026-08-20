@@ -1,10 +1,9 @@
 import QtQuick
 import Quickshell
 import Quickshell.Io
+import Quickshell.Hyprland
 
 // Hyprland-specific display backend.
-// Reads monitor info via `hyprctl monitors -j` and applies settings via `hyprctl eval`.
-// It persists the applied mode to zesis' cache for hyprland to read.
 //
 // Interface (shared with any future compositor backend):
 //   property string monitorName
@@ -38,61 +37,52 @@ QtObject {
     readonly property string _cachePath: (Quickshell.env("XDG_CACHE_HOME") || (Quickshell.env("HOME") + "/.cache")) + "/zesis/display.lua"
 
     function refresh() {
-        refreshProc.running = true;
+        for (var i = 0; i < Quickshell.screens.length; i++)
+            Hyprland.monitorFor(Quickshell.screens[i]);
+        Hyprland.refreshMonitors();
     }
 
     function apply(modeStr) {
         var pos = root.currentWidth > 0 ? "0x0" : "auto";
-        applyProc.command = ["hyprctl", "eval", 'hl.monitor({output="' + root.monitorName + '", mode="' + modeStr + '", position="' + pos + '", scale=' + root.currentScale + '})'];
-        applyProc.running = true;
+        Hyprland.dispatch("hl.monitor({output=\"" + root.monitorName + "\", mode=\"" + modeStr + "\", position=\"" + pos + "\", scale=" + root.currentScale + "})");
         cacheFile.setText('return { output = "' + root.monitorName + '", mode = "' + modeStr + '" }\n');
+        applySettleTimer.restart();
     }
 
-    property string _monitorJson: ""
+    function _sync() {
+        var m = Hyprland.focusedMonitor;
+        if (!m)
+            return;
+        var obj = m.lastIpcObject;
+        root.monitorName = obj.name ?? "";
+        root.monitorModel = obj.model ?? "";
+        root.monitorMake = obj.make ?? "";
+        root.currentWidth = obj.width ?? 0;
+        root.currentHeight = obj.height ?? 0;
+        root.currentScale = obj.scale ?? 1.0;
+        root.currentRefresh = obj.refreshRate ?? 0;
+        root.physicalWidthMm = obj.physicalWidth ?? 0;
+        root.physicalHeightMm = obj.physicalHeight ?? 0;
+        root.availableModes = obj.availableModes ?? [];
+    }
 
-    property QtObject _refreshProc: Process {
-        id: refreshProc
-        command: ["hyprctl", "monitors", "-j"]
-        running: false
-        stdout: SplitParser {
-            splitMarker: ""
-            onRead: data => root._monitorJson += data
-        }
-        onRunningChanged: {
-            if (!running && root._monitorJson !== "") {
-                try {
-                    var monitors = JSON.parse(root._monitorJson);
-                    var m = monitors[0];
-                    for (var i = 0; i < monitors.length; i++) {
-                        if (monitors[i].focused) {
-                            m = monitors[i];
-                            break;
-                        }
-                    }
-                    root.monitorName = m.name ?? "";
-                    root.monitorModel = m.model ?? "";
-                    root.monitorMake = m.make ?? "";
-                    root.currentWidth = m.width ?? 0;
-                    root.currentHeight = m.height ?? 0;
-                    root.currentScale = m.scale ?? 1.0;
-                    root.currentRefresh = m.refreshRate ?? 0;
-                    root.physicalWidthMm = m.physicalWidth ?? 0;
-                    root.physicalHeightMm = m.physicalHeight ?? 0;
-                    root.availableModes = m.availableModes ?? [];
-                } catch (e) {
-                    console.warn("[DisplayHyprlandBackend] failed to parse hyprctl output:", e);
-                }
-                root._monitorJson = "";
-            }
+    property QtObject _applySettleTimer: Timer {
+        id: applySettleTimer
+        interval: 250
+        onTriggered: root.refresh()
+    }
+
+    property QtObject _focusWatcher: Connections {
+        target: Hyprland
+        function onFocusedMonitorChanged() {
+            root._sync();
         }
     }
 
-    property QtObject _applyProc: Process {
-        id: applyProc
-        running: false
-        onRunningChanged: {
-            if (!running)
-                root.refresh();
+    property QtObject _monitorWatcher: Connections {
+        target: Hyprland.focusedMonitor
+        function onLastIpcObjectChanged() {
+            root._sync();
         }
     }
 

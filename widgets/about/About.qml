@@ -40,7 +40,7 @@ Item {
     }
 
     Process {
-        command: ["sh", "-c", "nixos-version 2>/dev/null | sed 's/\\([0-9]*\\.[0-9]*\\)\\.[0-9]*\\.[a-f0-9]*/\\1/' || grep PRETTY_NAME /etc/os-release | cut -d= -f2 | tr -d '\"'"]
+        command: ["sh", "-c", "v=$(nixos-version 2>/dev/null | sed 's/\\([0-9]*\\.[0-9]*\\)\\.[0-9]*\\.[a-f0-9]*/\\1/'); if [ -n \"$v\" ]; then printf '%s' \"$v\"; else grep PRETTY_NAME /etc/os-release | cut -d= -f2 | tr -d '\"'; fi"]
         running: true
         stdout: SplitParser {
             onRead: data => root._osVersion = data.trim()

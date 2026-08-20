@@ -9,45 +9,34 @@
   ...
 }: let
   system = pkgs.stdenv.hostPlatform.system;
-  cfg = config.services.zesis;
+  cfg = config.programs.zesis;
   pkexecShim = pkgs.runCommand "zesis-pkexec-shim" {} ''
     mkdir -p $out/bin
     ln -s /run/wrappers/bin/pkexec $out/bin/pkexec
   '';
 in {
-  options.services.zesis =
-    (import ./zesis-options.nix {inherit athroisma congeries;}) {
-      inherit lib pkgs;
-      deployPath = "/etc/xdg/quickshell/zesis";
-      configPackageDefault = self.packages.${system}.config;
-      systemdEnableDefault = true;
-    }
-    // {
-      pam.enable = lib.mkOption {
-        type = lib.types.bool;
-        default = true;
-        description = ''
-          Register the `security.pam.services.quickshell` PAM service the
-          lock screen authenticates against (`PamContext { config: "quickshell"; }`
-          in `LockSurface.qml`). Without this, unlocking always fails.
-        '';
-      };
+  options.programs.zesis = (import ./zesis-options.nix {inherit athroisma congeries;}) {
+    inherit lib pkgs;
+    deployPath = "$XDG_CONFIG_HOME/quickshell/zesis";
+    # /var/cache/zesis/starfield/RealStarField.js cannot be written to.
+    # We point to per-user cache.
+    configPackageDefault = self.lib.mkConfig {
+      inherit system;
+      starfieldPath = "${config.directory}/.cache/zesis/starfield/RealStarField.js";
     };
+    systemdEnableDefault = false;
+  };
 
   config = lib.mkIf cfg.enable {
-    environment.etc."xdg/quickshell/zesis".source = cfg.configPackage;
+    packages = lib.optional (cfg.package != null) cfg.package;
 
-    security.pam.services.quickshell = lib.mkIf cfg.pam.enable (lib.mkDefault {});
+    xdg.config.files."quickshell/zesis".source = cfg.configPackage;
 
-    systemd.tmpfiles.rules = lib.mkIf cfg.congeries.enable [
-      "d /var/cache/zesis/starfield 1777 root root -"
-    ];
-
-    systemd.user.services.zesis = lib.mkIf cfg.systemd.enable {
+    systemd.services.zesis = lib.mkIf cfg.systemd.enable {
       description = "Quickshell (zesis)";
-      wantedBy = ["graphical-session.target"];
-      after = ["graphical-session.target"];
       partOf = ["graphical-session.target"];
+      after = ["graphical-session.target"];
+      wantedBy = ["graphical-session.target"];
 
       enableDefaultPath = false;
       environment =
@@ -59,7 +48,7 @@ in {
             ++ lib.optional (cfg.secretTool == "secret-tool") "${pkgs.libsecret}/bin"
             ++ lib.optionals cfg.batteriesIncluded.enable (map (p: "${p}/bin") cfg.batteriesIncluded.packages)
             ++ lib.optional cfg.usePkexec "${pkexecShim}/bin"
-            ++ lib.optionals cfg.inheritPath ["/run/current-system/sw/bin" "/etc/profiles/per-user/%u/bin"]
+            ++ lib.optionals cfg.inheritPath ["/run/current-system/sw/bin" "/etc/profiles/per-user/${config.user}/bin"]
           );
         }
         // lib.optionalAttrs cfg.congeries.enable {
@@ -78,8 +67,10 @@ in {
     assertions = [
       {
         assertion = !cfg.systemd.enable || cfg.package != null;
-        message = "services.zesis.package cannot be null when services.zesis.systemd.enable is true";
+        message = "programs.zesis.package cannot be null when programs.zesis.systemd.enable is true";
       }
     ];
   };
+
+  _class = "hjem";
 }

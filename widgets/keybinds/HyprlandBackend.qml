@@ -1,9 +1,8 @@
 import QtQuick
 import Quickshell.Io
+import Quickshell.Hyprland
 
 // Hyprland-specific keybind backend.
-// Reads `hyprctl binds -j`, filters for binds with descriptions,
-// and parses "Category: Label" descriptions into sections.
 //
 // Interface (shared with any future backend):
 //   property var sections  - [{name, icon, binds: [{keys, label}]}]
@@ -15,23 +14,27 @@ QtObject {
     property var sections: []
 
     function refresh() {
-        proc._buf = "";
-        proc.running = true;
+        sock.connected = false;
+        sock.connected = true;
     }
 
     Component.onCompleted: refresh()
 
-    property QtObject _proc: Process {
-        id: proc
-        command: ["hyprctl", "binds", "-j"]
+    property QtObject _sock: Socket {
+        id: sock
+        path: Hyprland.requestSocketPath
         property string _buf: ""
 
-        stdout: SplitParser {
-            onRead: data => proc._buf += data + "\n"
+        parser: SplitParser {
+            splitMarker: ""
+            onRead: data => sock._buf += data
         }
 
-        onRunningChanged: {
-            if (!running && _buf.length > 0) {
+        onConnectedChanged: {
+            if (connected) {
+                write("j/binds");
+                flush();
+            } else if (_buf.length > 0) {
                 root.sections = root._parse(_buf);
                 _buf = "";
             }

@@ -619,8 +619,14 @@ Singleton {
         stdout: SplitParser {
             onRead: line => {
                 var parts = line.split("|");
-                if (parts.length < 2 || parts[0] !== "Disk")
+                if (parts.length < 2 || parts[0] !== "Disk") {
+                    // Apparently smbclient sends errors to stdout and not
+                    // stderr when there is no controlling TTY. Why? IDK!
+                    var t = line.trim();
+                    if (t.length > 0)
+                        smbListProc._stderr = t;
                     return;
+                }
                 var name = parts[1].trim();
                 var comment = parts.length > 2 ? parts[2].trim() : "";
                 if (name.endsWith("$"))
@@ -706,13 +712,12 @@ Singleton {
         property string _user: ""
         property string _pass: ""
         property bool _elevated: false
+        property bool _exited: false
         stderr: SplitParser {
             onRead: line => console.log("[NetworkService] mount.cifs stderr:", line)
         }
-        onExited: code => {
-            if (code === 0) {
-                root.refreshMounts();
-            } else if (!mountProc._elevated && root.mountCifsPath !== "") {
+        function _retryOrFail() {
+            if (!mountProc._elevated && root.mountCifsPath !== "") {
                 mountProc._elevated = true;
                 mountProc.command = ["pkexec", root.mountCifsPath, "//" + mountProc._host + "/" + mountProc._share, mountProc._mountPoint, "-o", "username=" + mountProc._user + ",password=" + mountProc._pass + ",uid=" + root.uid + ",gid=" + root.uid];
                 mountProc.running = false;
@@ -721,19 +726,32 @@ Singleton {
                 root._setShareState(mountProc._host, mountProc._share, "error");
             }
         }
+        onExited: code => {
+            mountProc._exited = true;
+            if (code === 0)
+                root.refreshMounts();
+            else
+                mountProc._retryOrFail();
+        }
+        // Prevents a forever hang of "mounting..."
+        onRunningChanged: {
+            if (running)
+                mountProc._exited = false;
+            else if (!mountProc._exited)
+                mountProc._retryOrFail();
+        }
     }
 
     Process {
         id: unmountProc
         property string _target: ""
         property bool _elevated: false
+        property bool _exited: false
         stderr: SplitParser {
             onRead: line => console.log("[NetworkService] umount stderr:", line)
         }
-        onExited: code => {
-            if (code === 0) {
-                root.refreshMounts();
-            } else if (!unmountProc._elevated && root.umountPath !== "") {
+        function _retryOrFail() {
+            if (!unmountProc._elevated && root.umountPath !== "") {
                 unmountProc._elevated = true;
                 unmountProc.command = ["pkexec", root.umountPath, unmountProc._target];
                 unmountProc.running = false;
@@ -741,6 +759,19 @@ Singleton {
             } else {
                 root.refreshMounts();
             }
+        }
+        onExited: code => {
+            unmountProc._exited = true;
+            if (code === 0)
+                root.refreshMounts();
+            else
+                unmountProc._retryOrFail();
+        }
+        onRunningChanged: {
+            if (running)
+                unmountProc._exited = false;
+            else if (!unmountProc._exited)
+                unmountProc._retryOrFail();
         }
     }
 

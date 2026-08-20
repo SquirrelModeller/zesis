@@ -104,7 +104,7 @@ Item {
     }
 
     function _fitCountFor(ids, budget) {
-        if (BarConfig.isVertical || budget < 0)
+        if (budget < 0)
             return ids.length;
         var innerBudget = budget - root._pad;
 
@@ -114,14 +114,14 @@ Item {
         // shrink gradually.
         var totalNatural = 0;
         for (var t = 0; t < ids.length; t++)
-            totalNatural += (t > 0 ? root._gap : 0) + root._itemWidth(ids[t]);
+            totalNatural += (t > 0 ? root._gap : 0) + (BarConfig.isVertical ? root._itemHeight(ids[t]) : root._itemWidth(ids[t]));
         if (totalNatural <= innerBudget)
             return ids.length;
 
         var used = 0;
         var count = 0;
         for (var i = ids.length - 1; i >= 0; i--) {
-            var w = root._itemWidth(ids[i]);
+            var w = BarConfig.isVertical ? root._itemHeight(ids[i]) : root._itemWidth(ids[i]);
             var next = used + (count > 0 ? root._gap : 0) + w;
             var reserve = (i > 0) ? (root._gap + root._chevronWidth) : 0;
             if (next + reserve > innerBudget)
@@ -154,7 +154,7 @@ Item {
         var groups = root._allZoneIslandGroups[rawIndex] || [];
         var n = groups.length;
         var budgets = new Array(n);
-        if (BarConfig.isVertical || zoneWidth < 0) {
+        if (zoneWidth < 0) {
             for (var i = 0; i < n; i++)
                 budgets[i] = -1;
             return budgets;
@@ -193,9 +193,26 @@ Item {
         return budgets;
     }
 
+    function _islandRenderedWidth(ids, budget) {
+        var avail = root._availableIdsIn(ids);
+        if (avail.length === 0)
+            return 0;
+        var pad = root._islandPad(ids);
+        if (budget < 0)
+            return root._islandNaturalWidth(ids) + pad;
+        var fitCount = root._fitCountFor(avail, budget);
+        var hasOverflow = fitCount < avail.length;
+        var used = 0;
+        for (var i = avail.length - fitCount; i < avail.length; i++)
+            used += (used > 0 ? root._gap : 0) + (BarConfig.isVertical ? root._itemHeight(avail[i]) : root._itemWidth(avail[i]));
+        if (hasOverflow)
+            used += (used > 0 ? root._gap : 0) + root._chevronWidth;
+        return Math.max(used + pad, root._islandMinWidth(ids));
+    }
+
     // Per-island x offset and width, in islandGroups order.
     // When there are no pinned atoms, we just use a singular row instead
-    function _islandLayout(rawIndex) {
+    function _islandLayout(rawIndex, budgetWidth) {
         var groups = root._allZoneIslandGroups[rawIndex] || [];
         var n = groups.length;
         var widths = new Array(n).fill(0);
@@ -203,12 +220,13 @@ Item {
         var anchorIdx = -1;
         var totalRaw = BarItemsService.zones.length;
         var canPin = rawIndex !== 0 && rawIndex !== totalRaw - 1;
+        var budgets = (budgetWidth !== undefined && budgetWidth >= 0) ? root._islandBudgetsForZone(rawIndex, budgetWidth) : null;
         for (var i = 0; i < n; i++) {
             var avail = root._availableIdsIn(groups[i]);
             if (avail.length === 0)
                 continue;
             visible[i] = true;
-            widths[i] = Math.max(root._islandMinWidth(groups[i]), root._islandNaturalWidth(groups[i]) + root._islandPad(groups[i]));
+            widths[i] = budgets ? root._islandRenderedWidth(groups[i], budgets[i]) : Math.max(root._islandMinWidth(groups[i]), root._islandNaturalWidth(groups[i]) + root._islandPad(groups[i]));
             if (canPin && anchorIdx < 0)
                 for (var j = 0; j < avail.length; j++)
                     if (BarItemsService.isPinned(avail[j])) {
@@ -1125,7 +1143,7 @@ Item {
             Loader {
                 id: chevronLoader
                 Layout.alignment: Qt.AlignCenter
-                active: !BarConfig.isVertical && pill._hasOverflow
+                active: pill._hasOverflow
                 visible: active
                 sourceComponent: BarButton {
                     icon: "»"
@@ -1214,7 +1232,7 @@ Item {
         // Islands position and width calculate here. A pinned atom has a zone
         // which needs one atom fixed at the exact center with two independent
         // flanking runs around it.
-        readonly property var _layout: root._islandLayout(zoneGroup.rawIndex)
+        readonly property var _layout: root._islandLayout(zoneGroup.rawIndex, root._zoneWidthFor(zoneGroup.rawIndex))
 
         implicitWidth: BarConfig.isVertical ? Math.round(50 * UIScale.value) : _layout.totalWidth
         implicitHeight: BarConfig.isVertical ? _layout.totalWidth : Math.round(50 * UIScale.value)

@@ -9,6 +9,8 @@ import "../workspaceindicator"
 import "../display"
 import "../bluetooth"
 import "../wifi"
+import "../sound"
+import "../mic"
 import "../user"
 import "../about"
 import "../../"
@@ -119,6 +121,20 @@ IndexedPanelShell {
                     label: I18n.t("settings_chrome.navWifi"),
                     component: wifiPanelComp,
                     files: ["wifi/WifiPanel.qml"]
+                },
+                {
+                    id: "sound",
+                    icon: "󰕾",
+                    label: I18n.t("settings_chrome.navSound"),
+                    component: soundPanelComp,
+                    files: ["sound/Sound.qml"]
+                },
+                {
+                    id: "microphone",
+                    icon: "󰍬",
+                    label: I18n.t("settings_chrome.navMicrophone"),
+                    component: micPanelComp,
+                    files: ["mic/Mic.qml"]
                 }
             ]
         })
@@ -158,6 +174,14 @@ IndexedPanelShell {
     Component {
         id: wifiPanelComp
         WifiPanel {}
+    }
+    Component {
+        id: soundPanelComp
+        Sound {}
+    }
+    Component {
+        id: micPanelComp
+        Mic {}
     }
     Component {
         id: userPanelComp

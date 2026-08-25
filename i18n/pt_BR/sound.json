@@ -4,6 +4,11 @@
   "master": "Principal",
   "muted": "mudo",
   "volumeOsdLabel": "OSD de Volume",
+  "osdPositionLabel": "Posição do OSD",
+  "osdPositionTop": "Superior",
+  "osdPositionLeft": "Esquerda",
+  "osdPositionRight": "Direita",
+  "osdPositionBottom": "Inferior",
   "outputWithName": "Saída  ·  %1",
   "noOutput": "Nenhuma saída"
 }

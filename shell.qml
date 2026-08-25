@@ -274,6 +274,8 @@ Scope {
 
     VolumeOsd {}
 
+    MicOsd {}
+
     // Desktop widgets
     IpcHandler {
         target: "desktop"

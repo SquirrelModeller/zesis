@@ -4,6 +4,11 @@
   "master": "Master",
   "muted": "muted",
   "volumeOsdLabel": "Volume OSD",
+  "osdPositionLabel": "OSD Position",
+  "osdPositionTop": "Top",
+  "osdPositionLeft": "Left",
+  "osdPositionRight": "Right",
+  "osdPositionBottom": "Bottom",
   "outputWithName": "Output  ·  %1",
   "noOutput": "No output"
 }

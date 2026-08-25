@@ -14,21 +14,48 @@ Singleton {
     readonly property string _configDir: (Quickshell.env("XDG_CACHE_HOME") || (Quickshell.env("HOME") + "/.cache")) + "/zesis"
     readonly property string _configPath: _configDir + "/sound.json"
 
-    property bool osdEnabled: soundData.osdEnabled
-    onOsdEnabledChanged: {
-        saveProc.command = ["sh", "-c", "mkdir -p '" + _configDir + "' && printf '%s' '{\"osdEnabled\":" + (osdEnabled ? "true" : "false") + "}' > '" + _configPath + "'"];
+    readonly property var positions: ["top", "left", "right", "bottom"]
+
+    property bool osdEnabled: true
+    property string osdPosition: "top"
+
+    function _validPosition(value) {
+        return root.positions.indexOf(value) === -1 ? "top" : value;
+    }
+
+    function setOsdEnabled(value) {
+        root.osdEnabled = value;
+        root._save();
+    }
+
+    function setOsdPosition(value) {
+        root.osdPosition = root._validPosition(value);
+        root._save();
+    }
+
+    function _save() {
+        const json = JSON.stringify({
+            osdEnabled: root.osdEnabled,
+            osdPosition: root.osdPosition
+        });
+        saveProc.command = ["bash", "-c", "mkdir -p \"$1\" && printf '%s' \"$2\" > \"$3\"", "--", root._configDir, json, root._configPath];
         saveProc.running = true;
     }
 
     JsonAdapter {
         id: soundData
         property bool osdEnabled: true
+        property string osdPosition: "top"
     }
 
     FileView {
         path: root._configPath
         watchChanges: true
-        adapter: soundData
+        adapter: soundData // qmllint disable missing-type
+        onLoaded: {
+            root.osdEnabled = soundData.osdEnabled;
+            root.osdPosition = root._validPosition(soundData.osdPosition);
+        }
         onFileChanged: reload()
     }
 

@@ -115,7 +115,43 @@ Item {
                             implicitHeight: Math.round(20 * UIScale.value)
                             knobColor: "white"
                             checked: AudioService.osdEnabled
-                            onToggled: AudioService.osdEnabled = !AudioService.osdEnabled
+                            onToggled: AudioService.setOsdEnabled(!AudioService.osdEnabled)
+                        }
+                    }
+                }
+
+                Item {
+                    implicitHeight: UIScale.spacingXs
+                }
+
+                // OSD position
+                Rectangle {
+                    Layout.fillWidth: true
+                    Layout.leftMargin: UIScale.spacingMd
+                    Layout.rightMargin: UIScale.spacingMd
+                    radius: UIScale.radiusMd
+                    color: Colors.surface
+                    implicitHeight: osdPositionCol.implicitHeight + UIScale.spacingMd * 2
+
+                    ColumnLayout {
+                        id: osdPositionCol
+                        anchors.fill: parent
+                        anchors.margins: UIScale.spacingMd
+                        spacing: UIScale.spacingSm
+
+                        Text {
+                            text: I18n.t("sound.osdPositionLabel")
+                            color: Colors.text
+                            font.pixelSize: UIScale.fontTiny
+                            font.weight: Font.DemiBold
+                            Layout.fillWidth: true
+                        }
+
+                        OptionRow {
+                            Layout.fillWidth: true
+                            model: [I18n.t("sound.osdPositionTop"), I18n.t("sound.osdPositionLeft"), I18n.t("sound.osdPositionRight"), I18n.t("sound.osdPositionBottom")]
+                            currentIndex: AudioService.positions.indexOf(AudioService.osdPosition)
+                            onActivated: index => AudioService.setOsdPosition(AudioService.positions[index])
                         }
                     }
                 }

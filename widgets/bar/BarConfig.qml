@@ -1,7 +1,9 @@
 pragma Singleton
+pragma ComponentBehavior: Bound
 import QtQuick
 import Quickshell
 import Quickshell.Io
+import "../../"
 
 Singleton {
     id: root
@@ -12,6 +14,10 @@ Singleton {
     property string side: barData.side
     property int edgeGap: barData.edgeGap
     property int endGap: barData.endGap
+    property real islandRoundness: barData.islandRoundness
+    property bool showStrip: barData.showStrip
+    property bool showIslands: barData.showIslands
+    property int stripMargin: barData.stripMargin
     property var itemStates: barData.itemStates
 
     property var zones: barData.zones
@@ -25,39 +31,100 @@ Singleton {
 
     readonly property bool isVertical: side === "left" || side === "right"
 
+    readonly property bool flushToBarEdge: root.showStrip
+
+    readonly property real islandRadius: root.showIslands ? Math.round(30 * UIScale.value * root.islandRoundness) : 0
+
+    readonly property real islandThickness: Math.round(50 * UIScale.value)
+    readonly property real barThickness: root.islandThickness + (root.showStrip ? 2 * root.stripMargin : 0)
+
     // True when FileView completes loading
     property bool ready: false
 
+    function _snapshot() {
+        return {
+            side: root.side,
+            edgeGap: root.edgeGap,
+            endGap: root.endGap,
+            islandRoundness: root.islandRoundness,
+            showStrip: root.showStrip,
+            showIslands: root.showIslands,
+            stripMargin: root.stripMargin,
+            itemStates: root.itemStates,
+            zones: root.zones,
+            monitors: root.monitors,
+            pinnedIds: root.pinnedIds
+        };
+    }
+
     function write(newSide) {
-        _save(newSide, root.edgeGap, root.endGap, root.itemStates, root.zones, root.monitors, root.pinnedIds);
+        _save(Object.assign(root._snapshot(), {
+            side: newSide
+        }));
     }
 
     function writeEdgeGap(newGap) {
-        _save(root.side, newGap, root.endGap, root.itemStates, root.zones, root.monitors, root.pinnedIds);
+        _save(Object.assign(root._snapshot(), {
+            edgeGap: newGap
+        }));
     }
 
     function writeEndGap(newGap) {
-        _save(root.side, root.edgeGap, newGap, root.itemStates, root.zones, root.monitors, root.pinnedIds);
+        _save(Object.assign(root._snapshot(), {
+            endGap: newGap
+        }));
+    }
+
+    function writeIslandRoundness(newRoundness) {
+        _save(Object.assign(root._snapshot(), {
+            islandRoundness: newRoundness
+        }));
+    }
+
+    function writeStripMargin(newMargin) {
+        _save(Object.assign(root._snapshot(), {
+            stripMargin: newMargin
+        }));
+    }
+
+    function setShowStrip(show) {
+        _save(Object.assign(root._snapshot(), {
+            showStrip: show
+        }));
+    }
+
+    function setShowIslands(show) {
+        _save(Object.assign(root._snapshot(), {
+            showIslands: show
+        }));
     }
 
     function writeItemStates(states) {
-        _save(root.side, root.edgeGap, root.endGap, states, root.zones, root.monitors, root.pinnedIds);
+        _save(Object.assign(root._snapshot(), {
+            itemStates: states
+        }));
     }
 
     function writeZones(zones) {
-        _save(root.side, root.edgeGap, root.endGap, root.itemStates, zones, root.monitors, root.pinnedIds);
+        _save(Object.assign(root._snapshot(), {
+            zones: zones
+        }));
     }
 
     function writeMonitors(monitors) {
-        _save(root.side, root.edgeGap, root.endGap, root.itemStates, root.zones, monitors, root.pinnedIds);
+        _save(Object.assign(root._snapshot(), {
+            monitors: monitors
+        }));
     }
 
     function writePinnedIds(pinnedIds) {
-        _save(root.side, root.edgeGap, root.endGap, root.itemStates, root.zones, root.monitors, pinnedIds);
+        _save(Object.assign(root._snapshot(), {
+            pinnedIds: pinnedIds
+        }));
     }
 
-    function _save(s, eg, en, states, zones, monitors, pinnedIds) {
-        const json = '{"side":"' + s + '","edgeGap":' + eg + ',"endGap":' + en + ',"itemStates":' + JSON.stringify(states) + ',"zones":' + JSON.stringify(zones) + ',"monitors":' + JSON.stringify(monitors) + ',"pinnedIds":' + JSON.stringify(pinnedIds) + '}';
+    function _save(s) {
+        const json = JSON.stringify(s);
         writeProc.command = ["sh", "-c", "mkdir -p '" + root._configDir + "' && printf '%s' '" + json + "' > '" + root._configPath + "'"];
         writeProc.running = true;
     }
@@ -67,6 +134,10 @@ Singleton {
         property string side: "top"
         property int edgeGap: 20
         property int endGap: 20
+        property real islandRoundness: 1.0
+        property bool showStrip: false
+        property bool showIslands: true
+        property int stripMargin: 0
         // Only overrides need listing - _merge() in BarItemsService fills
         // in every other catalog item as enabled.
         property var itemStates: ({
@@ -81,13 +152,19 @@ Singleton {
     }
 
     FileView {
+        id: barConfigFile
         path: root._configPath
         watchChanges: true
         printErrors: false
+        blockLoading: true
         adapter: barData
         onFileChanged: reload()
         onLoaded: root.ready = true
         onLoadFailed: root.ready = true
+    }
+
+    Component.onCompleted: {
+        barConfigFile.text();
     }
 
     Process {

@@ -1,3 +1,4 @@
+pragma ComponentBehavior: Bound
 import QtQuick
 import "../../"
 import "../bar"
@@ -14,7 +15,6 @@ BarButton {
         anchorItem: root
         implicitWidth: Math.round(280 * UIScale.value)
         implicitHeight: Math.round(500 * UIScale.value)
-        hasBackground: false
         content: Component {
             Config {}
         }

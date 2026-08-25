@@ -3,7 +3,7 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 import "../../"
-import "../shared"
+import "../shared/inputs"
 import "../weather"
 import "../bar"
 
@@ -29,9 +29,9 @@ Item {
     Component.onDestruction: root._restoreUIScale()
 
     Connections {
-        target: HomePanelService // qmllint disable incompatible-type
-        function onOpenChanged() {
-            if (!HomePanelService.open)
+        target: HomeWindowService // qmllint disable incompatible-type
+        function onWindowOpenChanged() {
+            if (!HomeWindowService.windowOpen)
                 root._restoreUIScale();
         }
     }

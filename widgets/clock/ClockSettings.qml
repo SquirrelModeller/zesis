@@ -38,7 +38,7 @@ Singleton {
 
     JsonAdapter {
         id: settingsData
-        property string colonMode: "breathe"
+        property string colonMode: "on"
         property string widthMode: "fixed"
         property bool showDate: false
         property bool use12Hour: false

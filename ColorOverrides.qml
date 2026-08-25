@@ -1,4 +1,5 @@
 pragma Singleton
+pragma ComponentBehavior: Bound
 import QtQuick
 import Quickshell
 import Quickshell.Io
@@ -29,19 +30,54 @@ Singleton {
     // palette preview in the wallpaper panel shows them.
     readonly property var paletteRoles: [
         {
-            id: "background",
-            label: "bg",
+            id: "surface",
+            label: "surface",
             desc: "Panel and bar background"
         },
         {
+            id: "surface_dim",
+            label: "surf-",
+            desc: "Dimmest surface tone"
+        },
+        {
+            id: "surface_bright",
+            label: "surf!",
+            desc: "Brightest surface tone"
+        },
+        {
+            id: "surface_container_lowest",
+            label: "surf0",
+            desc: "Least elevated container"
+        },
+        {
+            id: "surface_container_low",
+            label: "surf1",
+            desc: "Low-elevation container"
+        },
+        {
             id: "surface_container",
-            label: "surface",
+            label: "surf.bg",
             desc: "Cards, rows, popups"
         },
         {
             id: "surface_container_high",
             label: "surf+",
             desc: "Raised chips and inputs"
+        },
+        {
+            id: "surface_container_highest",
+            label: "surf++",
+            desc: "Bar islands, most elevated surfaces"
+        },
+        {
+            id: "surface_variant",
+            label: "surf~",
+            desc: "Alternate surface tone"
+        },
+        {
+            id: "outline",
+            label: "border+",
+            desc: "High-emphasis borders"
         },
         {
             id: "outline_variant",
@@ -52,6 +88,11 @@ Singleton {
             id: "primary",
             label: "primary",
             desc: "Accent: highlights, active state"
+        },
+        {
+            id: "primary_fixed",
+            label: "p.fix",
+            desc: "Accent that stays constant across light/dark"
         },
         {
             id: "primary_fixed_dim",
@@ -69,7 +110,72 @@ Singleton {
             desc: "Text drawn on the accent"
         },
         {
-            id: "on_background",
+            id: "on_primary_container",
+            label: "on-p.c",
+            desc: "Text drawn on accent-tinted fills"
+        },
+        {
+            id: "secondary",
+            label: "2nd",
+            desc: "Secondary accent: less prominent actions"
+        },
+        {
+            id: "secondary_container",
+            label: "2nd.cont",
+            desc: "Secondary-tinted fills"
+        },
+        {
+            id: "on_secondary",
+            label: "on-2nd",
+            desc: "Text drawn on the secondary accent"
+        },
+        {
+            id: "on_secondary_container",
+            label: "on-2nd.c",
+            desc: "Text drawn on secondary-tinted fills"
+        },
+        {
+            id: "tertiary",
+            label: "3rd",
+            desc: "Tertiary accent: contrasting highlights"
+        },
+        {
+            id: "tertiary_container",
+            label: "3rd.cont",
+            desc: "Tertiary-tinted fills"
+        },
+        {
+            id: "on_tertiary",
+            label: "on-3rd",
+            desc: "Text drawn on the tertiary accent"
+        },
+        {
+            id: "on_tertiary_container",
+            label: "on-3rd.c",
+            desc: "Text drawn on tertiary-tinted fills"
+        },
+        {
+            id: "error",
+            label: "error",
+            desc: "Destructive actions, error states"
+        },
+        {
+            id: "error_container",
+            label: "err.cont",
+            desc: "Error-tinted fills"
+        },
+        {
+            id: "on_error",
+            label: "on-err",
+            desc: "Text drawn on the error color"
+        },
+        {
+            id: "on_error_container",
+            label: "on-err.c",
+            desc: "Text drawn on error-tinted fills"
+        },
+        {
+            id: "on_surface",
             label: "text",
             desc: "Primary text"
         },
@@ -240,6 +346,7 @@ Singleton {
         root.scope = overrideData.scope === "global" ? "global" : "wallpaper";
         root.enabled = overrideData.enabled;
 
+        var needsPersist = false;
         if (!hasByWallpaper && !hasGlobal && hasLegacy) {
             var migrated = {};
             migrated[root._currentWallpaper()] = {
@@ -251,7 +358,7 @@ Singleton {
                 dark: {},
                 light: {}
             };
-            root._persist();
+            needsPersist = true;
         } else {
             root.byWallpaper = root._copy(overrideData.byWallpaper);
             root.global = {
@@ -259,6 +366,31 @@ Singleton {
                 light: root._copy(g.light)
             };
         }
+
+        for (var wp in root.byWallpaper)
+            needsPersist = root._renameRoleIds(root.byWallpaper[wp]) || needsPersist;
+        needsPersist = root._renameRoleIds(root.global) || needsPersist;
+
+        if (needsPersist)
+            root._persist();
+    }
+
+    function _renameRoleIds(entry) {
+        var changed = false;
+        changed = root._renameRole(entry.dark, "background", "surface") || changed;
+        changed = root._renameRole(entry.dark, "on_background", "on_surface") || changed;
+        changed = root._renameRole(entry.light, "background", "surface") || changed;
+        changed = root._renameRole(entry.light, "on_background", "on_surface") || changed;
+        return changed;
+    }
+
+    function _renameRole(map, oldId, newId) {
+        if (!map || map[oldId] === undefined)
+            return false;
+        if (map[newId] === undefined)
+            map[newId] = map[oldId];
+        delete map[oldId];
+        return true;
     }
 
     JsonAdapter {

@@ -9,5 +9,7 @@
   "on": "On",
   "off": "Off",
   "loading": "Loading…",
-  "noneFound": "None found"
+  "noneFound": "None found",
+  "windowSearchPlaceholder": "Search (Ctrl+F)",
+  "windowExpandAllSubTabs": "Expand all"
 }

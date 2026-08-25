@@ -4,6 +4,7 @@ import QtQuick
 import QtQuick.Layouts
 import "./"
 import "../shared"
+import "../shared/inputs"
 import "../../"
 
 Item {
@@ -123,20 +124,12 @@ Item {
                     Layout.topMargin: UIScale.spacingXs
                 }
 
-                Rectangle {
-                    Layout.fillWidth: true
+                SettingCard {
                     Layout.leftMargin: UIScale.panelPad
                     Layout.rightMargin: UIScale.panelPad
-                    implicitHeight: Math.round(56 * UIScale.value)
-                    radius: UIScale.radiusMd
-                    color: Colors.withAlpha(Colors.text, 0.03)
-                    border.color: Colors.withAlpha(Colors.text, 0.06)
-                    border.width: 1
 
                     RowLayout {
-                        anchors.fill: parent
-                        anchors.leftMargin: UIScale.spacingMd
-                        anchors.rightMargin: UIScale.spacingMd
+                        Layout.fillWidth: true
                         spacing: UIScale.spacingSm
 
                         Column {
@@ -158,7 +151,7 @@ Item {
                             Layout.fillWidth: true
                         }
 
-                        StyledComboBox {
+                        MorphComboBox {
                             Layout.preferredWidth: Math.round(140 * UIScale.value)
                             model: root._colonOptions
                             selectedValue: ClockSettings.colonMode
@@ -167,20 +160,12 @@ Item {
                     }
                 }
 
-                Rectangle {
-                    Layout.fillWidth: true
+                SettingCard {
                     Layout.leftMargin: UIScale.panelPad
                     Layout.rightMargin: UIScale.panelPad
-                    implicitHeight: Math.round(56 * UIScale.value)
-                    radius: UIScale.radiusMd
-                    color: Colors.withAlpha(Colors.text, 0.03)
-                    border.color: Colors.withAlpha(Colors.text, 0.06)
-                    border.width: 1
 
                     RowLayout {
-                        anchors.fill: parent
-                        anchors.leftMargin: UIScale.spacingMd
-                        anchors.rightMargin: UIScale.spacingMd
+                        Layout.fillWidth: true
                         spacing: UIScale.spacingSm
 
                         Column {
@@ -202,7 +187,7 @@ Item {
                             Layout.fillWidth: true
                         }
 
-                        StyledComboBox {
+                        MorphComboBox {
                             Layout.preferredWidth: Math.round(140 * UIScale.value)
                             model: root._widthOptions
                             selectedValue: ClockSettings.widthMode
@@ -211,20 +196,12 @@ Item {
                     }
                 }
 
-                Rectangle {
-                    Layout.fillWidth: true
+                SettingCard {
                     Layout.leftMargin: UIScale.panelPad
                     Layout.rightMargin: UIScale.panelPad
-                    implicitHeight: Math.round(56 * UIScale.value)
-                    radius: UIScale.radiusMd
-                    color: Colors.withAlpha(Colors.text, 0.03)
-                    border.color: Colors.withAlpha(Colors.text, 0.06)
-                    border.width: 1
 
                     RowLayout {
-                        anchors.fill: parent
-                        anchors.leftMargin: UIScale.spacingMd
-                        anchors.rightMargin: UIScale.spacingMd
+                        Layout.fillWidth: true
                         spacing: UIScale.spacingSm
 
                         Column {
@@ -246,7 +223,7 @@ Item {
                             Layout.fillWidth: true
                         }
 
-                        StyledComboBox {
+                        MorphComboBox {
                             Layout.preferredWidth: Math.round(140 * UIScale.value)
                             model: root._showDateOptions
                             selectedValue: ClockSettings.showDate
@@ -255,20 +232,12 @@ Item {
                     }
                 }
 
-                Rectangle {
-                    Layout.fillWidth: true
+                SettingCard {
                     Layout.leftMargin: UIScale.panelPad
                     Layout.rightMargin: UIScale.panelPad
-                    implicitHeight: Math.round(56 * UIScale.value)
-                    radius: UIScale.radiusMd
-                    color: Colors.withAlpha(Colors.text, 0.03)
-                    border.color: Colors.withAlpha(Colors.text, 0.06)
-                    border.width: 1
 
                     RowLayout {
-                        anchors.fill: parent
-                        anchors.leftMargin: UIScale.spacingMd
-                        anchors.rightMargin: UIScale.spacingMd
+                        Layout.fillWidth: true
                         spacing: UIScale.spacingSm
 
                         Column {
@@ -290,7 +259,7 @@ Item {
                             Layout.fillWidth: true
                         }
 
-                        StyledComboBox {
+                        MorphComboBox {
                             Layout.preferredWidth: Math.round(140 * UIScale.value)
                             model: root._formatOptions
                             selectedValue: ClockSettings.use12Hour
@@ -310,20 +279,12 @@ Item {
                 }
 
                 // Snap row, instantly set what the clock displays
-                Rectangle {
-                    Layout.fillWidth: true
+                SettingCard {
                     Layout.leftMargin: UIScale.panelPad
                     Layout.rightMargin: UIScale.panelPad
-                    implicitHeight: Math.round(56 * UIScale.value)
-                    radius: UIScale.radiusMd
-                    color: Colors.withAlpha(Colors.text, 0.03)
-                    border.color: Colors.withAlpha(Colors.text, 0.06)
-                    border.width: 1
 
                     RowLayout {
-                        anchors.fill: parent
-                        anchors.leftMargin: UIScale.spacingMd
-                        anchors.rightMargin: UIScale.spacingMd
+                        Layout.fillWidth: true
                         spacing: UIScale.spacingSm
 
                         Column {
@@ -378,20 +339,12 @@ Item {
                 }
 
                 // Animate row, trigger the typewriter animation
-                Rectangle {
-                    Layout.fillWidth: true
+                SettingCard {
                     Layout.leftMargin: UIScale.panelPad
                     Layout.rightMargin: UIScale.panelPad
-                    implicitHeight: Math.round(56 * UIScale.value)
-                    radius: UIScale.radiusMd
-                    color: Colors.withAlpha(Colors.text, 0.03)
-                    border.color: Colors.withAlpha(Colors.text, 0.06)
-                    border.width: 1
 
                     RowLayout {
-                        anchors.fill: parent
-                        anchors.leftMargin: UIScale.spacingMd
-                        anchors.rightMargin: UIScale.spacingMd
+                        Layout.fillWidth: true
                         spacing: UIScale.spacingSm
 
                         Column {
@@ -531,20 +484,12 @@ Item {
                 }
 
                 // Desktop clock, midnight rollover test (snap to 23:59 then chain date->time)
-                Rectangle {
-                    Layout.fillWidth: true
+                SettingCard {
                     Layout.leftMargin: UIScale.panelPad
                     Layout.rightMargin: UIScale.panelPad
-                    implicitHeight: Math.round(56 * UIScale.value)
-                    radius: UIScale.radiusMd
-                    color: Colors.withAlpha(Colors.text, 0.03)
-                    border.color: Colors.withAlpha(Colors.text, 0.06)
-                    border.width: 1
 
                     RowLayout {
-                        anchors.fill: parent
-                        anchors.leftMargin: UIScale.spacingMd
-                        anchors.rightMargin: UIScale.spacingMd
+                        Layout.fillWidth: true
                         spacing: UIScale.spacingSm
 
                         Column {
@@ -613,14 +558,25 @@ Item {
 
         spacing: Math.round(3 * UIScale.value)
 
-        Rectangle {
+        Item {
             implicitWidth: Math.round(26 * UIScale.value)
             implicitHeight: Math.round(28 * UIScale.value)
-            radius: UIScale.radiusSm
-            color: decHov.hovered ? Colors.withAlpha(Colors.text, 0.1) : Colors.surfaceHigh
-            Behavior on color {
-                ColorAnimation {
-                    duration: Anim.fast
+
+            Surface {
+                anchors.fill: parent
+                level: 2
+                cornerRadius: UIScale.radiusSm
+            }
+
+            Rectangle {
+                anchors.fill: parent
+                radius: UIScale.radiusSm
+                color: Colors.withAlpha(Colors.text, 0.1)
+                opacity: decHov.hovered ? 1 : 0
+                Behavior on opacity {
+                    NumberAnimation {
+                        duration: Anim.fast
+                    }
                 }
             }
             Text {
@@ -655,14 +611,25 @@ Item {
             }
         }
 
-        Rectangle {
+        Item {
             implicitWidth: Math.round(26 * UIScale.value)
             implicitHeight: Math.round(28 * UIScale.value)
-            radius: UIScale.radiusSm
-            color: incHov.hovered ? Colors.withAlpha(Colors.text, 0.1) : Colors.surfaceHigh
-            Behavior on color {
-                ColorAnimation {
-                    duration: Anim.fast
+
+            Surface {
+                anchors.fill: parent
+                level: 2
+                cornerRadius: UIScale.radiusSm
+            }
+
+            Rectangle {
+                anchors.fill: parent
+                radius: UIScale.radiusSm
+                color: Colors.withAlpha(Colors.text, 0.1)
+                opacity: incHov.hovered ? 1 : 0
+                Behavior on opacity {
+                    NumberAnimation {
+                        duration: Anim.fast
+                    }
                 }
             }
             Text {

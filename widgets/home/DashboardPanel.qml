@@ -391,7 +391,7 @@ Item {
                         MouseArea {
                             anchors.fill: parent
                             cursorShape: Qt.PointingHandCursor
-                            onClicked: HomePanelService.requestedSection = "calendar"
+                            onClicked: HomeWindowService.openPage("calendar")
                         }
                     }
                 }

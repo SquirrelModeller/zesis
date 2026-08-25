@@ -96,7 +96,7 @@ Item {
                 cursorShape: Qt.PointingHandCursor
                 onClicked: {
                     WidgetHomeService.open = false;
-                    HomePanelService.open = true;
+                    HomeWindowService.openPage("home");
                 }
             }
 

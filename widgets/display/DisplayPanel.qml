@@ -4,6 +4,7 @@ import QtQuick
 import QtQuick.Layouts
 import "../../"
 import "../shared"
+import "../shared/inputs"
 
 Item {
     id: root
@@ -111,7 +112,7 @@ Item {
                     Layout.leftMargin: UIScale.panelPad
                 }
 
-                StyledComboBox {
+                MorphComboBox {
                     Layout.fillWidth: true
                     Layout.leftMargin: UIScale.panelPad
                     Layout.rightMargin: UIScale.panelPad
@@ -144,7 +145,7 @@ Item {
                     Layout.leftMargin: UIScale.panelPad
                 }
 
-                StyledComboBox {
+                MorphComboBox {
                     Layout.fillWidth: true
                     Layout.leftMargin: UIScale.panelPad
                     Layout.rightMargin: UIScale.panelPad
@@ -166,16 +167,27 @@ Item {
                     Layout.rightMargin: UIScale.panelPad
                 }
 
-                Rectangle {
+                Item {
                     Layout.fillWidth: true
                     Layout.leftMargin: UIScale.panelPad
                     Layout.rightMargin: UIScale.panelPad
                     implicitHeight: Math.round(38 * UIScale.value)
-                    radius: UIScale.radiusMd
-                    color: root.hasChange ? Colors.accent : Colors.surfaceHigh
-                    Behavior on color {
-                        ColorAnimation {
-                            duration: Anim.fast
+
+                    Surface {
+                        anchors.fill: parent
+                        level: 2
+                        cornerRadius: UIScale.radiusMd
+                    }
+
+                    Rectangle {
+                        anchors.fill: parent
+                        radius: UIScale.radiusMd
+                        color: Colors.accent
+                        opacity: root.hasChange ? 1 : 0
+                        Behavior on opacity {
+                            NumberAnimation {
+                                duration: Anim.fast
+                            }
                         }
                     }
 

@@ -1,3 +1,4 @@
+pragma ComponentBehavior: Bound
 import QtQuick
 import "../../"
 
@@ -10,6 +11,7 @@ Item {
 
     property string label: ""
     property bool ghost: false
+    property bool destructive: false
 
     readonly property real _minWidth: Math.round(58 * UIScale.value)
     implicitWidth: Math.max(_minWidth, labelText.implicitWidth + UIScale.spacingMd * 2)
@@ -24,7 +26,7 @@ Item {
     Rectangle {
         anchors.fill: parent
         radius: UIScale.radiusSm
-        color: root.ghost ? (hoverHandler.hovered ? Colors.withAlpha(Colors.text, 0.08) : "transparent") : (hoverHandler.hovered ? Colors.withAlpha(Colors.accent, 0.28) : Colors.withAlpha(Colors.accent, 0.14))
+        color: root.ghost ? (hoverHandler.hovered ? Colors.withAlpha(Colors.text, 0.08) : "transparent") : (root.destructive ? (hoverHandler.hovered ? Colors.withAlpha(Colors.error, 0.28) : Colors.withAlpha(Colors.error, 0.14)) : (hoverHandler.hovered ? Colors.withAlpha(Colors.accent, 0.28) : Colors.withAlpha(Colors.accent, 0.14)))
         Behavior on color {
             ColorAnimation {
                 duration: Anim.fast
@@ -35,7 +37,7 @@ Item {
             id: labelText
             anchors.centerIn: parent
             text: root.label
-            color: root.ghost ? Colors.muted : Colors.accent
+            color: root.destructive ? Colors.error : (root.ghost ? Colors.muted : Colors.accent)
             font.pixelSize: UIScale.fontSmall
             font.weight: Font.DemiBold
         }

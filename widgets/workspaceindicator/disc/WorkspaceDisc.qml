@@ -126,8 +126,7 @@ Item {
     // bar window's local coordinates.
     function _overlayToBarLocal(p) {
         var overlaySize = (root.discRadius + root.pad) * 2;
-        var barThickness = Math.round(50 * UIScale.value);
-        var perpOffset = root._flipPerp ? (BarConfig.edgeGap + barThickness - overlaySize) : -BarConfig.edgeGap;
+        var perpOffset = root._flipPerp ? (BarConfig.edgeGap + BarConfig.barThickness - overlaySize) : -BarConfig.edgeGap;
         if (BarConfig.isVertical)
             return Qt.point(p.x + perpOffset, p.y + root.overlayMargin);
         return Qt.point(p.x + root.overlayMargin, p.y + perpOffset);

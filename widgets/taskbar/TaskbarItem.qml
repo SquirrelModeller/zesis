@@ -1,12 +1,15 @@
+pragma ComponentBehavior: Bound
 import QtQuick
 import QtQuick.Layouts
 import QtQuick.Controls
+import QtQuick.Effects
 import Quickshell
 import Quickshell.Widgets
 import Quickshell.Wayland
 import Quickshell.Wayland._Screencopy
 import "../bar"
 import "../wm"
+import "../shared"
 import "../../"
 
 Item {
@@ -26,6 +29,11 @@ Item {
     }
     readonly property string _name: _entry ? _entry.name : root.appId
     readonly property string _iconName: _entry ? _entry.icon : ""
+
+    // "org.quickshell" appId is forced upon us, so we cheat. Any other taskbar
+    // would render Quickshell's logo. But we render our own.
+    readonly property bool _isZesisWindow: root._toplevels.some(t => t.title && t.title.endsWith(" - zesis"))
+    readonly property string _iconSource: root._iconName ? Quickshell.iconPath(root._iconName) : ""
 
     // WlrForeignToplevel objects for this app (have .activated, .activate(), etc.)
     readonly property var _toplevels: {
@@ -113,17 +121,44 @@ Item {
             height: root._iconSz
             anchors.horizontalCenter: parent.horizontalCenter
 
+            // We cheat :)
+            Image {
+                id: zesisLogoMask
+                anchors.fill: parent
+                visible: false
+                source: root._isZesisWindow ? Qt.resolvedUrl("../../assets/logo.svg") : ""
+                sourceSize.width: root._iconSz * 2
+                sourceSize.height: root._iconSz * 2
+                fillMode: Image.PreserveAspectFit
+                smooth: true
+                mipmap: true
+            }
+
+            Rectangle {
+                anchors.fill: parent
+                visible: root._isZesisWindow
+                color: Colors.accent
+                layer.enabled: true
+                layer.effect: MultiEffect {
+                    maskEnabled: true
+                    maskSource: zesisLogoMask
+                    maskThresholdMin: 0.5
+                    maskSpreadAtMin: 1.0
+                }
+            }
+
             IconImage {
                 id: iconImg
                 anchors.fill: parent
-                source: root._iconName ? Quickshell.iconPath(root._iconName) : ""
+                visible: !root._isZesisWindow
+                source: root._iconSource
                 implicitSize: root._iconSz
                 asynchronous: true
             }
 
             Rectangle {
                 anchors.fill: parent
-                visible: iconImg.status !== Image.Ready
+                visible: !root._isZesisWindow && iconImg.status !== Image.Ready
                 radius: width / 2
                 color: Colors.withAlpha(Colors.accent, 0.2)
                 Text {
@@ -198,11 +233,17 @@ Item {
             active: root._show
             anchors.fill: parent
 
-            sourceComponent: Rectangle {
-                radius: UIScale.radiusMd
-                color: Colors.surface
-                border.color: Colors.withAlpha(Colors.outline, 0.5)
-                border.width: 1
+            sourceComponent: Item {
+                Surface {
+                    anchors.fill: parent
+                    level: 0
+                    opaque: true
+                    cornerRadius: UIScale.radiusMd
+                    topLeftCornerRadius: (BarConfig.side === "top" || BarConfig.side === "left") ? 0 : UIScale.radiusMd
+                    topRightCornerRadius: (BarConfig.side === "top" || BarConfig.side === "right") ? 0 : UIScale.radiusMd
+                    bottomLeftCornerRadius: (BarConfig.side === "bottom" || BarConfig.side === "left") ? 0 : UIScale.radiusMd
+                    bottomRightCornerRadius: (BarConfig.side === "bottom" || BarConfig.side === "right") ? 0 : UIScale.radiusMd
+                }
 
                 Column {
                     anchors {

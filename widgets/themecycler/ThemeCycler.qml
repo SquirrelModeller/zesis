@@ -140,7 +140,7 @@ Item {
                     anchors.margins: 6
                     spacing: 3
                     Repeater {
-                        model: ["background", "primary", "on_background"]
+                        model: ["surface", "primary", "on_surface"]
                         Rectangle {
                             required property string modelData
                             width: 10

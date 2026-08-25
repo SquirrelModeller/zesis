@@ -5,8 +5,8 @@ import QtQuick.Controls
 import Quickshell
 import Quickshell.Io
 import "../../"
-import "../bar"
 import "../shared"
+import "../shared/inputs"
 
 Item {
     id: root
@@ -47,18 +47,6 @@ Item {
         }
     }
 
-    Rectangle {
-        anchors.fill: parent
-        radius: UIScale.radiusLg
-        topLeftRadius: (BarConfig.side === "top" || BarConfig.side === "left") ? 0 : UIScale.radiusLg
-        topRightRadius: (BarConfig.side === "top" || BarConfig.side === "right") ? 0 : UIScale.radiusLg
-        bottomLeftRadius: (BarConfig.side === "bottom" || BarConfig.side === "left") ? 0 : UIScale.radiusLg
-        bottomRightRadius: (BarConfig.side === "bottom" || BarConfig.side === "right") ? 0 : UIScale.radiusLg
-        color: Colors.bg
-        border.color: Colors.outline
-        border.width: 1
-    }
-
     ColumnLayout {
         anchors.fill: parent
         anchors.margins: Math.round(16 * UIScale.value)
@@ -80,66 +68,12 @@ Item {
             }
 
             // Dark / Light pill toggle
-            Rectangle {
+            SegmentedToggle {
                 Layout.preferredWidth: Math.round(120 * UIScale.value)
                 Layout.preferredHeight: Math.round(32 * UIScale.value)
-                radius: Math.round(16 * UIScale.value)
-                color: Colors.surface
-
-                Rectangle {
-                    id: pillSlider
-                    width: Math.round(56 * UIScale.value)
-                    height: Math.round(26 * UIScale.value)
-                    radius: Math.round(13 * UIScale.value)
-                    anchors.verticalCenter: parent.verticalCenter
-                    x: ThemeState.palette === "dark" ? Math.round(3 * UIScale.value) : Math.round(61 * UIScale.value)
-                    color: Colors.accent
-                    Behavior on x {
-                        NumberAnimation {
-                            duration: Anim.medium
-                            easing.type: Easing.InOutQuad
-                        }
-                    }
-                }
-
-                RowLayout {
-                    anchors.fill: parent
-                    spacing: 0
-
-                    Text {
-                        Layout.fillWidth: true
-                        text: I18n.t("wallpaper.dark")
-                        color: ThemeState.palette === "dark" ? Colors.bg : Colors.textDim
-                        font.pixelSize: UIScale.fontCaption
-                        font.weight: Font.Medium
-                        horizontalAlignment: Text.AlignHCenter
-                        Behavior on color {
-                            ColorAnimation {
-                                duration: Anim.medium
-                            }
-                        }
-                    }
-
-                    Text {
-                        Layout.fillWidth: true
-                        text: I18n.t("wallpaper.light")
-                        color: ThemeState.palette === "light" ? Colors.bg : Colors.textDim
-                        font.pixelSize: UIScale.fontCaption
-                        font.weight: Font.Medium
-                        horizontalAlignment: Text.AlignHCenter
-                        Behavior on color {
-                            ColorAnimation {
-                                duration: Anim.medium
-                            }
-                        }
-                    }
-                }
-
-                MouseArea {
-                    anchors.fill: parent
-                    cursorShape: Qt.PointingHandCursor
-                    onClicked: ThemeState.togglePalette()
-                }
+                model: [I18n.t("wallpaper.dark"), I18n.t("wallpaper.light")]
+                currentIndex: ThemeState.palette === "dark" ? 0 : 1
+                onActivated: ThemeState.togglePalette()
             }
         }
 

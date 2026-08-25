@@ -1,6 +1,7 @@
+pragma ComponentBehavior: Bound
 import QtQuick
 import QtQuick.Layouts
-import "../../"
+import "../../../"
 
 // HSV color picker: saturation/value field, hue strip and a hex field.
 ColumnLayout {
@@ -59,6 +60,7 @@ ColumnLayout {
     Rectangle {
         id: svField
         Layout.fillWidth: true
+        Layout.preferredWidth: Math.round(200 * UIScale.value)
         implicitHeight: Math.round(110 * UIScale.value)
         radius: UIScale.radiusSm
         clip: true

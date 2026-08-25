@@ -6,6 +6,7 @@ import Qt.labs.folderlistmodel
 import Quickshell
 import "../../../"
 import "../../shared"
+import "../../shared/inputs"
 
 Item {
     id: root
@@ -75,11 +76,10 @@ Item {
                     }
                 }
 
-                Item {
+                Stepper {
                     Layout.fillWidth: true
                     Layout.leftMargin: UIScale.panelPad
                     Layout.rightMargin: UIScale.panelPad
-                    implicitHeight: Math.round(36 * UIScale.value)
                     opacity: WorkspaceDiscService.expressive ? 0.35 : 1.0
                     Behavior on opacity {
                         NumberAnimation {
@@ -88,76 +88,10 @@ Item {
                     }
                     enabled: !WorkspaceDiscService.expressive
 
-                    RowLayout {
-                        anchors.fill: parent
-                        spacing: UIScale.spacingSm
-
-                        Rectangle {
-                            implicitWidth: Math.round(36 * UIScale.value)
-                            implicitHeight: Math.round(36 * UIScale.value)
-                            radius: UIScale.radiusSm
-                            color: minusHover.hovered ? Colors.withAlpha(Colors.accent, 0.15) : Colors.surfaceHigh
-                            Behavior on color {
-                                ColorAnimation {
-                                    duration: Anim.fast
-                                }
-                            }
-
-                            Text {
-                                anchors.centerIn: parent
-                                text: "-"
-                                color: WorkspaceDiscService.workSpaceAmount <= 1 ? Colors.muted : Colors.text
-                                font.pixelSize: UIScale.fontSubhead
-                            }
-                            HoverHandler {
-                                id: minusHover
-                            }
-                            MouseArea {
-                                anchors.fill: parent
-                                cursorShape: Qt.PointingHandCursor
-                                onClicked: if (WorkspaceDiscService.workSpaceAmount > 1)
-                                    WorkspaceDiscService.workSpaceAmount -= 1
-                            }
-                        }
-
-                        Text {
-                            text: WorkspaceDiscService.workSpaceAmount
-                            color: Colors.accent
-                            font.pixelSize: UIScale.fontSubhead
-                            font.weight: Font.Bold
-                            font.family: "monospace"
-                            Layout.fillWidth: true
-                            horizontalAlignment: Text.AlignHCenter
-                        }
-
-                        Rectangle {
-                            implicitWidth: Math.round(36 * UIScale.value)
-                            implicitHeight: Math.round(36 * UIScale.value)
-                            radius: UIScale.radiusSm
-                            color: plusHover.hovered ? Colors.withAlpha(Colors.accent, 0.15) : Colors.surfaceHigh
-                            Behavior on color {
-                                ColorAnimation {
-                                    duration: Anim.fast
-                                }
-                            }
-
-                            Text {
-                                anchors.centerIn: parent
-                                text: "+"
-                                color: WorkspaceDiscService.workSpaceAmount >= 10 ? Colors.muted : Colors.text
-                                font.pixelSize: UIScale.fontSubhead
-                            }
-                            HoverHandler {
-                                id: plusHover
-                            }
-                            MouseArea {
-                                anchors.fill: parent
-                                cursorShape: Qt.PointingHandCursor
-                                onClicked: if (WorkspaceDiscService.workSpaceAmount < 10)
-                                    WorkspaceDiscService.workSpaceAmount += 1
-                            }
-                        }
-                    }
+                    value: WorkspaceDiscService.workSpaceAmount
+                    min: 1
+                    max: 10
+                    onStepped: v => WorkspaceDiscService.workSpaceAmount = v
                 }
 
                 // Expressive toggle
@@ -203,11 +137,10 @@ Item {
                     }
                 }
 
-                Item {
+                Stepper {
                     Layout.fillWidth: true
                     Layout.leftMargin: UIScale.panelPad
                     Layout.rightMargin: UIScale.panelPad
-                    implicitHeight: Math.round(36 * UIScale.value)
                     opacity: WorkspaceDiscService.expressive ? 1.0 : 0.35
                     Behavior on opacity {
                         NumberAnimation {
@@ -216,76 +149,10 @@ Item {
                     }
                     enabled: WorkspaceDiscService.expressive
 
-                    RowLayout {
-                        anchors.fill: parent
-                        spacing: UIScale.spacingSm
-
-                        Rectangle {
-                            implicitWidth: Math.round(36 * UIScale.value)
-                            implicitHeight: Math.round(36 * UIScale.value)
-                            radius: UIScale.radiusSm
-                            color: minMinusHover.hovered ? Colors.withAlpha(Colors.accent, 0.15) : Colors.surfaceHigh
-                            Behavior on color {
-                                ColorAnimation {
-                                    duration: Anim.fast
-                                }
-                            }
-
-                            Text {
-                                anchors.centerIn: parent
-                                text: "-"
-                                color: WorkspaceDiscService.minWorkSpaceAmount <= 1 ? Colors.muted : Colors.text
-                                font.pixelSize: UIScale.fontSubhead
-                            }
-                            HoverHandler {
-                                id: minMinusHover
-                            }
-                            MouseArea {
-                                anchors.fill: parent
-                                cursorShape: Qt.PointingHandCursor
-                                onClicked: if (WorkspaceDiscService.minWorkSpaceAmount > 1)
-                                    WorkspaceDiscService.minWorkSpaceAmount -= 1
-                            }
-                        }
-
-                        Text {
-                            text: WorkspaceDiscService.minWorkSpaceAmount
-                            color: Colors.accent
-                            font.pixelSize: UIScale.fontSubhead
-                            font.weight: Font.Bold
-                            font.family: "monospace"
-                            Layout.fillWidth: true
-                            horizontalAlignment: Text.AlignHCenter
-                        }
-
-                        Rectangle {
-                            implicitWidth: Math.round(36 * UIScale.value)
-                            implicitHeight: Math.round(36 * UIScale.value)
-                            radius: UIScale.radiusSm
-                            color: minPlusHover.hovered ? Colors.withAlpha(Colors.accent, 0.15) : Colors.surfaceHigh
-                            Behavior on color {
-                                ColorAnimation {
-                                    duration: Anim.fast
-                                }
-                            }
-
-                            Text {
-                                anchors.centerIn: parent
-                                text: "+"
-                                color: WorkspaceDiscService.minWorkSpaceAmount >= 10 ? Colors.muted : Colors.text
-                                font.pixelSize: UIScale.fontSubhead
-                            }
-                            HoverHandler {
-                                id: minPlusHover
-                            }
-                            MouseArea {
-                                anchors.fill: parent
-                                cursorShape: Qt.PointingHandCursor
-                                onClicked: if (WorkspaceDiscService.minWorkSpaceAmount < 10)
-                                    WorkspaceDiscService.minWorkSpaceAmount += 1
-                            }
-                        }
-                    }
+                    value: WorkspaceDiscService.minWorkSpaceAmount
+                    min: 1
+                    max: 10
+                    onStepped: v => WorkspaceDiscService.minWorkSpaceAmount = v
                 }
 
                 Divider {
@@ -294,31 +161,11 @@ Item {
                 }
 
                 // Disc radius
-                RowLayout {
-                    Layout.fillWidth: true
+                SettingSliderRow {
                     Layout.leftMargin: UIScale.panelPad
                     Layout.rightMargin: UIScale.panelPad
-
-                    Text {
-                        text: I18n.t("workspaceindicator.discRadius")
-                        color: Colors.text
-                        font.pixelSize: UIScale.fontBody
-                        font.bold: true
-                        Layout.fillWidth: true
-                    }
-                    Text {
-                        text: WorkspaceDiscService.discRadius + " px"
-                        color: Colors.accent
-                        font.pixelSize: UIScale.fontBody
-                        font.weight: Font.Bold
-                        font.family: "monospace"
-                    }
-                }
-
-                SettingSlider {
-                    Layout.fillWidth: true
-                    Layout.leftMargin: UIScale.panelPad
-                    Layout.rightMargin: UIScale.panelPad
+                    label: I18n.t("workspaceindicator.discRadius")
+                    valueText: WorkspaceDiscService.discRadius + " px"
                     from: 35
                     to: 80
                     value: WorkspaceDiscService.discRadius
@@ -326,31 +173,11 @@ Item {
                 }
 
                 // Tooth width
-                RowLayout {
-                    Layout.fillWidth: true
+                SettingSliderRow {
                     Layout.leftMargin: UIScale.panelPad
                     Layout.rightMargin: UIScale.panelPad
-
-                    Text {
-                        text: I18n.t("workspaceindicator.toothWidth")
-                        color: Colors.text
-                        font.pixelSize: UIScale.fontBody
-                        font.bold: true
-                        Layout.fillWidth: true
-                    }
-                    Text {
-                        text: WorkspaceDiscService.toothWidth + " %"
-                        color: Colors.accent
-                        font.pixelSize: UIScale.fontBody
-                        font.weight: Font.Bold
-                        font.family: "monospace"
-                    }
-                }
-
-                SettingSlider {
-                    Layout.fillWidth: true
-                    Layout.leftMargin: UIScale.panelPad
-                    Layout.rightMargin: UIScale.panelPad
+                    label: I18n.t("workspaceindicator.toothWidth")
+                    valueText: WorkspaceDiscService.toothWidth + " %"
                     from: 5
                     to: 80
                     value: WorkspaceDiscService.toothWidth
@@ -358,31 +185,11 @@ Item {
                 }
 
                 // Valley depth
-                RowLayout {
-                    Layout.fillWidth: true
+                SettingSliderRow {
                     Layout.leftMargin: UIScale.panelPad
                     Layout.rightMargin: UIScale.panelPad
-
-                    Text {
-                        text: I18n.t("workspaceindicator.valleyDepth")
-                        color: Colors.text
-                        font.pixelSize: UIScale.fontBody
-                        font.bold: true
-                        Layout.fillWidth: true
-                    }
-                    Text {
-                        text: WorkspaceDiscService.valleyDepth + " %"
-                        color: Colors.accent
-                        font.pixelSize: UIScale.fontBody
-                        font.weight: Font.Bold
-                        font.family: "monospace"
-                    }
-                }
-
-                SettingSlider {
-                    Layout.fillWidth: true
-                    Layout.leftMargin: UIScale.panelPad
-                    Layout.rightMargin: UIScale.panelPad
+                    label: I18n.t("workspaceindicator.valleyDepth")
+                    valueText: WorkspaceDiscService.valleyDepth + " %"
                     from: 0
                     to: 55
                     value: WorkspaceDiscService.valleyDepth
@@ -390,31 +197,11 @@ Item {
                 }
 
                 // Dot size
-                RowLayout {
-                    Layout.fillWidth: true
+                SettingSliderRow {
                     Layout.leftMargin: UIScale.panelPad
                     Layout.rightMargin: UIScale.panelPad
-
-                    Text {
-                        text: I18n.t("workspaceindicator.dotSize")
-                        color: Colors.text
-                        font.pixelSize: UIScale.fontBody
-                        font.bold: true
-                        Layout.fillWidth: true
-                    }
-                    Text {
-                        text: WorkspaceDiscService.chamberSize + " px"
-                        color: Colors.accent
-                        font.pixelSize: UIScale.fontBody
-                        font.weight: Font.Bold
-                        font.family: "monospace"
-                    }
-                }
-
-                SettingSlider {
-                    Layout.fillWidth: true
-                    Layout.leftMargin: UIScale.panelPad
-                    Layout.rightMargin: UIScale.panelPad
+                    label: I18n.t("workspaceindicator.dotSize")
+                    valueText: WorkspaceDiscService.chamberSize + " px"
                     from: 14
                     to: 34
                     value: WorkspaceDiscService.chamberSize
@@ -427,31 +214,11 @@ Item {
                 }
 
                 // Dot orbit
-                RowLayout {
-                    Layout.fillWidth: true
+                SettingSliderRow {
                     Layout.leftMargin: UIScale.panelPad
                     Layout.rightMargin: UIScale.panelPad
-
-                    Text {
-                        text: I18n.t("workspaceindicator.dotOrbit")
-                        color: Colors.text
-                        font.pixelSize: UIScale.fontBody
-                        font.bold: true
-                        Layout.fillWidth: true
-                    }
-                    Text {
-                        text: WorkspaceDiscService.chamberRadius + " px"
-                        color: Colors.accent
-                        font.pixelSize: UIScale.fontBody
-                        font.weight: Font.Bold
-                        font.family: "monospace"
-                    }
-                }
-
-                SettingSlider {
-                    Layout.fillWidth: true
-                    Layout.leftMargin: UIScale.panelPad
-                    Layout.rightMargin: UIScale.panelPad
+                    label: I18n.t("workspaceindicator.dotOrbit")
+                    valueText: WorkspaceDiscService.chamberRadius + " px"
                     from: 15
                     to: 45
                     value: WorkspaceDiscService.chamberRadius

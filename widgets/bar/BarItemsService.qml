@@ -1,4 +1,5 @@
 pragma Singleton
+pragma ComponentBehavior: Bound
 import QtQuick
 import Quickshell
 import "../../"
@@ -452,5 +453,10 @@ Singleton {
                 root._mergeZones();
             }
         }
+    }
+
+    Component.onCompleted: {
+        root._merge();
+        root._mergeZones();
     }
 }

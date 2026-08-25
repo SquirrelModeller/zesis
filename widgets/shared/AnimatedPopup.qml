@@ -1,3 +1,4 @@
+pragma ComponentBehavior: Bound
 import QtQuick
 import Quickshell
 import "../../"
@@ -57,6 +58,8 @@ PopupWindow {
     property string _barSide: BarConfig.side
     on_BarSideChanged: root.close()
 
+    readonly property bool _flushEdge: BarConfig.flushToBarEdge
+
     ParallelAnimation {
         id: showAnim
         NumberAnimation {
@@ -91,16 +94,14 @@ PopupWindow {
             return Item.Top;
         }
 
-        Rectangle {
+        Surface {
             anchors.fill: parent
-            radius: UIScale.radiusLg
-            topLeftRadius: (BarConfig.side === "top" || BarConfig.side === "left") ? 0 : UIScale.radiusLg
-            topRightRadius: (BarConfig.side === "top" || BarConfig.side === "right") ? 0 : UIScale.radiusLg
-            bottomLeftRadius: (BarConfig.side === "bottom" || BarConfig.side === "left") ? 0 : UIScale.radiusLg
-            bottomRightRadius: (BarConfig.side === "bottom" || BarConfig.side === "right") ? 0 : UIScale.radiusLg
-            color: Colors.bg
-            border.color: Colors.outline
-            border.width: 1
+            cornerRadius: UIScale.radiusLg
+            opaque: true
+            topLeftCornerRadius: (root._flushEdge && (BarConfig.side === "top" || BarConfig.side === "left")) ? 0 : UIScale.radiusLg
+            topRightCornerRadius: (root._flushEdge && (BarConfig.side === "top" || BarConfig.side === "right")) ? 0 : UIScale.radiusLg
+            bottomLeftCornerRadius: (root._flushEdge && (BarConfig.side === "bottom" || BarConfig.side === "left")) ? 0 : UIScale.radiusLg
+            bottomRightCornerRadius: (root._flushEdge && (BarConfig.side === "bottom" || BarConfig.side === "right")) ? 0 : UIScale.radiusLg
             visible: root.hasBackground
         }
 

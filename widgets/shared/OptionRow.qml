@@ -17,17 +17,35 @@ Item {
 
         Repeater {
             model: root.model
-            delegate: Rectangle {
+            delegate: Item {
                 id: optBtn
                 required property string modelData
                 required property int index
 
+                readonly property bool selected: root.currentIndex === optBtn.index
+
                 Layout.fillWidth: true
                 implicitHeight: Math.round(32 * UIScale.value)
-                radius: UIScale.radiusSm
-                color: root.currentIndex === optBtn.index ? Colors.withAlpha(Colors.accent, 0.15) : Colors.surfaceHigh
-                border.color: root.currentIndex === optBtn.index ? Colors.accent : "transparent"
-                border.width: 1
+
+                Surface {
+                    anchors.fill: parent
+                    level: 2
+                    cornerRadius: UIScale.radiusSm
+                }
+
+                Rectangle {
+                    anchors.fill: parent
+                    radius: UIScale.radiusSm
+                    color: Colors.withAlpha(Colors.accent, 0.15)
+                    border.color: Colors.accent
+                    border.width: 1
+                    opacity: optBtn.selected ? 1 : 0
+                    Behavior on opacity {
+                        NumberAnimation {
+                            duration: Anim.fast
+                        }
+                    }
+                }
 
                 Text {
                     anchors.centerIn: parent

@@ -5,6 +5,7 @@ import QtQuick.Layouts
 import Quickshell.Bluetooth
 import "../../"
 import "../shared"
+import "../shared/inputs"
 import "../airpods"
 
 Item {

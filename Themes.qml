@@ -1,4 +1,5 @@
 pragma Singleton
+pragma ComponentBehavior: Bound
 import QtQuick
 import Quickshell
 import Quickshell.Io
@@ -245,18 +246,42 @@ Singleton {
         if (writeProc.running || root._pendingJson.length > 0)
             return;
         var raw = themeData.themes ? JSON.parse(JSON.stringify(themeData.themes)) : [];
-        root.themes = raw.map(t => ({
-                    name: t.name,
-                    pinned: !!t.pinned,
-                    wallpaper: t.wallpaper || {
-                        all: "",
-                        byMonitor: {},
-                        fallback: ""
-                    },
-                    dark: t.dark || {},
-                    light: t.light || {}
-                }));
+
+        // background and on_background are identical to surface and on_surface.
+        // We will no longer use background or on_background.
+        var changed = false;
+        var migrated = raw.map(t => {
+            var dark = t.dark || {};
+            var light = t.light || {};
+            changed = root._renameRole(dark, "background", "surface") || changed;
+            changed = root._renameRole(dark, "on_background", "on_surface") || changed;
+            changed = root._renameRole(light, "background", "surface") || changed;
+            changed = root._renameRole(light, "on_background", "on_surface") || changed;
+            return {
+                name: t.name,
+                pinned: !!t.pinned,
+                wallpaper: t.wallpaper || {
+                    all: "",
+                    byMonitor: {},
+                    fallback: ""
+                },
+                dark: dark,
+                light: light
+            };
+        });
+        root.themes = migrated;
         root.activeThemeName = themeData.activeThemeName || "";
+        if (changed)
+            root._save(migrated);
+    }
+
+    function _renameRole(map, oldId, newId) {
+        if (!map || map[oldId] === undefined)
+            return false;
+        if (map[newId] === undefined)
+            map[newId] = map[oldId];
+        delete map[oldId];
+        return true;
     }
 
     JsonAdapter {

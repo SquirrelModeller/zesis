@@ -6,6 +6,7 @@ import Quickshell
 import Quickshell.Io
 import "../../"
 import "../shared"
+import "../shared/inputs"
 
 Item {
     id: root
@@ -29,7 +30,7 @@ Item {
     // measured from content. The grid needs at least two target-sized columns to be worth
     // its own pane, and the right pane needs at least as much as its widest row requires.
     readonly property real _gridTargetCellWidth: Math.round(150 * UIScale.value)
-    readonly property real _leftMinWidth: root._gridTargetCellWidth * 2 + UIScale.spacingSm * 2 + UIScale.radiusMd
+    readonly property real _leftMinWidth: root._gridTargetCellWidth * 2 + UIScale.spacingSm * 2 + UIScale.spacingMd
     readonly property real _leftMaxWidth: Math.round(520 * UIScale.value)
     readonly property real leftColWidth: Math.max(root._leftMinWidth, Math.min(root._leftMaxWidth, Math.round(root.width * 0.36)))
     readonly property real _rightMinWidth: Math.max(headerRow.implicitWidth, backendRow.implicitWidth) + root.paneMargin * 2
@@ -211,16 +212,20 @@ Item {
 
     readonly property var _darkSwatches: [
         {
-            c: Colors.darkPalette.background,
-            label: "bg"
+            c: Colors.darkPalette.surface,
+            label: "surface"
         },
         {
             c: Colors.darkPalette.surface_container,
-            label: "surface"
+            label: "surf.bg"
         },
         {
             c: Colors.darkPalette.surface_container_high,
             label: "surf+"
+        },
+        {
+            c: Colors.darkPalette.surface_container_highest,
+            label: "surf++"
         },
         {
             c: Colors.darkPalette.outline_variant,
@@ -239,7 +244,7 @@ Item {
             label: "on-p"
         },
         {
-            c: Colors.darkPalette.on_background,
+            c: Colors.darkPalette.on_surface,
             label: "text"
         },
         {
@@ -249,16 +254,20 @@ Item {
     ]
     readonly property var _lightSwatches: [
         {
-            c: Colors.lightPalette.background,
-            label: "bg"
+            c: Colors.lightPalette.surface,
+            label: "surface"
         },
         {
             c: Colors.lightPalette.surface_container,
-            label: "surface"
+            label: "surf.bg"
         },
         {
             c: Colors.lightPalette.surface_container_high,
             label: "surf+"
+        },
+        {
+            c: Colors.lightPalette.surface_container_highest,
+            label: "surf++"
         },
         {
             c: Colors.lightPalette.outline_variant,
@@ -277,7 +286,7 @@ Item {
             label: "on-p"
         },
         {
-            c: Colors.lightPalette.on_background,
+            c: Colors.lightPalette.on_surface,
             label: "text"
         },
         {
@@ -392,7 +401,7 @@ Item {
                 Layout.fillHeight: true
                 Layout.leftMargin: UIScale.spacingSm
                 Layout.rightMargin: UIScale.spacingSm
-                Layout.bottomMargin: UIScale.radiusMd
+                Layout.bottomMargin: UIScale.spacingMd
                 clip: true
                 model: filteredWallpapers
                 // Column count follows the space available
@@ -487,7 +496,7 @@ Item {
                     }
 
                     // Scheme type dropdown
-                    StyledComboBox {
+                    MorphComboBox {
                         id: schemeDropdown
                         Layout.preferredHeight: Math.round(32 * UIScale.value)
                         model: [
@@ -539,63 +548,12 @@ Item {
                     }
 
                     // Dark / Light toggle
-                    Rectangle {
+                    SegmentedToggle {
                         Layout.preferredWidth: Math.round(120 * UIScale.value)
                         Layout.preferredHeight: Math.round(32 * UIScale.value)
-                        radius: Math.round(16 * UIScale.value)
-                        color: Colors.surface
-
-                        Rectangle {
-                            width: Math.round(56 * UIScale.value)
-                            height: Math.round(26 * UIScale.value)
-                            radius: Math.round(13 * UIScale.value)
-                            anchors.verticalCenter: parent.verticalCenter
-                            x: ThemeState.palette === "dark" ? Math.round(3 * UIScale.value) : Math.round(61 * UIScale.value)
-                            color: Colors.accent
-                            Behavior on x {
-                                NumberAnimation {
-                                    duration: Anim.medium
-                                    easing.type: Easing.InOutQuad
-                                }
-                            }
-                        }
-
-                        RowLayout {
-                            anchors.fill: parent
-                            spacing: 0
-                            Text {
-                                Layout.fillWidth: true
-                                text: I18n.t("wallpaper.dark")
-                                color: ThemeState.palette === "dark" ? Colors.bg : Colors.textDim
-                                font.pixelSize: UIScale.fontTiny
-                                font.weight: Font.Medium
-                                horizontalAlignment: Text.AlignHCenter
-                                Behavior on color {
-                                    ColorAnimation {
-                                        duration: Anim.medium
-                                    }
-                                }
-                            }
-                            Text {
-                                Layout.fillWidth: true
-                                text: I18n.t("wallpaper.light")
-                                color: ThemeState.palette === "light" ? Colors.bg : Colors.textDim
-                                font.pixelSize: UIScale.fontTiny
-                                font.weight: Font.Medium
-                                horizontalAlignment: Text.AlignHCenter
-                                Behavior on color {
-                                    ColorAnimation {
-                                        duration: Anim.medium
-                                    }
-                                }
-                            }
-                        }
-
-                        MouseArea {
-                            anchors.fill: parent
-                            cursorShape: Qt.PointingHandCursor
-                            onClicked: ThemeState.togglePalette()
-                        }
+                        model: [I18n.t("wallpaper.dark"), I18n.t("wallpaper.light")]
+                        currentIndex: ThemeState.palette === "dark" ? 0 : 1
+                        onActivated: ThemeState.togglePalette()
                     }
                 }
 
@@ -640,7 +598,7 @@ Item {
                         font.pixelSize: UIScale.fontSmall
                     }
 
-                    StyledComboBox {
+                    MorphComboBox {
                         id: backendComboBox
                         model: ThemeState.wallpaperBackends.map(b => ({
                                     value: b.id,
@@ -712,7 +670,7 @@ Item {
                         font.pixelSize: UIScale.fontSmall
                     }
 
-                    StyledComboBox {
+                    MorphComboBox {
                         id: targetComboBox
                         model: [
                             {
@@ -752,7 +710,7 @@ Item {
                         font.pixelSize: UIScale.fontSmall
                     }
 
-                    StyledComboBox {
+                    MorphComboBox {
                         id: colorSourceComboBox
                         model: [
                             {
@@ -840,7 +798,7 @@ Item {
                 }
                 PaletteRow {
                     Layout.fillWidth: true
-                    Layout.topMargin: UIScale.radiusMd
+                    Layout.topMargin: UIScale.spacingMd
                     rowLabel: I18n.t("wallpaper.light")
                     swatches: root._lightSwatches
                 }

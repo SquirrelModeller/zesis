@@ -3,6 +3,7 @@ import QtQuick
 import QtQuick.Layouts
 import "../../"
 import "../shared"
+import "../shared/inputs"
 
 Item {
     id: root
@@ -96,7 +97,7 @@ Item {
                             Layout.leftMargin: UIScale.spacingMd
                         }
 
-                        StyledComboBox {
+                        MorphComboBox {
                             id: deviceBox
                             Layout.fillWidth: true
                             Layout.leftMargin: UIScale.spacingMd

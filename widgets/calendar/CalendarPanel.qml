@@ -2,6 +2,7 @@ pragma ComponentBehavior: Bound
 import QtQuick
 import QtQuick.Layouts
 import "../shared"
+import "../shared/inputs"
 import "../../"
 
 // Note: Claude Code helped me transfer the visual language of Outlook to QML

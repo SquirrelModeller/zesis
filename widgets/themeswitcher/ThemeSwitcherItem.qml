@@ -1,3 +1,4 @@
+pragma ComponentBehavior: Bound
 import QtQuick
 import "../../"
 import "../bar"
@@ -14,7 +15,6 @@ BarButton {
         anchorItem: root
         implicitWidth: 380
         implicitHeight: 520
-        hasBackground: false
         content: Component {
             ThemeSwitcher {}
         }

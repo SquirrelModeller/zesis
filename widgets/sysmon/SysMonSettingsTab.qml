@@ -2,6 +2,7 @@ pragma ComponentBehavior: Bound
 import QtQuick
 import QtQuick.Layouts
 import "../shared"
+import "../shared/inputs"
 import "../../"
 
 ColumnLayout {

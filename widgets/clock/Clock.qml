@@ -131,14 +131,6 @@ Item {
         engine.animateTo(["U", " ", "U", "P", " ", "L", "8", "?"]);
     }
 
-    Rectangle {
-        anchors.fill: parent
-        radius: height / 2
-        color: Colors.bg
-        border.color: Colors.withAlpha(Colors.accent, 0.22)
-        border.width: 1.5
-    }
-
     // Horizontal layout
     Row {
         id: charsRow

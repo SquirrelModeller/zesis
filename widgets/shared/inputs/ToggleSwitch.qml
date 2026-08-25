@@ -1,5 +1,7 @@
+pragma ComponentBehavior: Bound
 import QtQuick
-import "../../"
+import "../../../"
+import "../"
 
 Item {
     id: root
@@ -13,12 +15,19 @@ Item {
     readonly property real _margin: Math.round(3 * UIScale.value)
     readonly property real _knobSize: height - 2 * _margin
 
+    Surface {
+        anchors.fill: parent
+        level: 2
+        cornerRadius: height / 2
+    }
+
     Rectangle {
         anchors.fill: parent
         radius: height / 2
-        color: root.checked ? Colors.accent : Colors.surfaceHigh
-        Behavior on color {
-            ColorAnimation {
+        color: Colors.accent
+        opacity: root.checked ? 1 : 0
+        Behavior on opacity {
+            NumberAnimation {
                 duration: Anim.fast
                 easing.type: Easing.BezierSpline
                 easing.bezierCurve: Anim.standard

@@ -9,5 +9,7 @@
   "on": "Ligado",
   "off": "Desligado",
   "loading": "Carregando…",
-  "noneFound": "Nenhum encontrado"
+  "noneFound": "Nenhum encontrado",
+  "windowSearchPlaceholder": "Buscar (Ctrl+F)",
+  "windowExpandAllSubTabs": "Expandir tudo"
 }

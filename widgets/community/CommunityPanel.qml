@@ -11,6 +11,7 @@ import "../globe2d"
 import "../globe3d"
 import "../diaspora"
 import "../shared"
+import "../shared/inputs"
 
 Item {
     id: root
@@ -863,7 +864,7 @@ Item {
                             font.pixelSize: UIScale.fontSmall
                         }
 
-                        StyledComboBox {
+                        MorphComboBox {
                             Layout.fillWidth: true
                             model: LocationSharingService.activenessCadenceOptions.map(o => ({
                                         value: o.secs,

@@ -3,6 +3,7 @@ import QtQuick
 import QtQuick.Layouts
 import "../../"
 import "../shared"
+import "../shared/inputs"
 
 // User-facing pane for the instanced-rod 3D globe
 Item {

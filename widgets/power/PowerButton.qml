@@ -1,3 +1,4 @@
+pragma ComponentBehavior: Bound
 import QtQuick
 import "../../"
 
@@ -19,8 +20,8 @@ Item {
         width: root._size
         height: root._size
         radius: width / 2
-        color: root.armed ? Colors.withAlpha(Colors.accent, 0.22) : (hoverHandler.hovered ? Colors.surfaceHigh : Colors.surface)
-        border.color: root.armed ? Colors.accent : Colors.outline
+        color: root.armed ? Colors.withAlpha(Colors.error, 0.22) : (hoverHandler.hovered ? Colors.surfaceHigh : Colors.surface)
+        border.color: root.armed ? Colors.error : Colors.outline
         border.width: root.armed ? 2 : 1
         Behavior on color {
             ColorAnimation {
@@ -37,7 +38,7 @@ Item {
             anchors.centerIn: parent
             text: root.icon
             font.pixelSize: Math.round(30 * UIScale.value)
-            color: root.armed ? Colors.accent : Colors.text
+            color: root.armed ? Colors.error : Colors.text
             Behavior on color {
                 ColorAnimation {
                     duration: Anim.fast
@@ -70,7 +71,7 @@ Item {
         anchors.topMargin: UIScale.spacingSm
         anchors.horizontalCenter: parent.horizontalCenter
         text: root.armed ? "Confirm?" : root.label
-        color: root.armed ? Colors.accent : Colors.text
+        color: root.armed ? Colors.error : Colors.text
         font.pixelSize: UIScale.fontLead
         font.weight: Font.Medium
         Behavior on color {

@@ -15,6 +15,14 @@ Column {
     width: parent.width
     spacing: Math.round(2 * UIScale.value)
 
+    property real _animLevel: level / 100
+    Behavior on _animLevel {
+        NumberAnimation {
+            duration: Anim.slow
+            easing.type: Easing.OutCubic
+        }
+    }
+
     RowLayout {
         width: parent.width
 
@@ -52,16 +60,10 @@ Column {
         color: Colors.surfaceHigh
 
         Rectangle {
-            width: parent.width * (battBar.level / 100)
+            width: parent.width * battBar._animLevel
             height: parent.height
             radius: parent.radius
             color: battBar.charging ? Colors.accent : (battBar.level <= 15 ? "#e05c5c" : battBar.level <= 30 ? "#e0a85c" : Colors.accent)
-            Behavior on width {
-                NumberAnimation {
-                    duration: Anim.slow
-                    easing.type: Easing.OutCubic
-                }
-            }
             Behavior on color {
                 ColorAnimation {
                     duration: Anim.fast

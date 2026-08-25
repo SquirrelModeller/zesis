@@ -86,8 +86,7 @@ Item {
                             anchors.fill: parent
                             cursorShape: Qt.PointingHandCursor
                             onClicked: {
-                                HomePanelService.requestedSection = "calendar";
-                                HomePanelService.open = true;
+                                HomeWindowService.openPage("calendar");
                                 popup.close();
                             }
                         }

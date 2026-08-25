@@ -3,6 +3,7 @@ import QtQuick
 import QtQuick.Layouts
 import "../../"
 import "../shared"
+import "../shared/inputs"
 
 Item {
     id: root

@@ -12,6 +12,7 @@ import "widgets/appswitcher"
 import "widgets/themecycler"
 import "widgets/power"
 import "widgets/shared"
+import "widgets/shared/panels"
 import "widgets/widgethome"
 import "widgets/polkit"
 import "widgets/display"
@@ -56,8 +57,8 @@ Scope {
 
             // Strip = pill thickness on the short axis, full-edge span on the long axis.
             // This avoids any centering math, edgeGap is the only outer-gap knob.
-            implicitHeight: BarConfig.isVertical ? 0 : Math.round(50 * UIScale.value)
-            implicitWidth: BarConfig.isVertical ? Math.round(50 * UIScale.value) : 0
+            implicitHeight: BarConfig.isVertical ? 0 : BarConfig.barThickness
+            implicitWidth: BarConfig.isVertical ? BarConfig.barThickness : 0
 
             anchors {
                 top: BarConfig.side !== "bottom"
@@ -112,75 +113,69 @@ Scope {
         }
     }
 
-    PanelWindow {
-        id: homeOverlay
-
-        readonly property int panelWidth: Math.round(1360 * UIScale.value)
-        readonly property int panelHeight: Math.round(860 * UIScale.value)
-
-        WlrLayershell.namespace: "zesis:homePanel"
-        WlrLayershell.layer: WlrLayer.Overlay
-        WlrLayershell.keyboardFocus: visible ? WlrKeyboardFocus.OnDemand : WlrKeyboardFocus.None
-
-        exclusiveZone: -1
-        color: "transparent"
-
-        anchors {
-            top: true
-            left: true
-        }
-        margins {
-            top: Math.round((screen.height - panelHeight) / 2)
-            left: Math.round((screen.width - panelWidth) / 2)
-        }
-
-        implicitWidth: panelWidth
-        implicitHeight: panelHeight
-
-        visible: HomePanelService.open
-        onVisibleChanged: if (visible)
-            homePanel.forceActiveFocus()
-
-        HomePanel {
-            id: homePanel
-            anchors.fill: parent
-        }
-    }
-
     // PumpPanel {}
     // ValvePanel {}
     // WheelTest {}
 
+    RequestableAppWindow {
+        id: homeWindow
+        windowService: HomeWindowService
+        windowTitle: I18n.t("home.title") + " - zesis"
+        content: Component {
+            HomeShell {}
+        }
+    }
+
     IpcHandler {
         target: "home"
         function toggle() {
-            HomePanelService.open = !HomePanelService.open;
+            HomeWindowService.requestToggle();
+        }
+        function open() {
+            homeWindow.active = true;
+        }
+        function close() {
+            HomeWindowService.requestClose();
+        }
+        function openPage(pageId: string) {
+            HomeWindowService.openPage(pageId);
+        }
+        function openPageTab(pageId: string, subTabId: string) {
+            HomeWindowService.openPageTab(pageId, subTabId);
+        }
+        function search(query: string) {
+            HomeWindowService.openSearch(query);
         }
     }
 
-    PanelWindow {
+    RequestableAppWindow {
         id: settingsWindow
-
-        implicitWidth: Math.round(1360 * UIScale.value)
-        implicitHeight: Math.round(860 * UIScale.value)
-
-        WlrLayershell.keyboardFocus: visible ? WlrKeyboardFocus.OnDemand : WlrKeyboardFocus.None
-        color: "transparent"
-
-        visible: SettingsPanelService.open
-        onVisibleChanged: if (visible)
-            settingsPanel.forceActiveFocus()
-
-        SettingsPanel {
-            id: settingsPanel
-            anchors.fill: parent
+        windowService: SettingsWindowService
+        windowTitle: I18n.t("settings_chrome.title") + " - zesis"
+        content: Component {
+            SettingsShell {}
         }
     }
 
     IpcHandler {
-        target: "settings"
+        target: "settingswindow"
         function toggle() {
-            SettingsPanelService.open = !SettingsPanelService.open;
+            SettingsWindowService.requestToggle();
+        }
+        function open() {
+            settingsWindow.active = true;
+        }
+        function close() {
+            SettingsWindowService.requestClose();
+        }
+        function openPage(pageId: string) {
+            SettingsWindowService.openPage(pageId);
+        }
+        function openPageTab(pageId: string, subTabId: string) {
+            SettingsWindowService.openPageTab(pageId, subTabId);
+        }
+        function search(query: string) {
+            SettingsWindowService.openSearch(query);
         }
     }
 

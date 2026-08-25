@@ -6,6 +6,7 @@ import Quickshell
 import "../../"
 import "../bar"
 import "../shared"
+import "../shared/inputs"
 
 Item {
     id: root
@@ -44,49 +45,87 @@ Item {
                     font.bold: true
                     font.pixelSize: UIScale.fontBody
                 }
+                OptionRow {
+                    Layout.fillWidth: true
+                    model: [I18n.t("bar.top"), I18n.t("bar.bottom"), I18n.t("bar.left"), I18n.t("bar.right")]
+                    currentIndex: ["top", "bottom", "left", "right"].indexOf(BarConfig.side)
+                    onActivated: index => BarConfig.write(["top", "bottom", "left", "right"][index])
+                }
+
+                Divider {
+                    color: Colors.withAlpha(Colors.accent, 0.1)
+                }
+
+                // Bar arrangement
+                Text {
+                    text: I18n.t("bar.arrangement")
+                    color: Colors.text
+                    font.bold: true
+                    font.pixelSize: UIScale.fontBody
+                }
+
                 RowLayout {
                     Layout.fillWidth: true
-                    spacing: UIScale.spacingSm
-                    Repeater {
-                        model: [
-                            {
-                                value: "top",
-                                label: I18n.t("bar.top")
-                            },
-                            {
-                                value: "bottom",
-                                label: I18n.t("bar.bottom")
-                            },
-                            {
-                                value: "left",
-                                label: I18n.t("bar.left")
-                            },
-                            {
-                                value: "right",
-                                label: I18n.t("bar.right")
-                            }
-                        ]
-                        delegate: Rectangle {
-                            id: sideBtn
-                            required property var modelData
-                            Layout.fillWidth: true
-                            implicitHeight: Math.round(32 * UIScale.value)
-                            radius: UIScale.radiusSm
-                            color: BarConfig.side === sideBtn.modelData.value ? Colors.withAlpha(Colors.accent, 0.15) : Colors.surfaceHigh
-                            border.color: BarConfig.side === sideBtn.modelData.value ? Colors.accent : "transparent"
-                            border.width: 1
-                            Text {
-                                anchors.centerIn: parent
-                                text: sideBtn.modelData.label
-                                color: Colors.text
-                                font.pixelSize: UIScale.fontCaption
-                            }
-                            MouseArea {
-                                anchors.fill: parent
-                                cursorShape: Qt.PointingHandCursor
-                                onClicked: BarConfig.write(sideBtn.modelData.value)
-                            }
-                        }
+                    Text {
+                        text: I18n.t("bar.showStrip")
+                        color: Colors.text
+                        font.pixelSize: UIScale.fontBody
+                        Layout.fillWidth: true
+                    }
+                    ToggleSwitch {
+                        checked: BarConfig.showStrip
+                        onToggled: BarConfig.setShowStrip(!BarConfig.showStrip)
+                    }
+                }
+                RowLayout {
+                    Layout.fillWidth: true
+                    Text {
+                        text: I18n.t("bar.showIslands")
+                        color: Colors.text
+                        font.pixelSize: UIScale.fontBody
+                        Layout.fillWidth: true
+                    }
+                    ToggleSwitch {
+                        checked: BarConfig.showIslands
+                        onToggled: BarConfig.setShowIslands(!BarConfig.showIslands)
+                    }
+                }
+
+                Divider {
+                    visible: BarConfig.showStrip
+                    color: Colors.withAlpha(Colors.accent, 0.1)
+                }
+
+                // Strip margin
+                SettingSliderRow {
+                    visible: BarConfig.showStrip
+                    label: I18n.t("bar.stripMargin")
+                    valueText: BarConfig.stripMargin + "px"
+                    from: 0
+                    to: 20
+                    step: 1
+                    value: BarConfig.stripMargin
+                    onMoved: function (v) {
+                        BarConfig.writeStripMargin(Math.round(v));
+                    }
+                }
+
+                Divider {
+                    visible: BarConfig.showIslands
+                    color: Colors.withAlpha(Colors.accent, 0.1)
+                }
+
+                // Island roundness
+                SettingSliderRow {
+                    visible: BarConfig.showIslands
+                    label: I18n.t("bar.islandRoundness")
+                    valueText: I18n.t("appearance.multiplier", [BarConfig.islandRoundness.toFixed(2)])
+                    from: 0
+                    to: 1.0
+                    step: 0.05
+                    value: BarConfig.islandRoundness
+                    onMoved: function (v) {
+                        BarConfig.writeIslandRoundness(v);
                     }
                 }
 
@@ -95,24 +134,9 @@ Item {
                 }
 
                 // Edge gap
-                RowLayout {
-                    Layout.fillWidth: true
-                    Text {
-                        text: I18n.t("bar.edgeGap")
-                        color: Colors.text
-                        font.bold: true
-                        font.pixelSize: UIScale.fontBody
-                        Layout.fillWidth: true
-                    }
-                    Text {
-                        text: BarConfig.edgeGap + "px"
-                        color: Colors.accent
-                        font.bold: true
-                        font.pixelSize: UIScale.fontBody
-                    }
-                }
-                SettingSlider {
-                    Layout.fillWidth: true
+                SettingSliderRow {
+                    label: I18n.t("bar.edgeGap")
+                    valueText: BarConfig.edgeGap + "px"
                     from: 0
                     to: 40
                     step: 1
@@ -127,24 +151,9 @@ Item {
                 }
 
                 // End gap
-                RowLayout {
-                    Layout.fillWidth: true
-                    Text {
-                        text: I18n.t("bar.endGap")
-                        color: Colors.text
-                        font.bold: true
-                        font.pixelSize: UIScale.fontBody
-                        Layout.fillWidth: true
-                    }
-                    Text {
-                        text: BarConfig.endGap + "px"
-                        color: Colors.accent
-                        font.bold: true
-                        font.pixelSize: UIScale.fontBody
-                    }
-                }
-                SettingSlider {
-                    Layout.fillWidth: true
+                SettingSliderRow {
+                    label: I18n.t("bar.endGap")
+                    valueText: BarConfig.endGap + "px"
                     from: 0
                     to: 60
                     step: 1

@@ -17,17 +17,6 @@ Item {
 
     implicitHeight: Math.round(84 * UIScale.value)
 
-    Rectangle {
-        anchors.fill: parent
-        radius: UIScale.radiusSm
-        color: root.selected ? Qt.rgba(Colors.accent.r, Colors.accent.g, Colors.accent.b, 0.15) : hoverArea.containsMouse ? Colors.surfaceHigh : "transparent"
-        Behavior on color {
-            ColorAnimation {
-                duration: Anim.fast
-            }
-        }
-    }
-
     RowLayout {
         anchors.fill: parent
         anchors.margins: UIScale.spacingSm
@@ -126,9 +115,7 @@ Item {
     }
 
     MouseArea {
-        id: hoverArea
         anchors.fill: parent
-        hoverEnabled: true
         cursorShape: Qt.PointingHandCursor
         onClicked: ThemeState.apply(root.wallpaperPath)
     }

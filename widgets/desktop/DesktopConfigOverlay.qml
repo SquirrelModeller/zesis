@@ -6,6 +6,7 @@ import Quickshell
 import Quickshell.Wayland
 import "./"
 import "../../"
+import "../shared/inputs"
 import "../globe2d"
 
 PanelWindow {
@@ -755,18 +756,10 @@ PanelWindow {
                         Loader {
                             active: ((DesktopWidgetStore._positions[proxy.wKey]?.bg?.enabled) ?? false) && ((DesktopWidgetStore._positions[proxy.wKey]?.bg?.type) ?? "color") === "color"
                             sourceComponent: ColorPicker {
-                                property bool _ready: false
-                                Component.onCompleted: {
-                                    var col = DesktopWidgetStore._positions[proxy.wKey]?.bg?.color ?? "";
-                                    if (col !== "")
-                                        setFromColor(Qt.color(col));
-                                    _ready = true;
-                                }
-                                onSelectedColorChanged: {
-                                    if (!_ready)
-                                        return;
+                                value: DesktopWidgetStore._positions[proxy.wKey]?.bg?.color ?? "#000000"
+                                onPicked: function (hex) {
                                     var c = DesktopWidgetStore.getBgConfig(proxy.wKey);
-                                    c.color = selectedColor.toString();
+                                    c.color = hex;
                                     DesktopWidgetStore.setBgConfig(proxy.wKey, c);
                                 }
                             }

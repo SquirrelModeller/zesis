@@ -1,7 +1,9 @@
+pragma ComponentBehavior: Bound
 import QtQuick
 import QtQuick.Layouts
 import "../../"
 import "../shared"
+import "../shared/inputs"
 
 Item {
     id: root
@@ -37,7 +39,7 @@ Item {
                         left: parent.left
                         right: parent.right
                         top: parent.top
-                        margins: UIScale.radiusMd
+                        margins: UIScale.spacingMd
                     }
                     spacing: UIScale.spacingSm
 

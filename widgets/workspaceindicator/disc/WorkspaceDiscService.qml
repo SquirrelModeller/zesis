@@ -1,3 +1,4 @@
+pragma ComponentBehavior: Bound
 pragma Singleton
 import QtQuick
 import Quickshell
@@ -82,7 +83,7 @@ Singleton {
         property int toothWidth: 40
         property int valleyDepth: 28
         property int chamberRadius: 30
-        property int chamberSize: 26
+        property int chamberSize: 20
         property bool expressive: false
         property string skin: "default"
         property var monitors: []

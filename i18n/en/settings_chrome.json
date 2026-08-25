@@ -18,5 +18,8 @@
   "navWifi": "Wi-Fi",
   "navSound": "Sound",
   "navUser": "User",
-  "navAbout": "About"
+  "navAbout": "About",
+  "navBarWidgets": "Bar & Widgets",
+  "navDevices": "Devices",
+  "navAccount": "Account"
 }

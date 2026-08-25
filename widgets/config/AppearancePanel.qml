@@ -1,9 +1,11 @@
+pragma ComponentBehavior: Bound
 import QtQuick
 import QtQuick.Layouts
 import QtQuick.Controls
 import Quickshell.Io
 import "../../"
 import "../shared"
+import "../shared/inputs"
 
 Item {
     id: root
@@ -18,7 +20,7 @@ Item {
     property string _editPalette: ThemeState.palette
     property string _openRole: ""
 
-    readonly property var _swatchClusters: [["background", "surface_container", "surface_container_high", "outline_variant"], ["primary", "primary_fixed_dim", "primary_container", "on_primary"], ["on_background", "on_surface_variant"], ["bar"]]
+    readonly property var _swatchClusters: [["surface", "surface_dim", "surface_bright", "surface_container_lowest", "surface_container_low", "surface_container", "surface_container_high", "surface_container_highest", "surface_variant"], ["outline", "outline_variant"], ["primary", "primary_fixed", "primary_fixed_dim", "primary_container", "on_primary", "on_primary_container"], ["secondary", "secondary_container", "on_secondary", "on_secondary_container"], ["tertiary", "tertiary_container", "on_tertiary", "on_tertiary_container"], ["error", "error_container", "on_error", "on_error_container"], ["on_surface", "on_surface_variant"], ["bar"]]
 
     Timer {
         id: writeTimer
@@ -41,7 +43,7 @@ Item {
         var raw = root._editPalette === "dark" ? Colors.rawDarkPalette : Colors.rawLightPalette;
         if (roleId === "bar") {
             var bar = ColorOverrides.get(root._editPalette, "bar");
-            return bar.length > 0 ? bar : raw.background;
+            return bar.length > 0 ? bar : root._effectiveColor("surface");
         }
         var ov = ColorOverrides.get(root._editPalette, roleId);
         return ov.length > 0 ? ov : (raw[roleId] || "#000000");
@@ -159,24 +161,9 @@ Item {
                         }
                     }
 
-                    RowLayout {
-                        Layout.fillWidth: true
-                        Text {
-                            text: I18n.t("appearance.interfaceScale")
-                            color: Colors.text
-                            font.bold: true
-                            font.pixelSize: UIScale.fontBody
-                            Layout.fillWidth: true
-                        }
-                        Text {
-                            text: I18n.t("appearance.multiplier", [root._scaleVal.toFixed(2)])
-                            color: Colors.accent
-                            font.bold: true
-                            font.pixelSize: UIScale.fontBody
-                        }
-                    }
-                    SettingSlider {
-                        Layout.fillWidth: true
+                    SettingSliderRow {
+                        label: I18n.t("appearance.interfaceScale")
+                        valueText: I18n.t("appearance.multiplier", [root._scaleVal.toFixed(2)])
                         from: 0.5
                         to: 2.0
                         step: 0.05
@@ -186,35 +173,13 @@ Item {
                             writeTimer.restart();
                         }
                     }
-                    RowLayout {
+                    OptionRow {
                         Layout.fillWidth: true
-                        spacing: UIScale.spacingSm
-                        Repeater {
-                            model: [[I18n.t("appearance.small"), 0.85], [I18n.t("appearance.normal"), 1.0], [I18n.t("appearance.large"), 1.3]]
-                            delegate: Rectangle {
-                                id: scalePreset
-                                required property var modelData
-                                Layout.fillWidth: true
-                                implicitHeight: Math.round(28 * UIScale.value)
-                                radius: UIScale.radiusSm
-                                color: Math.abs(root._scaleVal - scalePreset.modelData[1]) < 0.01 ? Colors.withAlpha(Colors.accent, 0.15) : Colors.surfaceHigh
-                                border.color: Math.abs(root._scaleVal - scalePreset.modelData[1]) < 0.01 ? Colors.accent : "transparent"
-                                border.width: 1
-                                Text {
-                                    anchors.centerIn: parent
-                                    text: scalePreset.modelData[0]
-                                    color: Colors.text
-                                    font.pixelSize: UIScale.fontCaption
-                                }
-                                MouseArea {
-                                    anchors.fill: parent
-                                    cursorShape: Qt.PointingHandCursor
-                                    onClicked: {
-                                        root._scaleVal = scalePreset.modelData[1];
-                                        writeTimer.restart();
-                                    }
-                                }
-                            }
+                        model: [I18n.t("appearance.small"), I18n.t("appearance.normal"), I18n.t("appearance.large")]
+                        currentIndex: [0.85, 1.0, 1.3].findIndex(v => Math.abs(root._scaleVal - v) < 0.01)
+                        onActivated: index => {
+                            root._scaleVal = [0.85, 1.0, 1.3][index];
+                            writeTimer.restart();
                         }
                     }
 
@@ -223,24 +188,9 @@ Item {
                         color: Colors.withAlpha(Colors.text, 0.06)
                     }
 
-                    RowLayout {
-                        Layout.fillWidth: true
-                        Text {
-                            text: I18n.t("appearance.fontSize")
-                            color: Colors.text
-                            font.bold: true
-                            font.pixelSize: UIScale.fontBody
-                            Layout.fillWidth: true
-                        }
-                        Text {
-                            text: I18n.t("appearance.multiplier", [root._fontVal.toFixed(2)])
-                            color: Colors.accent
-                            font.bold: true
-                            font.pixelSize: UIScale.fontBody
-                        }
-                    }
-                    SettingSlider {
-                        Layout.fillWidth: true
+                    SettingSliderRow {
+                        label: I18n.t("appearance.fontSize")
+                        valueText: I18n.t("appearance.multiplier", [root._fontVal.toFixed(2)])
                         from: 0.5
                         to: 2.0
                         step: 0.05
@@ -256,24 +206,9 @@ Item {
                         color: Colors.withAlpha(Colors.text, 0.06)
                     }
 
-                    RowLayout {
-                        Layout.fillWidth: true
-                        Text {
-                            text: I18n.t("appearance.spacing")
-                            color: Colors.text
-                            font.bold: true
-                            font.pixelSize: UIScale.fontBody
-                            Layout.fillWidth: true
-                        }
-                        Text {
-                            text: I18n.t("appearance.multiplier", [root._spacingVal.toFixed(2)])
-                            color: Colors.accent
-                            font.bold: true
-                            font.pixelSize: UIScale.fontBody
-                        }
-                    }
-                    SettingSlider {
-                        Layout.fillWidth: true
+                    SettingSliderRow {
+                        label: I18n.t("appearance.spacing")
+                        valueText: I18n.t("appearance.multiplier", [root._spacingVal.toFixed(2)])
                         from: 0.5
                         to: 2.0
                         step: 0.05
@@ -289,25 +224,10 @@ Item {
                         color: Colors.withAlpha(Colors.text, 0.06)
                     }
 
-                    RowLayout {
-                        Layout.fillWidth: true
-                        Text {
-                            text: I18n.t("appearance.radius")
-                            color: Colors.text
-                            font.bold: true
-                            font.pixelSize: UIScale.fontBody
-                            Layout.fillWidth: true
-                        }
-                        Text {
-                            text: I18n.t("appearance.multiplier", [root._radiusVal.toFixed(2)])
-                            color: Colors.accent
-                            font.bold: true
-                            font.pixelSize: UIScale.fontBody
-                        }
-                    }
-                    SettingSlider {
-                        Layout.fillWidth: true
-                        from: 0.5
+                    SettingSliderRow {
+                        label: I18n.t("appearance.radius")
+                        valueText: I18n.t("appearance.multiplier", [root._radiusVal.toFixed(2)])
+                        from: 0
                         to: 2.0
                         step: 0.05
                         value: root._radiusVal
@@ -315,6 +235,30 @@ Item {
                             root._radiusVal = v;
                             writeTimer.restart();
                         }
+                    }
+                }
+
+                // Material
+                SettingCard {
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: UIScale.spacingSm
+                        SectionLabel {
+                            text: I18n.t("appearance.material")
+                        }
+                        InfoTooltip {
+                            text: I18n.t("appearance.materialDescription")
+                        }
+                        Item {
+                            Layout.fillWidth: true
+                        }
+                    }
+
+                    OptionRow {
+                        Layout.fillWidth: true
+                        model: [I18n.t("appearance.materialFlat"), I18n.t("appearance.materialOutline"), I18n.t("appearance.materialGlass")]
+                        currentIndex: ["flat", "outline", "glass"].indexOf(SkinState.material)
+                        onActivated: index => SkinState.setMaterial(["flat", "outline", "glass"][index])
                     }
                 }
 
@@ -878,6 +822,7 @@ Item {
                                     ActionButton {
                                         visible: !themeRow.renaming
                                         ghost: true
+                                        destructive: true
                                         opacity: rowHover.hovered ? 1 : 0
                                         Behavior on opacity {
                                             NumberAnimation {

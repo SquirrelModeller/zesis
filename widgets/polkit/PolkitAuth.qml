@@ -5,7 +5,7 @@ import Quickshell
 import Quickshell.Wayland
 import Quickshell.Services.Polkit
 import "../../"
-import "../shared"
+import "../shared/inputs"
 
 Item {
     id: root
@@ -82,7 +82,7 @@ Item {
                 Text {
                     visible: (polkit.flow?.supplementaryMessage ?? "").length > 0
                     text: polkit.flow?.supplementaryMessage ?? ""
-                    color: (polkit.flow?.supplementaryIsError ?? false) ? Colors.accent : Colors.textDim
+                    color: (polkit.flow?.supplementaryIsError ?? false) ? Colors.error : Colors.textDim
                     font.pixelSize: UIScale.fontSmall
                     wrapMode: Text.WordWrap
                     Layout.fillWidth: true

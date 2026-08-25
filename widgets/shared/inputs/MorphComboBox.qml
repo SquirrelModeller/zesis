@@ -1,8 +1,9 @@
 pragma ComponentBehavior: Bound
 import QtQuick
 import QtQuick.Controls
-import "../../"
+import "../../../"
 
+// Dropdown
 ComboBox {
     id: root
 
@@ -32,7 +33,8 @@ ComboBox {
     padding: 0
 
     implicitHeight: Math.round(32 * UIScale.value)
-    implicitWidth: labelMetrics.width + indicator.implicitWidth + UIScale.spacingSm * 3
+    // Size of the biggest option
+    implicitWidth: Math.max(labelMetrics.width, root._maxLabelWidth) + indicator.implicitWidth + UIScale.spacingSm * 3
 
     TextMetrics {
         id: labelMetrics
@@ -40,28 +42,62 @@ ComboBox {
         text: root.displayText
     }
 
-    FontMetrics {
-        id: rowFontMetrics
-        font.pixelSize: UIScale.fontBody
+    property real _maxLabelWidth: 0
+
+    function _recomputeMaxLabelWidth() {
+        var max = 0;
+        for (var i = 0; i < labelMeasurer.count; i++) {
+            var item = labelMeasurer.itemAt(i);
+            if (item && item.implicitWidth > max)
+                max = item.implicitWidth;
+        }
+        root._maxLabelWidth = max;
     }
 
-    readonly property real _maxLabelWidth: {
-        var max = 0;
-        for (var i = 0; i < root.model.length; i++) {
-            var w = rowFontMetrics.advanceWidth(root.model[i].label);
-            if (w > max)
-                max = w;
+    Repeater {
+        id: labelMeasurer
+        model: root.model
+        onItemAdded: root._recomputeMaxLabelWidth()
+        onItemRemoved: root._recomputeMaxLabelWidth()
+
+        delegate: Text {
+            required property var modelData
+            visible: false
+            text: modelData.label
+            font.pixelSize: UIScale.fontBody
         }
-        return max;
     }
 
     background: Rectangle {
-        radius: UIScale.spacingSm
-        color: Colors.surface
+        topLeftRadius: UIScale.radiusMd
+        topRightRadius: UIScale.radiusMd
+        bottomLeftRadius: root.popup.visible ? 0 : UIScale.radiusMd
+        bottomRightRadius: root.popup.visible ? 0 : UIScale.radiusMd
+
+        Behavior on bottomLeftRadius {
+            enabled: !root.popup.visible
+            NumberAnimation {
+                duration: Anim.medium
+                easing.type: Easing.BezierSpline
+                easing.bezierCurve: Anim.standard
+            }
+        }
+        Behavior on bottomRightRadius {
+            enabled: !root.popup.visible
+            NumberAnimation {
+                duration: Anim.medium
+                easing.type: Easing.BezierSpline
+                easing.bezierCurve: Anim.standard
+            }
+        }
+        color: Colors.surfaceHigh
 
         Rectangle {
             anchors.fill: parent
-            radius: parent.radius
+            topLeftRadius: parent.topLeftRadius
+            topRightRadius: parent.topRightRadius
+            bottomLeftRadius: parent.bottomLeftRadius
+            bottomRightRadius: parent.bottomRightRadius
             color: Colors.accent
             opacity: root.down ? 0.12 : (root.hovered ? 0.08 : 0)
             Behavior on opacity {
@@ -104,6 +140,9 @@ ComboBox {
         id: itemDelegate
         required property var modelData
         required property int index
+
+        readonly property bool isLast: itemDelegate.index === root.model.length - 1
+
         width: ListView.view ? ListView.view.width : root.width
         implicitHeight: Math.round(32 * UIScale.value)
 
@@ -112,12 +151,14 @@ ComboBox {
         highlighted: root.highlightedIndex === itemDelegate.index
 
         background: Rectangle {
-            radius: UIScale.spacingSm
+            bottomLeftRadius: itemDelegate.isLast ? UIScale.radiusMd : 0
+            bottomRightRadius: itemDelegate.isLast ? UIScale.radiusMd : 0
             color: "transparent"
 
             Rectangle {
                 anchors.fill: parent
-                radius: parent.radius
+                bottomLeftRadius: parent.bottomLeftRadius
+                bottomRightRadius: parent.bottomRightRadius
                 color: Colors.accent
                 opacity: root.currentIndex === itemDelegate.index ? 0.15 : (itemDelegate.hovered ? 0.08 : 0)
                 Behavior on opacity {
@@ -143,9 +184,12 @@ ComboBox {
     }
 
     popup: Popup {
-        y: root.height + UIScale.spacingXs
+        id: comboPopup
+        // Make the popup's top flush with the trigger (button bottom)
+        y: root.height
         width: Math.max(root.width, root.popupWidth, root._maxLabelWidth + UIScale.spacingSm * 2)
         padding: 0
+        clip: true
         closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutsideParent
 
         enter: Transition {
@@ -170,10 +214,12 @@ ComboBox {
         }
 
         background: Rectangle {
-            radius: UIScale.radiusMd
-            color: Colors.surface
-            border.color: Colors.withAlpha(Colors.outline, 0.6)
-            border.width: 1
+            // Flush top, it lines up with triggers bottom
+            topLeftRadius: 0
+            topRightRadius: 0
+            bottomLeftRadius: UIScale.radiusMd
+            bottomRightRadius: UIScale.radiusMd
+            color: Colors.surfaceHighest
         }
 
         contentItem: ListView {

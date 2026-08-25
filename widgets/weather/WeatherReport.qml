@@ -2,6 +2,7 @@ pragma ComponentBehavior: Bound
 import QtQuick
 import QtQuick.Layouts
 import "../shared"
+import "../shared/inputs"
 import "../../"
 
 // Note: Claude Clode helped me initially figuring out how to do dynamic changes in size in this file.

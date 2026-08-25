@@ -4,6 +4,7 @@ import QtQuick.Layouts
 import Quickshell
 import "../../"
 import "../shared"
+import "../shared/inputs"
 
 Item {
     id: root
@@ -677,8 +678,8 @@ Item {
                                 RowLayout {
                                     anchors.fill: parent
                                     anchors.leftMargin: UIScale.spacingMd
-                                    anchors.rightMargin: UIScale.radiusMd
-                                    spacing: UIScale.radiusMd
+                                    anchors.rightMargin: UIScale.spacingMd
+                                    spacing: UIScale.spacingMd
 
                                     Rectangle {
                                         implicitWidth: Math.round(9 * UIScale.value)
@@ -893,7 +894,7 @@ Item {
 
                                                 RowLayout {
                                                     width: parent.width
-                                                    spacing: UIScale.radiusMd
+                                                    spacing: UIScale.spacingMd
 
                                                     Rectangle {
                                                         implicitWidth: Math.round(42 * UIScale.value)

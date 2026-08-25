@@ -16,6 +16,14 @@ Item {
         return Qt.rgba((1 - p) * 0.88 + p * Colors.accent.r, (1 - p) * 0.43 + p * Colors.accent.g, (1 - p) * 0.46 + p * Colors.accent.b, 1);
     }
 
+    property real _animPurity: root.svc.purity
+    Behavior on _animPurity {
+        NumberAnimation {
+            duration: 600
+            easing.type: Easing.OutCubic
+        }
+    }
+
     ColumnLayout {
         anchors.fill: parent
         spacing: 0
@@ -111,17 +119,10 @@ Item {
                         }
 
                         Rectangle {
-                            width: parent.width * root.svc.purity
+                            width: parent.width * root._animPurity
                             height: parent.height
                             radius: height / 2
                             color: root._barColor
-
-                            Behavior on width {
-                                NumberAnimation {
-                                    duration: 600
-                                    easing.type: Easing.OutCubic
-                                }
-                            }
                         }
                     }
 

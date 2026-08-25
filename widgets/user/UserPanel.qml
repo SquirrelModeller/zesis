@@ -1,7 +1,9 @@
+pragma ComponentBehavior: Bound
 import QtQuick
 import QtQuick.Layouts
 import QtQuick.Dialogs
 import "../shared"
+import "../shared/inputs"
 import "../../"
 
 Item {
@@ -9,10 +11,12 @@ Item {
     focus: true
 
     readonly property var _languageOptions: {
-        var opts = [{
+        var opts = [
+            {
                 label: I18n.t("user.languageAuto"),
                 value: "system"
-            }];
+            }
+        ];
         for (var i = 0; i < I18n.languages.length; i++)
             opts.push({
                 label: I18n.languages[i].nativeName,
@@ -115,30 +119,18 @@ Item {
                     }
                 }
 
-                Text {
+                SectionLabel {
                     text: I18n.t("user.identitySection")
-                    color: Colors.muted
-                    font.pixelSize: UIScale.fontTiny
-                    font.weight: Font.Bold
-                    font.letterSpacing: 1.5
                     Layout.leftMargin: UIScale.panelPad
                     Layout.topMargin: UIScale.spacingXs
                 }
 
-                Rectangle {
-                    Layout.fillWidth: true
+                SettingCard {
                     Layout.leftMargin: UIScale.panelPad
                     Layout.rightMargin: UIScale.panelPad
-                    implicitHeight: Math.round(56 * UIScale.value)
-                    radius: UIScale.radiusMd
-                    color: Colors.withAlpha(Colors.text, 0.03)
-                    border.color: Colors.withAlpha(Colors.text, 0.06)
-                    border.width: 1
 
                     RowLayout {
-                        anchors.fill: parent
-                        anchors.leftMargin: UIScale.spacingMd
-                        anchors.rightMargin: UIScale.spacingMd
+                        Layout.fillWidth: true
                         spacing: UIScale.spacingSm
 
                         Column {
@@ -178,30 +170,18 @@ Item {
                     }
                 }
 
-                Text {
+                SectionLabel {
                     text: I18n.t("user.heroCardSection")
-                    color: Colors.muted
-                    font.pixelSize: UIScale.fontTiny
-                    font.weight: Font.Bold
-                    font.letterSpacing: 1.5
                     Layout.leftMargin: UIScale.panelPad
                     Layout.topMargin: UIScale.spacingXs
                 }
 
-                Rectangle {
-                    Layout.fillWidth: true
+                SettingCard {
                     Layout.leftMargin: UIScale.panelPad
                     Layout.rightMargin: UIScale.panelPad
-                    implicitHeight: Math.round(56 * UIScale.value)
-                    radius: UIScale.radiusMd
-                    color: Colors.withAlpha(Colors.text, 0.03)
-                    border.color: Colors.withAlpha(Colors.text, 0.06)
-                    border.width: 1
 
                     RowLayout {
-                        anchors.fill: parent
-                        anchors.leftMargin: UIScale.spacingMd
-                        anchors.rightMargin: UIScale.spacingMd
+                        Layout.fillWidth: true
                         spacing: UIScale.spacingSm
 
                         Column {
@@ -231,21 +211,13 @@ Item {
                     }
                 }
 
-                Rectangle {
-                    Layout.fillWidth: true
+                SettingCard {
                     Layout.leftMargin: UIScale.panelPad
                     Layout.rightMargin: UIScale.panelPad
-                    implicitHeight: Math.round(56 * UIScale.value)
                     visible: !UserService.heroFollowWallpaper
-                    radius: UIScale.radiusMd
-                    color: Colors.withAlpha(Colors.text, 0.03)
-                    border.color: Colors.withAlpha(Colors.text, 0.06)
-                    border.width: 1
 
                     RowLayout {
-                        anchors.fill: parent
-                        anchors.leftMargin: UIScale.spacingMd
-                        anchors.rightMargin: UIScale.spacingMd
+                        Layout.fillWidth: true
                         spacing: UIScale.spacingSm
 
                         Column {
@@ -298,30 +270,18 @@ Item {
                     }
                 }
 
-                Text {
+                SectionLabel {
                     text: I18n.t("user.languageSection")
-                    color: Colors.muted
-                    font.pixelSize: UIScale.fontTiny
-                    font.weight: Font.Bold
-                    font.letterSpacing: 1.5
                     Layout.leftMargin: UIScale.panelPad
                     Layout.topMargin: UIScale.spacingXs
                 }
 
-                Rectangle {
-                    Layout.fillWidth: true
+                SettingCard {
                     Layout.leftMargin: UIScale.panelPad
                     Layout.rightMargin: UIScale.panelPad
-                    implicitHeight: Math.round(56 * UIScale.value)
-                    radius: UIScale.radiusMd
-                    color: Colors.withAlpha(Colors.text, 0.03)
-                    border.color: Colors.withAlpha(Colors.text, 0.06)
-                    border.width: 1
 
                     RowLayout {
-                        anchors.fill: parent
-                        anchors.leftMargin: UIScale.spacingMd
-                        anchors.rightMargin: UIScale.spacingMd
+                        Layout.fillWidth: true
                         spacing: UIScale.spacingSm
 
                         Column {
@@ -344,7 +304,7 @@ Item {
                             Layout.fillWidth: true
                         }
 
-                        StyledComboBox {
+                        MorphComboBox {
                             id: languageCombo
                             model: root._languageOptions
                             selectedValue: I18n.selection

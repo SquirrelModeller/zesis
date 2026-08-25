@@ -58,8 +58,8 @@ Item {
                 Layout.bottomMargin: Math.round(6 * UIScale.value)
                 implicitHeight: warnRow.implicitHeight + Math.round(16 * UIScale.value)
                 radius: UIScale.radiusSm
-                color: Colors.withAlpha(Colors.accent, 0.08)
-                border.color: Colors.withAlpha(Colors.accent, 0.25)
+                color: Colors.withAlpha(Colors.error, 0.08)
+                border.color: Colors.withAlpha(Colors.error, 0.25)
                 border.width: 1
 
                 RowLayout {
@@ -115,8 +115,8 @@ Item {
             Layout.bottomMargin: Math.round(6 * UIScale.value)
             implicitHeight: keychainBannerRow.implicitHeight + Math.round(16 * UIScale.value)
             radius: UIScale.radiusSm
-            color: Colors.withAlpha(Colors.accent, 0.08)
-            border.color: Colors.withAlpha(Colors.accent, 0.25)
+            color: Colors.withAlpha(Colors.error, 0.08)
+            border.color: Colors.withAlpha(Colors.error, 0.25)
             border.width: 1
 
             RowLayout {
@@ -132,7 +132,7 @@ Item {
                     text: ""
                     font.family: "Material Icons"
                     font.pixelSize: Math.round(14 * UIScale.value)
-                    color: Colors.accent
+                    color: Colors.error
                 }
 
                 Text {
@@ -169,13 +169,7 @@ Item {
                         cursorShape: Qt.PointingHandCursor
                         onClicked: {
                             if (keychainBanner.showLocked) {
-                                // The unlock prompter is a normal GTK window, and the
-                                // Home Panel renders on the wlr-layer-shell "overlay"
-                                // layer, which always sits above regular application
-                                // windows, the prompt would otherwise appear hidden
-                                // behind the panel. Close it first so the dialog is
-                                // reachable.
-                                HomePanelService.open = false;
+                                HomeWindowService.requestClose();
                                 KeychainService.unlock();
                             } else {
                                 NetworkService.retryKeychain();

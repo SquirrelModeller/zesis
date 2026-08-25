@@ -1,5 +1,6 @@
+pragma ComponentBehavior: Bound
 import QtQuick
-import "../../"
+import "../../../"
 
 Item {
     id: root
@@ -17,6 +18,15 @@ Item {
     readonly property real _t: mouseArea.pressed ? _dragT : Math.max(0, Math.min(1, (value - from) / Math.max(0.0001, to - from)))
     property real _dragT: 0
 
+    // Smoothly handle updating the position of the slider on resize
+    property real _animT: _t
+    Behavior on _animT {
+        NumberAnimation {
+            duration: Anim.drag
+            easing.type: Easing.OutQuad
+        }
+    }
+
     Rectangle {
         anchors.verticalCenter: parent.verticalCenter
         anchors.left: parent.left
@@ -26,19 +36,13 @@ Item {
         color: Colors.surfaceHigh
 
         Rectangle {
-            width: parent.width * root._t
+            width: parent.width * root._animT
             height: parent.height
             radius: parent.radius
             color: root.muted ? Colors.muted : Colors.accent
             Behavior on color {
                 ColorAnimation {
                     duration: Anim.fast
-                }
-            }
-            Behavior on width {
-                NumberAnimation {
-                    duration: Anim.drag
-                    easing.type: Easing.OutQuad
                 }
             }
         }
@@ -49,17 +53,11 @@ Item {
         height: root.handleSize
         radius: root.handleSize / 2
         anchors.verticalCenter: parent.verticalCenter
-        x: root._t * (root.width - root.handleSize)
+        x: root._animT * (root.width - root.handleSize)
         color: root.muted ? Colors.muted : Colors.accent
         Behavior on color {
             ColorAnimation {
                 duration: Anim.fast
-            }
-        }
-        Behavior on x {
-            NumberAnimation {
-                duration: Anim.drag
-                easing.type: Easing.OutQuad
             }
         }
     }

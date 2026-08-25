@@ -7,6 +7,7 @@ import Quickshell.Io
 import "../../"
 import "../bar"
 import "../shared"
+import "../shared/inputs"
 import "../airpods"
 
 BarButton {

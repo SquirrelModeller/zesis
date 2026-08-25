@@ -1038,14 +1038,20 @@ Item {
                 if (!slot.itemData.src) {
                     content.item.icon = slot.itemData.icon ?? "";
                     if (slot.itemData.id === "home") {
-                        content.item.active = Qt.binding(() => HomePanelService.open);
+                        content.item.active = Qt.binding(() => HomeWindowService.windowOpen);
                         content.item.clicked.connect(() => {
-                            HomePanelService.open = !HomePanelService.open;
+                            if (HomeWindowService.windowOpen)
+                                HomeWindowService.requestClose();
+                            else
+                                HomeWindowService.openPage("home");
                         });
                     } else if (slot.itemData.id === "settings") {
-                        content.item.active = Qt.binding(() => SettingsPanelService.open);
+                        content.item.active = Qt.binding(() => SettingsWindowService.windowOpen);
                         content.item.clicked.connect(() => {
-                            SettingsPanelService.open = !SettingsPanelService.open;
+                            if (SettingsWindowService.windowOpen)
+                                SettingsWindowService.requestClose();
+                            else
+                                SettingsWindowService.openPage("appearance");
                         });
                     } else if (slot.itemData.id === "lock") {
                         content.item.clicked.connect(() => {
@@ -1062,7 +1068,7 @@ Item {
 
     // One pill per island. Background, GridLayout of items, overflow chevron,
     // popup, scoped to ids.
-    component IslandPill: Rectangle {
+    component IslandPill: Item {
         id: pill
         required property int zoneRawIndex
         required property int islandIndex
@@ -1070,11 +1076,9 @@ Item {
 
         readonly property bool _suppressBackground: root._islandPad(pill.ids) === 0
 
-        radius: 100
-        color: pill._suppressBackground ? "transparent" : Colors.barBg
         visible: pill._availableIds.length > 0
-        implicitWidth: BarConfig.isVertical ? Math.round(50 * UIScale.value) : (pillLayout.implicitWidth + (pill._suppressBackground ? 0 : root._pad))
-        implicitHeight: BarConfig.isVertical ? (pillLayout.implicitHeight + (pill._suppressBackground ? 0 : root._pad)) : Math.round(50 * UIScale.value)
+        implicitWidth: BarConfig.isVertical ? BarConfig.islandThickness : (pillLayout.implicitWidth + (pill._suppressBackground ? 0 : root._pad))
+        implicitHeight: BarConfig.isVertical ? (pillLayout.implicitHeight + (pill._suppressBackground ? 0 : root._pad)) : BarConfig.islandThickness
 
         readonly property var _availableIds: root._availableIdsIn(pill.ids)
         readonly property real _budget: root._islandBudgetsForZone(pill.zoneRawIndex, root._zoneWidthFor(pill.zoneRawIndex))[pill.islandIndex] ?? -1
@@ -1111,6 +1115,16 @@ Item {
                     max = s.itemHeight;
             }
             return max;
+        }
+
+        Surface {
+            anchors.fill: parent
+            visible: !pill._suppressBackground && BarConfig.showIslands
+            cornerRadius: BarConfig.islandRadius
+            level: 1
+            overrideFill: true
+
+            fillColor: BarConfig.showStrip ? Colors.surfaceHighest : Colors.bg
         }
 
         // Moves the whole island as a block. Maybe even into another zone.
@@ -1234,8 +1248,8 @@ Item {
         // flanking runs around it.
         readonly property var _layout: root._islandLayout(zoneGroup.rawIndex, root._zoneWidthFor(zoneGroup.rawIndex))
 
-        implicitWidth: BarConfig.isVertical ? Math.round(50 * UIScale.value) : _layout.totalWidth
-        implicitHeight: BarConfig.isVertical ? _layout.totalWidth : Math.round(50 * UIScale.value)
+        implicitWidth: BarConfig.isVertical ? BarConfig.islandThickness : _layout.totalWidth
+        implicitHeight: BarConfig.isVertical ? _layout.totalWidth : BarConfig.islandThickness
 
         function pillFor(id) {
             for (var i = 0; i < islandsRepeaterInner.count; i++) {
@@ -1264,6 +1278,11 @@ Item {
                 y: BarConfig.isVertical ? zoneGroup.height / 2 + (pill._zoneLayout.xs[pill.index] ?? 0) : (zoneGroup.height - pill.height) / 2
             }
         }
+    }
+
+    Surface {
+        anchors.fill: parent
+        visible: BarConfig.showStrip
     }
 
     Repeater {
@@ -1346,7 +1365,6 @@ Item {
         height: root._dragItemH
         x: root._dragPos.x - width / 2
         y: root._dragPos.y - height / 2
-        opacity: 0.85
 
         Rectangle {
             anchors.fill: parent

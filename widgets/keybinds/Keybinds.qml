@@ -3,6 +3,7 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 import "../../"
+import "../shared"
 
 Item {
     id: root
@@ -23,12 +24,11 @@ Item {
     }
 
     // Card background
-    Rectangle {
+    Surface {
         anchors.fill: parent
-        radius: UIScale.radiusLg
-        color: Colors.bg
-        border.color: Colors.outline
-        border.width: 1
+        level: 0
+        opaque: true
+        cornerRadius: UIScale.radiusLg
 
         ColumnLayout {
             anchors.fill: parent

@@ -5,23 +5,12 @@ import QtQuick.Controls
 import "../../"
 import "../bar"
 import "../shared"
+import "../shared/inputs"
 
 Item {
     id: root
 
     anchors.fill: parent
-
-    Rectangle {
-        anchors.fill: parent
-        radius: UIScale.radiusLg
-        topLeftRadius: (BarConfig.side === "top" || BarConfig.side === "left") ? 0 : UIScale.radiusLg
-        topRightRadius: (BarConfig.side === "top" || BarConfig.side === "right") ? 0 : UIScale.radiusLg
-        bottomLeftRadius: (BarConfig.side === "bottom" || BarConfig.side === "left") ? 0 : UIScale.radiusLg
-        bottomRightRadius: (BarConfig.side === "bottom" || BarConfig.side === "right") ? 0 : UIScale.radiusLg
-        color: Colors.bg
-        border.color: Colors.outline
-        border.width: 1
-    }
 
     Flickable {
         anchors.fill: parent
@@ -46,45 +35,11 @@ Item {
                 font.bold: true
                 font.pixelSize: UIScale.fontBody
             }
-            RowLayout {
+            OptionRow {
                 Layout.fillWidth: true
-                spacing: UIScale.spacingSm
-                Repeater {
-                    model: [{
-                            value: "top",
-                            label: I18n.t("bar.top")
-                        }, {
-                            value: "bottom",
-                            label: I18n.t("bar.bottom")
-                        }, {
-                            value: "left",
-                            label: I18n.t("bar.left")
-                        }, {
-                            value: "right",
-                            label: I18n.t("bar.right")
-                        }]
-                    delegate: Rectangle {
-                        id: sideBtn
-                        required property var modelData
-                        Layout.fillWidth: true
-                        implicitHeight: Math.round(28 * UIScale.value)
-                        radius: UIScale.radiusSm
-                        color: BarConfig.side === sideBtn.modelData.value ? Colors.withAlpha(Colors.accent, 0.15) : Colors.surfaceHigh
-                        border.color: BarConfig.side === sideBtn.modelData.value ? Colors.accent : "transparent"
-                        border.width: 1
-                        Text {
-                            anchors.centerIn: parent
-                            text: parent.modelData.label
-                            color: Colors.text
-                            font.pixelSize: UIScale.fontCaption
-                        }
-                        MouseArea {
-                            anchors.fill: parent
-                            cursorShape: Qt.PointingHandCursor
-                            onClicked: BarConfig.write(sideBtn.modelData.value)
-                        }
-                    }
-                }
+                model: [I18n.t("bar.top"), I18n.t("bar.bottom"), I18n.t("bar.left"), I18n.t("bar.right")]
+                currentIndex: ["top", "bottom", "left", "right"].indexOf(BarConfig.side)
+                onActivated: index => BarConfig.write(["top", "bottom", "left", "right"][index])
             }
 
             Divider {
@@ -92,24 +47,9 @@ Item {
             }
 
             // Edge gap
-            RowLayout {
-                Layout.fillWidth: true
-                Text {
-                    text: I18n.t("bar.edgeGap")
-                    color: Colors.text
-                    font.bold: true
-                    font.pixelSize: UIScale.fontBody
-                    Layout.fillWidth: true
-                }
-                Text {
-                    text: BarConfig.edgeGap + "px"
-                    color: Colors.accent
-                    font.bold: true
-                    font.pixelSize: UIScale.fontBody
-                }
-            }
-            SettingSlider {
-                Layout.fillWidth: true
+            SettingSliderRow {
+                label: I18n.t("bar.edgeGap")
+                valueText: BarConfig.edgeGap + "px"
                 from: 0
                 to: 40
                 step: 1
@@ -124,24 +64,9 @@ Item {
             }
 
             // End gap
-            RowLayout {
-                Layout.fillWidth: true
-                Text {
-                    text: I18n.t("bar.endGap")
-                    color: Colors.text
-                    font.bold: true
-                    font.pixelSize: UIScale.fontBody
-                    Layout.fillWidth: true
-                }
-                Text {
-                    text: BarConfig.endGap + "px"
-                    color: Colors.accent
-                    font.bold: true
-                    font.pixelSize: UIScale.fontBody
-                }
-            }
-            SettingSlider {
-                Layout.fillWidth: true
+            SettingSliderRow {
+                label: I18n.t("bar.endGap")
+                valueText: BarConfig.endGap + "px"
                 from: 0
                 to: 60
                 step: 1

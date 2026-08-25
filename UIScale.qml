@@ -1,4 +1,5 @@
 pragma Singleton
+pragma ComponentBehavior: Bound
 import QtQuick
 import Quickshell
 import Quickshell.Io
@@ -32,10 +33,10 @@ Singleton {
     readonly property real panelPad: 30 * value * spacingScale    // settings panel side padding
 
     // Radius
-    readonly property real radiusSm: 6 * value * radiusScale      // chips, badges, inline buttons, list rows
-    readonly property real radiusMd: 10 * value * radiusScale     // popup panels, input fields, card sections
-    readonly property real radiusLg: 14 * value * radiusScale     // large panel containers, notification cards
-    readonly property real radiusXl: 16 * value * radiusScale     // large cards / hero
+    readonly property real radiusSm: 6 * value * radiusScale    // chips, badges, inline buttons, list rows
+    readonly property real radiusMd: 10 * value * radiusScale   // popup panels, input fields, card sections
+    readonly property real radiusLg: 14 * value * radiusScale   // large panel containers, notification cards
+    readonly property real radiusXl: 16 * value * radiusScale   // large cards / hero
 
     function resetLivePreview() {
         value = Qt.binding(function () {

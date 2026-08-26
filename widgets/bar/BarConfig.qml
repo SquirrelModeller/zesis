@@ -124,9 +124,17 @@ Singleton {
     }
 
     function _save(s) {
-        const json = JSON.stringify(s);
-        writeProc.command = ["sh", "-c", "mkdir -p '" + root._configDir + "' && printf '%s' '" + json + "' > '" + root._configPath + "'"];
-        writeProc.running = true;
+        for (var k in s)
+            barData[k] = s[k];
+        _writeDebounce.restart();
+    }
+
+    // Coalesces bursts of writes (e.g. a slider dragged across many
+    // onMoved events) into a single disk write.
+    Timer {
+        id: _writeDebounce
+        interval: 250
+        onTriggered: barConfigFile.writeAdapter()
     }
 
     JsonAdapter {
@@ -165,10 +173,5 @@ Singleton {
 
     Component.onCompleted: {
         barConfigFile.text();
-    }
-
-    Process {
-        id: writeProc
-        running: false
     }
 }

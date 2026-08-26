@@ -46,12 +46,10 @@ Singleton {
 
     function saveLocationMode(mode) {
         _writeConfig(mode, root.manualCity);
-        root.locationMode = mode;
     }
 
     function saveManualCity(city) {
         _writeConfig(root.locationMode, city);
-        root.manualCity = city;
     }
 
     function weatherIcon(code, day) {
@@ -123,9 +121,9 @@ Singleton {
     function _geocodeCity(city) {
         root.loading = true;
         root.error = "";
-        var encoded = city.replace(/'/g, "").replace(/ /g, "+");
         geocodeProc._buf = "";
-        geocodeProc.command = ["sh", "-c", "curl -sf --max-time 8 'https://geocoding-api.open-meteo.com/v1/search?name=" + encoded + "&count=1&language=en&format=json'"];
+        var url = "https://geocoding-api.open-meteo.com/v1/search?name=" + encodeURIComponent(city) + "&count=1&language=en&format=json";
+        geocodeProc.command = ["curl", "-sf", "--max-time", "8", url];
         geocodeProc.running = false;
         geocodeProc.running = true;
     }
@@ -136,7 +134,7 @@ Singleton {
         root.longitude = lon;
         var url = "https://api.open-meteo.com/v1/forecast" + "?latitude=" + lat.toFixed(4) + "&longitude=" + lon.toFixed(4) + "&current=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m,is_day" + "&hourly=temperature_2m,precipitation_probability,weathercode" + "&daily=weathercode,temperature_2m_max,temperature_2m_min,precipitation_probability_max" + "&forecast_days=7&timezone=auto";
         weatherProc._buf = "";
-        weatherProc.command = ["sh", "-c", "curl -sf --max-time 10 '" + url + "'"];
+        weatherProc.command = ["curl", "-sf", "--max-time", "10", url];
         weatherProc.running = false;
         weatherProc.running = true;
     }
@@ -213,18 +211,16 @@ Singleton {
     }
 
     function _writeConfig(mode, city) {
-        var safe = s => s.replace(/'/g, "");
-        var json = '{"locationMode":"' + safe(mode) + '","manualCity":"' + safe(city) + '"}';
-        configWriteProc.command = ["sh", "-c", "mkdir -p '" + safe(root._configDir) + "' && printf '%s' '" + json + "' > '" + safe(root._configPath) + "'"];
-        configWriteProc.running = false;
-        configWriteProc.running = true;
+        config.locationMode = mode;
+        config.manualCity = city;
+        configFile.writeAdapter();
     }
 
     // Processes
 
     Process {
         id: ipProc
-        command: ["sh", "-c", "curl -sf --max-time 5 'https://ipinfo.io/json'"]
+        command: ["curl", "-sf", "--max-time", "5", "https://ipinfo.io/json"]
         property string _buf: ""
         stdout: SplitParser {
             onRead: data => ipProc._buf += data
@@ -299,10 +295,6 @@ Singleton {
         }
     }
 
-    Process {
-        id: configWriteProc
-    }
-
     Timer {
         interval: 30 * 60 * 1000
         running: true
@@ -317,6 +309,7 @@ Singleton {
     }
 
     FileView {
+        id: configFile
         path: root._configPath
         watchChanges: true
         adapter: config

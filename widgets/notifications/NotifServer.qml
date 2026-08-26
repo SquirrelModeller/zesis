@@ -50,10 +50,8 @@ Singleton {
     }
 
     function _write() {
-        writeProc.command = ["sh", "-c", "mkdir -p '" + root._configDir + "' && echo '" + JSON.stringify({
-                muted: root.muted
-            }) + "' > '" + root._configPath + "'"];
-        writeProc.running = true;
+        settingsData.muted = root.muted;
+        settingsFile.writeAdapter();
     }
 
     JsonAdapter {
@@ -62,13 +60,9 @@ Singleton {
     }
 
     FileView {
+        id: settingsFile
         path: root._configPath
         adapter: settingsData // qmllint disable missing-type
-    }
-
-    Process {
-        id: writeProc
-        running: false
     }
 
     ListModel {

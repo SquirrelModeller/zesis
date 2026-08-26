@@ -12,9 +12,9 @@ import Quickshell.Io
 // wallpaper, or a per-monitor split (ThemeState.perMonitorWallpaper) if
 // that's what was last applied.
 //
-// Applying a theme replays the colors through ColorOverrides.set() (lands in
-// whichever scope - per-wallpaper or global - is currently active there) and,
-// if the theme has a wallpaper, re-applies it per currently connected
+// Applying a theme replays the colors through ColorOverrides.setMany() (lands
+// in whichever scope - per-wallpaper or global - is currently active there)
+// and, if the theme has a wallpaper, re-applies it per currently connected
 // monitor: a monitor with an explicit entry gets that path via
 // ThemeState.applyToMonitor(), any other connected monitor gets `fallback`
 // (the single path if the theme was saved with one, otherwise whatever was
@@ -178,8 +178,7 @@ Singleton {
     }
 
     function _applyPalette(palette, roleMap) {
-        for (var role in roleMap)
-            ColorOverrides.set(palette, role, roleMap[role]);
+        ColorOverrides.setMany(palette, roleMap);
     }
 
     // No per-monitor entries at all: one path for everything, simplest case -
@@ -218,24 +217,19 @@ Singleton {
         root._save(list);
     }
 
+    // Adapter writes below are our own, not an external file change - guard
+    // _adopt() (wired to the adapter's changed signals for that external
+    // case) so it doesn't re-derive root state from a write still in
+    // progress across these two property assignments.
+    property bool _writingFromRoot: false
+
     function _save(list) {
         root.themes = list;
-        root._pendingJson = JSON.stringify({
-            themes: list,
-            activeThemeName: root.activeThemeName
-        });
-        root._flush();
-    }
-
-    property string _pendingJson: ""
-
-    function _flush() {
-        if (writeProc.running || root._pendingJson.length === 0)
-            return;
-        var json = root._pendingJson;
-        root._pendingJson = "";
-        writeProc.command = ["bash", "-c", "mkdir -p \"$1\" && printf '%s' \"$2\" > \"$3\"", "--", root._configDir, json, root._configPath];
-        writeProc.running = true;
+        root._writingFromRoot = true;
+        themeData.themes = list;
+        themeData.activeThemeName = root.activeThemeName;
+        root._writingFromRoot = false;
+        themeFile.writeAdapter();
     }
 
     // Migrates pre-wallpaper theme entries (just {name, dark, light}) the
@@ -243,7 +237,7 @@ Singleton {
     // don't vanish - they just show up with no wallpaper (unpinned, colors
     // only) until saved again.
     function _adopt() {
-        if (writeProc.running || root._pendingJson.length > 0)
+        if (root._writingFromRoot)
             return;
         var raw = themeData.themes ? JSON.parse(JSON.stringify(themeData.themes)) : [];
 
@@ -301,16 +295,11 @@ Singleton {
     }
 
     FileView {
+        id: themeFile
         path: root._configPath
         watchChanges: true
         adapter: themeData // qmllint disable missing-type
         onFileChanged: reload()
         onLoaded: root._adopt()
-    }
-
-    Process {
-        id: writeProc
-        running: false
-        onExited: root._flush()
     }
 }

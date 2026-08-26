@@ -123,6 +123,7 @@ Singleton {
     }
 
     FileView {
+        id: stateFile
         path: root._stateFile
         adapter: stateData // qmllint disable missing-type
         onLoaded: {
@@ -343,23 +344,16 @@ Singleton {
         command: ["bash", "-c", "hook=\"$1\"; [ -x \"$hook\" ] && exec \"$hook\"", "--", root._home + "/.config/zesis/on-theme-change"]
     }
 
-    Process {
-        id: saveProcess
-    }
-
     function _persistState() {
-        var json = JSON.stringify({
-            palette: root.palette,
-            lastWallpaper: root.lastWallpaper,
-            schemeType: root.schemeType,
-            wallpaperBackend: root.wallpaperBackend,
-            customWallpaperCommand: root.customWallpaperCommand,
-            wallpapersDirOverride: root.wallpapersDirOverride,
-            autoStartWallpaperDaemon: root.autoStartWallpaperDaemon,
-            perMonitorWallpaper: root.perMonitorWallpaper,
-            colorSourceMonitor: root.colorSourceMonitor
-        });
-        saveProcess.command = ["bash", "-c", "printf '%s' \"$1\" > \"$2\"", "--", json, root._stateFile];
-        saveProcess.running = true;
+        stateData.palette = root.palette;
+        stateData.lastWallpaper = root.lastWallpaper;
+        stateData.schemeType = root.schemeType;
+        stateData.wallpaperBackend = root.wallpaperBackend;
+        stateData.customWallpaperCommand = root.customWallpaperCommand;
+        stateData.wallpapersDirOverride = root.wallpapersDirOverride;
+        stateData.autoStartWallpaperDaemon = root.autoStartWallpaperDaemon;
+        stateData.perMonitorWallpaper = root.perMonitorWallpaper;
+        stateData.colorSourceMonitor = root.colorSourceMonitor;
+        stateFile.writeAdapter();
     }
 }

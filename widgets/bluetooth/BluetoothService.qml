@@ -15,8 +15,8 @@ Singleton {
 
     function selectAdapter(adapter) {
         root.activeAdapter = adapter;
-        _writeProc.command = ["sh", "-c", "mkdir -p \"$(dirname '" + root._configPath + "')\" && echo '{\"preferredAdapter\":\"" + adapter.dbusPath + "\"}' > '" + root._configPath + "'"];
-        _writeProc.running = true;
+        _btConfig.preferredAdapter = adapter.dbusPath;
+        _configFile.writeAdapter();
     }
 
     function _restoreAdapter() {
@@ -33,6 +33,7 @@ Singleton {
     }
 
     FileView {
+        id: _configFile
         path: root._configPath
         adapter: _btConfig
         onLoaded: root._restoreAdapter()
@@ -43,10 +44,6 @@ Singleton {
         function onValuesChanged() {
             root._restoreAdapter();
         }
-    }
-
-    Process {
-        id: _writeProc
     }
 
     function deviceIcon(iconStr, deviceName) {

@@ -91,7 +91,7 @@ Item {
                     value: WorkspaceDiscService.workSpaceAmount
                     min: 1
                     max: 10
-                    onStepped: v => WorkspaceDiscService.workSpaceAmount = v
+                    onStepped: v => WorkspaceDiscService.setWorkSpaceAmount(v)
                 }
 
                 // Expressive toggle
@@ -119,7 +119,7 @@ Item {
 
                     ToggleSwitch {
                         checked: WorkspaceDiscService.expressive
-                        onToggled: WorkspaceDiscService.expressive = !WorkspaceDiscService.expressive
+                        onToggled: WorkspaceDiscService.setExpressive(!WorkspaceDiscService.expressive)
                     }
                 }
 
@@ -152,7 +152,7 @@ Item {
                     value: WorkspaceDiscService.minWorkSpaceAmount
                     min: 1
                     max: 10
-                    onStepped: v => WorkspaceDiscService.minWorkSpaceAmount = v
+                    onStepped: v => WorkspaceDiscService.setMinWorkSpaceAmount(v)
                 }
 
                 Divider {
@@ -169,7 +169,7 @@ Item {
                     from: 35
                     to: 80
                     value: WorkspaceDiscService.discRadius
-                    onMoved: v => WorkspaceDiscService.discRadius = v
+                    onMoved: v => WorkspaceDiscService.setDiscRadius(v)
                 }
 
                 // Tooth width
@@ -181,7 +181,7 @@ Item {
                     from: 5
                     to: 80
                     value: WorkspaceDiscService.toothWidth
-                    onMoved: v => WorkspaceDiscService.toothWidth = v
+                    onMoved: v => WorkspaceDiscService.setToothWidth(v)
                 }
 
                 // Valley depth
@@ -193,7 +193,7 @@ Item {
                     from: 0
                     to: 55
                     value: WorkspaceDiscService.valleyDepth
-                    onMoved: v => WorkspaceDiscService.valleyDepth = v
+                    onMoved: v => WorkspaceDiscService.setValleyDepth(v)
                 }
 
                 // Dot size
@@ -205,7 +205,7 @@ Item {
                     from: 14
                     to: 34
                     value: WorkspaceDiscService.chamberSize
-                    onMoved: v => WorkspaceDiscService.chamberSize = v
+                    onMoved: v => WorkspaceDiscService.setChamberSize(v)
                 }
 
                 Divider {
@@ -222,7 +222,7 @@ Item {
                     from: 15
                     to: 45
                     value: WorkspaceDiscService.chamberRadius
-                    onMoved: v => WorkspaceDiscService.chamberRadius = v
+                    onMoved: v => WorkspaceDiscService.setChamberRadius(v)
                 }
 
                 Divider {
@@ -260,7 +260,7 @@ Item {
                     Layout.rightMargin: UIScale.panelPad
                     model: root._skinLabels
                     currentIndex: root._currentSkinIndex
-                    onActivated: index => WorkspaceDiscService.skin = root._skinId(skinFiles.get(index, "fileName"))
+                    onActivated: index => WorkspaceDiscService.setSkin(root._skinId(skinFiles.get(index, "fileName")))
                 }
 
                 Divider {
@@ -295,7 +295,7 @@ Item {
 
                     ToggleSwitch {
                         checked: WorkspaceDiscService.tuckEnabled
-                        onToggled: WorkspaceDiscService.tuckEnabled = !WorkspaceDiscService.tuckEnabled
+                        onToggled: WorkspaceDiscService.setTuckEnabled(!WorkspaceDiscService.tuckEnabled)
                     }
                 }
 
@@ -327,7 +327,7 @@ Item {
 
                     ToggleSwitch {
                         checked: WorkspaceDiscService.showIslandBackground
-                        onToggled: WorkspaceDiscService.showIslandBackground = !WorkspaceDiscService.showIslandBackground
+                        onToggled: WorkspaceDiscService.setShowIslandBackground(!WorkspaceDiscService.showIslandBackground)
                     }
                 }
 
@@ -363,7 +363,7 @@ Item {
 
                     ToggleSwitch {
                         checked: WorkspaceDiscService.animateTransition
-                        onToggled: WorkspaceDiscService.animateTransition = !WorkspaceDiscService.animateTransition
+                        onToggled: WorkspaceDiscService.setAnimateTransition(!WorkspaceDiscService.animateTransition)
                     }
                 }
 
@@ -425,7 +425,7 @@ Item {
                                 }
                                 if (current.length === Quickshell.screens.length)
                                     current = [];
-                                WorkspaceDiscService.monitors = current;
+                                WorkspaceDiscService.setMonitors(current);
                             }
                         }
                     }

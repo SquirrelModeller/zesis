@@ -34,12 +34,9 @@ Singleton {
     }
 
     function _save() {
-        const json = JSON.stringify({
-            osdEnabled: root.osdEnabled,
-            osdPosition: root.osdPosition
-        });
-        saveProc.command = ["bash", "-c", "mkdir -p \"$1\" && printf '%s' \"$2\" > \"$3\"", "--", root._configDir, json, root._configPath];
-        saveProc.running = true;
+        soundData.osdEnabled = root.osdEnabled;
+        soundData.osdPosition = root.osdPosition;
+        soundFile.writeAdapter();
     }
 
     JsonAdapter {
@@ -49,6 +46,7 @@ Singleton {
     }
 
     FileView {
+        id: soundFile
         path: root._configPath
         watchChanges: true
         adapter: soundData // qmllint disable missing-type
@@ -57,11 +55,6 @@ Singleton {
             root.osdPosition = root._validPosition(soundData.osdPosition);
         }
         onFileChanged: reload()
-    }
-
-    Process {
-        id: saveProc
-        running: false
     }
 
     PwObjectTracker {

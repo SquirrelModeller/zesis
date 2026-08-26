@@ -24,55 +24,65 @@ Singleton {
     property bool showIslandBackground: settingsData.showIslandBackground
     property bool animateTransition: settingsData.animateTransition
 
-    property bool _loaded: false
-    Component.onCompleted: Qt.callLater(function () {
-        root._loaded = true;
-    })
+    function setWorkSpaceAmount(v) {
+        settingsData.workSpaceAmount = v;
+        _writeDebounce.restart();
+    }
+    function setMinWorkSpaceAmount(v) {
+        settingsData.minWorkSpaceAmount = v;
+        _writeDebounce.restart();
+    }
+    function setDiscRadius(v) {
+        settingsData.discRadius = v;
+        _writeDebounce.restart();
+    }
+    function setToothWidth(v) {
+        settingsData.toothWidth = v;
+        _writeDebounce.restart();
+    }
+    function setValleyDepth(v) {
+        settingsData.valleyDepth = v;
+        _writeDebounce.restart();
+    }
+    function setChamberRadius(v) {
+        settingsData.chamberRadius = v;
+        _writeDebounce.restart();
+    }
+    function setChamberSize(v) {
+        settingsData.chamberSize = v;
+        _writeDebounce.restart();
+    }
+    function setExpressive(v) {
+        settingsData.expressive = v;
+        _writeDebounce.restart();
+    }
+    function setSkin(v) {
+        settingsData.skin = v;
+        _writeDebounce.restart();
+    }
+    function setMonitors(v) {
+        settingsData.monitors = v;
+        _writeDebounce.restart();
+    }
+    function setTuckEnabled(v) {
+        settingsData.tuckEnabled = v;
+        _writeDebounce.restart();
+    }
+    function setShowIslandBackground(v) {
+        settingsData.showIslandBackground = v;
+        _writeDebounce.restart();
+    }
+    function setAnimateTransition(v) {
+        settingsData.animateTransition = v;
+        _writeDebounce.restart();
+    }
 
-    onWorkSpaceAmountChanged: if (_loaded)
-        _write()
-    onMinWorkSpaceAmountChanged: if (_loaded)
-        _write()
-    onDiscRadiusChanged: if (_loaded)
-        _write()
-    onToothWidthChanged: if (_loaded)
-        _write()
-    onValleyDepthChanged: if (_loaded)
-        _write()
-    onChamberRadiusChanged: if (_loaded)
-        _write()
-    onChamberSizeChanged: if (_loaded)
-        _write()
-    onExpressiveChanged: if (_loaded)
-        _write()
-    onSkinChanged: if (_loaded)
-        _write()
-    onMonitorsChanged: if (_loaded)
-        _write()
-    onTuckEnabledChanged: if (_loaded)
-        _write()
-    onShowIslandBackgroundChanged: if (_loaded)
-        _write()
-    onAnimateTransitionChanged: if (_loaded)
-        _write()
-
-    function _write() {
-        writeProc.command = ["sh", "-c", "mkdir -p '" + root._configDir + "' && echo '" + JSON.stringify({
-                workSpaceAmount: root.workSpaceAmount,
-                minWorkSpaceAmount: root.minWorkSpaceAmount,
-                discRadius: root.discRadius,
-                toothWidth: root.toothWidth,
-                valleyDepth: root.valleyDepth,
-                chamberRadius: root.chamberRadius,
-                chamberSize: root.chamberSize,
-                expressive: root.expressive,
-                skin: root.skin,
-                monitors: root.monitors,
-                tuckEnabled: root.tuckEnabled,
-                showIslandBackground: root.showIslandBackground,
-                animateTransition: root.animateTransition
-            }) + "' > '" + root._configPath + "'"];
-        writeProc.running = true;
+    // Because it's on a timer, if the caller makes burst calls, it resets until
+    // it's been idle for N interval.
+    Timer {
+        id: _writeDebounce
+        interval: 250
+        onTriggered: settingsFile.writeAdapter()
     }
 
     JsonAdapter {
@@ -93,12 +103,13 @@ Singleton {
     }
 
     FileView {
+        id: settingsFile
         path: root._configPath
+        blockLoading: true
         adapter: settingsData // qmllint disable missing-type
     }
 
-    Process {
-        id: writeProc
-        running: false
+    Component.onCompleted: {
+        settingsFile.text();
     }
 }

@@ -19,8 +19,11 @@ Singleton {
     signal altModeRequested
 
     function write(cm, wm, sd, h12) {
-        writeProc.command = ["sh", "-c", "mkdir -p '" + root._configDir + "' && echo '{\"colonMode\":\"" + cm + "\",\"widthMode\":\"" + wm + "\",\"showDate\":" + (sd ? "true" : "false") + ",\"use12Hour\":" + (h12 ? "true" : "false") + "}' > '" + root._configPath + "'"];
-        writeProc.running = true;
+        settingsData.colonMode = cm;
+        settingsData.widthMode = wm;
+        settingsData.showDate = sd;
+        settingsData.use12Hour = h12;
+        settingsFile.writeAdapter();
     }
 
     function writeColonMode(mode) {
@@ -45,14 +48,10 @@ Singleton {
     }
 
     FileView {
+        id: settingsFile
         path: root._configPath
         watchChanges: true
         adapter: settingsData
         onFileChanged: reload()
-    }
-
-    Process {
-        id: writeProc
-        running: false
     }
 }

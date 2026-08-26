@@ -42,10 +42,16 @@ QtObject {
         Hyprland.refreshMonitors();
     }
 
+    function _luaEscape(s) {
+        return String(s).replace(/[\r\n]/g, "").replace(/\\/g, "\\\\").replace(/"/g, "\\\"");
+    }
+
     function apply(modeStr) {
         var pos = root.currentWidth > 0 ? "0x0" : "auto";
-        Hyprland.dispatch("hl.monitor({output=\"" + root.monitorName + "\", mode=\"" + modeStr + "\", position=\"" + pos + "\", scale=" + root.currentScale + "})");
-        cacheFile.setText('return { output = "' + root.monitorName + '", mode = "' + modeStr + '" }\n');
+        var name = root._luaEscape(root.monitorName);
+        var mode = root._luaEscape(modeStr);
+        Hyprland.dispatch("hl.monitor({output=\"" + name + "\", mode=\"" + mode + "\", position=\"" + pos + "\", scale=" + root.currentScale + "})");
+        cacheFile.setText('return { output = "' + name + '", mode = "' + mode + '" }\n');
         applySettleTimer.restart();
     }
 

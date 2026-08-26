@@ -264,6 +264,19 @@ Singleton {
         root._saveEntry(entry);
     }
 
+    // Same as calling set() once per role, but persists once at the end
+    // instead of once per role - for bulk appliers like Themes.apply().
+    function setMany(palette, roleMap) {
+        var entry = root._copyEntry();
+        var target = palette === "dark" ? entry.dark : entry.light;
+        for (var role in roleMap) {
+            var hex = roleMap[role];
+            if (root.isValid(hex))
+                target[role] = hex.trim().toLowerCase();
+        }
+        root._saveEntry(entry);
+    }
+
     function clear(palette, role) {
         var entry = root._copyEntry();
         delete (palette === "dark" ? entry.dark : entry.light)[role];
@@ -306,27 +319,21 @@ Singleton {
         root._persist();
     }
 
-    // A single writer, with the latest state queued behind whatever is in
-    // flight - assigning to a running Process would drop the write.
-    property string _pendingJson: ""
+    // We don't wanna adopt on our own writes, add guard
+    property bool _writingFromRoot: false
 
     function _persist() {
-        root._pendingJson = JSON.stringify({
-            enabled: root.enabled,
-            scope: root.scope,
-            byWallpaper: root.byWallpaper,
-            global: root.global
-        });
-        root._flush();
-    }
-
-    function _flush() {
-        if (writeProc.running || root._pendingJson.length === 0)
-            return;
-        var json = root._pendingJson;
-        root._pendingJson = "";
-        writeProc.command = ["bash", "-c", "mkdir -p \"$1\" && printf '%s' \"$2\" > \"$3\"", "--", root._configDir, json, root._configPath];
-        writeProc.running = true;
+        root._writingFromRoot = true;
+        overrideData.enabled = root.enabled;
+        overrideData.scope = root.scope;
+        overrideData.byWallpaper = root.byWallpaper;
+        overrideData.global = root.global;
+        // Drop the legacy pre-scope fields once migrated - _adopt() only
+        // ever reads them back when byWallpaper/global are both still empty.
+        overrideData.dark = ({});
+        overrideData.light = ({});
+        root._writingFromRoot = false;
+        overrideFile.writeAdapter();
     }
 
     // Pick the file up on startup and on external edits, but never on top of a
@@ -334,7 +341,7 @@ Singleton {
     // {dark, light} format into the current wallpaper's bucket the first time
     // it's loaded, rather than silently discarding it.
     function _adopt() {
-        if (writeProc.running || root._pendingJson.length > 0)
+        if (root._writingFromRoot)
             return;
         var hasByWallpaper = overrideData.byWallpaper && Object.keys(overrideData.byWallpaper).length > 0;
         var g = overrideData.global || {};
@@ -427,16 +434,11 @@ Singleton {
     }
 
     FileView {
+        id: overrideFile
         path: root._configPath
         watchChanges: true
         adapter: overrideData // qmllint disable missing-type
         onFileChanged: reload()
         onLoaded: root._adopt()
-    }
-
-    Process {
-        id: writeProc
-        running: false
-        onExited: root._flush()
     }
 }

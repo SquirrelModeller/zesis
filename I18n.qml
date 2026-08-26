@@ -59,9 +59,8 @@ Singleton {
     }
 
     function setLanguage(code) {
-        writeProc.command = ["bash", "-c", "mkdir -p \"$1\" && printf '%s' \"$2\" > \"$3\"", "--",
-            root._configDir, JSON.stringify({language: code}), root._configPath];
-        writeProc.running = true;
+        localeData.language = code;
+        localeFile.writeAdapter();
     }
 
     function _detectSystemLanguage() {
@@ -124,15 +123,11 @@ Singleton {
     }
 
     FileView {
+        id: localeFile
         path: root._configPath
         watchChanges: true
         adapter: localeData
         onFileChanged: reload()
-    }
-
-    Process {
-        id: writeProc
-        running: false
     }
 
     // One small FileView per domain per language track (current + English

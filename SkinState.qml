@@ -17,11 +17,8 @@ Singleton {
     }
 
     function _save(mat) {
-        const json = JSON.stringify({
-            material: mat
-        });
-        writeProc.command = ["sh", "-c", "mkdir -p '" + root._configDir + "' && printf '%s' '" + json + "' > '" + root._configPath + "'"];
-        writeProc.running = true;
+        skinData.material = mat;
+        skinFile.writeAdapter();
     }
 
     JsonAdapter {
@@ -30,15 +27,11 @@ Singleton {
     }
 
     FileView {
+        id: skinFile
         path: root._configPath
         watchChanges: true
         printErrors: false
         adapter: skinData
         onFileChanged: reload()
-    }
-
-    Process {
-        id: writeProc
-        running: false
     }
 }

@@ -45,8 +45,11 @@ Singleton {
     }
 
     function write(scaleV, fontV, spacingV, radiusV) {
-        writeProc.command = ["sh", "-c", "mkdir -p '" + root._configDir + "' && echo '{" + "\"value\":" + scaleV.toFixed(2) + "," + "\"fontScale\":" + fontV.toFixed(2) + "," + "\"spacingScale\":" + spacingV.toFixed(2) + "," + "\"radiusScale\":" + radiusV.toFixed(2) + "}' > '" + root._configPath + "'"];
-        writeProc.running = true;
+        scaleData.value = parseFloat(scaleV.toFixed(2));
+        scaleData.fontScale = parseFloat(fontV.toFixed(2));
+        scaleData.spacingScale = parseFloat(spacingV.toFixed(2));
+        scaleData.radiusScale = parseFloat(radiusV.toFixed(2));
+        scaleFile.writeAdapter();
     }
 
     JsonAdapter {
@@ -58,14 +61,10 @@ Singleton {
     }
 
     FileView {
+        id: scaleFile
         path: root._configPath
         watchChanges: true
         adapter: scaleData
         onFileChanged: reload()
-    }
-
-    Process {
-        id: writeProc
-        running: false
     }
 }

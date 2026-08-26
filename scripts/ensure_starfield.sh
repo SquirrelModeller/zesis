@@ -34,10 +34,15 @@ fi
 csv="$cache_dir/hygdata_v41.csv"
 js="$cache_dir/RealStarField.js"
 
+# Lock to a commit, which we know is not comprimised upstream
+catalog_commit="3bf37f4b2d5460e1278286320d1d62fab9b493c1"
+catalog_sha256="d9f69fd86bbf90a4e4d52b4c5c53eacfa6dfc0bfdef85bfd94f095e0bebe4ebd"
+
 if [ ! -e "$js" ]; then
     if [ ! -e "$csv" ]; then
         echo "ensure_starfield: downloading HYG catalog (one-time, ~34MB)..." >&2
-        curl -sL "https://raw.githubusercontent.com/astronexus/HYG-Database/main/hyg/CURRENT/hygdata_v41.csv" -o "$csv.tmp"
+        curl -sL "https://raw.githubusercontent.com/astronexus/HYG-Database/$catalog_commit/hyg/CURRENT/hygdata_v41.csv" -o "$csv.tmp"
+        echo "$catalog_sha256  $csv.tmp" | sha256sum -c - >&2
         mv "$csv.tmp" "$csv"
     fi
     echo "ensure_starfield: generating RealStarField.js..." >&2

@@ -22,24 +22,29 @@ QtObject {
         return Hyprland.monitorFor(screen)?.activeWorkspace ?? null;
     }
 
+    // Better safe than sorry, we don't allow any calls to escape
+    function _esc(s) {
+        return String(s).replace(/\\/g, "\\\\").replace(/"/g, "\\\"");
+    }
+
     function focusWorkspace(id) {
-        Hyprland.dispatch("hl.dsp.focus({ workspace = " + id + " })");
+        Hyprland.dispatch("hl.dsp.focus({ workspace = " + Number(id) + " })");
     }
 
     function focusWindow(addr) {
-        Hyprland.dispatch("hl.dsp.focus({ window = \"address:" + addr + "\" })");
+        Hyprland.dispatch("hl.dsp.focus({ window = \"address:" + root._esc(addr) + "\" })");
     }
 
     function moveWindow(addr, wsId) {
-        Hyprland.dispatch("hl.dsp.window.move({ workspace = " + wsId + ", window = \"address:" + addr + "\" })");
+        Hyprland.dispatch("hl.dsp.window.move({ workspace = " + Number(wsId) + ", window = \"address:" + root._esc(addr) + "\" })");
     }
 
     function moveWindowSilent(addr, wsId) {
-        Hyprland.dispatch("hl.dsp.window.move({ workspace = " + wsId + ", window = \"address:" + addr + "\", follow = false })");
+        Hyprland.dispatch("hl.dsp.window.move({ workspace = " + Number(wsId) + ", window = \"address:" + root._esc(addr) + "\", follow = false })");
     }
 
     function moveWindowToName(addr, name) {
-        Hyprland.dispatch("hl.dsp.window.move({ workspace = \"name:" + name + "\", window = \"address:" + addr + "\", follow = false })");
+        Hyprland.dispatch("hl.dsp.window.move({ workspace = \"name:" + root._esc(name) + "\", window = \"address:" + root._esc(addr) + "\", follow = false })");
     }
 
     function focusWindowByPid(pid) {
@@ -57,7 +62,7 @@ QtObject {
             }
         }
         if (best)
-            Hyprland.dispatch("hl.dsp.focus({ window = \"address:" + best["address"] + "\" })");
+            Hyprland.dispatch("hl.dsp.focus({ window = \"address:" + root._esc(best["address"]) + "\" })");
     }
 
     function focusWindowByClass(cls) {
@@ -65,14 +70,14 @@ QtObject {
         for (var i = 0; i < toplevels.length; i++) {
             var obj = toplevels[i].lastIpcObject;
             if (obj && (obj["class"] ?? "").toLowerCase() === cls.toLowerCase()) {
-                Hyprland.dispatch("hl.dsp.focus({ window = \"address:" + obj["address"] + "\" })");
+                Hyprland.dispatch("hl.dsp.focus({ window = \"address:" + root._esc(obj["address"]) + "\" })");
                 return;
             }
         }
     }
 
     function preselect(dir) {
-        Hyprland.dispatch("hl.dsp.layout(\"preselect " + dir + "\")");
+        Hyprland.dispatch("hl.dsp.layout(\"preselect " + root._esc(dir) + "\")");
     }
 
     function refreshToplevels() {

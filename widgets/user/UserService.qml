@@ -28,8 +28,11 @@ Singleton {
     }
 
     function _write(n, p, hi, hfw) {
-        writeProc.command = ["sh", "-c", "mkdir -p '" + root._configDir + "' && " + "printf '%s' '{\"name\":\"" + n + "\",\"avatarPath\":\"" + p + "\",\"heroImage\":\"" + hi + "\",\"heroFollowWallpaper\":" + hfw + "}' > '" + root._configPath + "'"];
-        writeProc.running = true;
+        userData.name = n;
+        userData.avatarPath = p;
+        userData.heroImage = hi;
+        userData.heroFollowWallpaper = hfw;
+        userFile.writeAdapter();
     }
 
     JsonAdapter {
@@ -41,14 +44,10 @@ Singleton {
     }
 
     FileView {
+        id: userFile
         path: root._configPath
         watchChanges: true
         adapter: userData
         onFileChanged: reload()
-    }
-
-    Process {
-        id: writeProc
-        running: false
     }
 }

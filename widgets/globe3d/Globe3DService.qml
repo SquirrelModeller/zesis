@@ -49,18 +49,15 @@ Singleton {
     property bool closeHeightGaps: settingsData.closeHeightGaps
 
     function _write(overrides) {
-        var data = {
-            rodFrequency: root.rodFrequency,
-            use3DGlobe: root.use3DGlobe,
-            settingsCollapsed: root.settingsCollapsed,
-            glowEnabled: root.glowEnabled,
-            dotsFollowRodHeight: root.dotsFollowRodHeight,
-            closeHeightGaps: root.closeHeightGaps
-        };
+        settingsData.rodFrequency = root.rodFrequency;
+        settingsData.use3DGlobe = root.use3DGlobe;
+        settingsData.settingsCollapsed = root.settingsCollapsed;
+        settingsData.glowEnabled = root.glowEnabled;
+        settingsData.dotsFollowRodHeight = root.dotsFollowRodHeight;
+        settingsData.closeHeightGaps = root.closeHeightGaps;
         for (var k in overrides)
-            data[k] = overrides[k];
-        writeProc.command = ["sh", "-c", "mkdir -p '" + root._configDir + "' && echo '" + JSON.stringify(data) + "' > '" + root._configPath + "'"];
-        writeProc.running = true;
+            settingsData[k] = overrides[k];
+        settingsFile.writeAdapter();
     }
 
     function writeRodFrequency(freq) {
@@ -123,10 +120,5 @@ Singleton {
     Component.onCompleted: {
         settingsFile.text();
         starfieldProc.running = true;
-    }
-
-    Process {
-        id: writeProc
-        running: false
     }
 }

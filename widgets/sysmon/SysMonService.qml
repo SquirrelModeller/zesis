@@ -123,8 +123,10 @@ Singleton {
     }
 
     function _save() {
-        saveProc.command = ["sh", "-c", "mkdir -p '" + _configDir + "' && printf '%s' '{\"pullRateMs\":" + pullRateMs + ",\"procLimit\":" + procLimit + ",\"filterZero\":" + (filterZero ? "true" : "false") + "}' > '" + _configPath + "'"];
-        saveProc.running = true;
+        sysmonData.pullRateMs = pullRateMs;
+        sysmonData.procLimit = procLimit;
+        sysmonData.filterZero = filterZero;
+        sysmonFile.writeAdapter();
     }
 
     JsonAdapter {
@@ -135,15 +137,11 @@ Singleton {
     }
 
     FileView {
+        id: sysmonFile
         path: root._configPath
         watchChanges: true
         adapter: sysmonData
         onFileChanged: reload()
-    }
-
-    Process {
-        id: saveProc
-        running: false
     }
 
     function sendRequest() {

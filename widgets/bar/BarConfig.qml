@@ -124,9 +124,9 @@ Singleton {
     }
 
     function _save(s) {
-        const json = JSON.stringify(s);
-        writeProc.command = ["sh", "-c", "mkdir -p '" + root._configDir + "' && printf '%s' '" + json + "' > '" + root._configPath + "'"];
-        writeProc.running = true;
+        for (var k in s)
+            barData[k] = s[k];
+        barConfigFile.writeAdapter();
     }
 
     JsonAdapter {
@@ -165,10 +165,5 @@ Singleton {
 
     Component.onCompleted: {
         barConfigFile.text();
-    }
-
-    Process {
-        id: writeProc
-        running: false
     }
 }

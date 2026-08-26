@@ -40,6 +40,7 @@ Singleton {
     }
 
     FileView {
+        id: calConfigFile
         path: root._configPath
         watchChanges: true
         adapter: calConfig
@@ -109,13 +110,9 @@ Singleton {
         root.calendarDir = dir;
         root.syncIntervalMin = intervalMin;
         syncTimer.interval = intervalMin * 60000;
-        var esc = function (s) {
-            return s.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
-        };
-        var payload = '{"calendarDir":"' + esc(dir) + '","syncIntervalMin":' + intervalMin + '}';
-        writeProc.command = ["sh", "-c", "mkdir -p '" + root._configDir.replace(/'/g, "'\\''") + "' && printf '%s' '" + payload.replace(/'/g, "'\\''") + "' > '" + root._configPath.replace(/'/g, "'\\''") + "'"];
-        writeProc.running = false;
-        writeProc.running = true;
+        calConfig.calendarDir = dir;
+        calConfig.syncIntervalMin = intervalMin;
+        calConfigFile.writeAdapter();
     }
 
     Timer {
@@ -170,10 +167,6 @@ Singleton {
             }
             root.fetch();
         }
-    }
-
-    Process {
-        id: writeProc
     }
 
     Process {

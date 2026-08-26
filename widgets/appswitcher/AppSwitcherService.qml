@@ -48,14 +48,12 @@ Singleton {
         _write()
 
     function _write() {
-        writeProc.command = ["sh", "-c", "mkdir -p '" + root._configDir + "' && echo '" + JSON.stringify({
-                defaultMode: root.defaultMode,
-                confirmOnRelease: root.confirmOnRelease,
-                newWorkspaceStrategy: root.newWorkspaceStrategy,
-                rememberLastMode: root.rememberLastMode,
-                followMovedWindow: root.followMovedWindow
-            }) + "' > '" + root._configPath + "'"];
-        writeProc.running = true;
+        settingsData.defaultMode = root.defaultMode;
+        settingsData.confirmOnRelease = root.confirmOnRelease;
+        settingsData.newWorkspaceStrategy = root.newWorkspaceStrategy;
+        settingsData.rememberLastMode = root.rememberLastMode;
+        settingsData.followMovedWindow = root.followMovedWindow;
+        settingsFile.writeAdapter();
     }
 
     JsonAdapter {
@@ -68,13 +66,9 @@ Singleton {
     }
 
     FileView {
+        id: settingsFile
         path: root._configPath
         adapter: settingsData // qmllint disable missing-type
-    }
-
-    Process {
-        id: writeProc
-        running: false
     }
 
     function nextWorkspaceId() {

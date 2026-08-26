@@ -52,8 +52,8 @@ Singleton {
     property bool expandAllSubTabs: settingsData.expandAllSubTabs
 
     function writeExpandAllSubTabs(val) {
-        writeProc.command = ["sh", "-c", "mkdir -p '" + root._configDir + "' && printf '%s' '{\"expandAllSubTabs\":" + (val ? "true" : "false") + "}' > '" + root._configPath + "'"];
-        writeProc.running = true;
+        settingsData.expandAllSubTabs = val;
+        settingsFile.writeAdapter();
     }
 
     JsonAdapter {
@@ -72,9 +72,4 @@ Singleton {
     }
 
     Component.onCompleted: settingsFile.text()
-
-    Process {
-        id: writeProc
-        running: false
-    }
 }

@@ -13,8 +13,9 @@ Singleton {
     property bool useImageCache: settingsData.useImageCache
 
     function write(am, uic) {
-        writeProc.command = ["sh", "-c", "mkdir -p '" + root._configDir + "' && echo '{\"aaMode\":\"" + am + "\",\"useImageCache\":" + (uic ? "true" : "false") + "}' > '" + root._configPath + "'"];
-        writeProc.running = true;
+        settingsData.aaMode = am;
+        settingsData.useImageCache = uic;
+        settingsFile.writeAdapter();
     }
 
     function writeAaMode(mode) {
@@ -31,14 +32,10 @@ Singleton {
     }
 
     FileView {
+        id: settingsFile
         path: root._configPath
         watchChanges: true
         adapter: settingsData
         onFileChanged: reload()
-    }
-
-    Process {
-        id: writeProc
-        running: false
     }
 }

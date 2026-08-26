@@ -267,10 +267,11 @@ Singleton {
     }
 
     function _saveNetConfig(backend, persist, keyring, warnings) {
-        var json = '{"mountBackend":"' + backend + '","persistCredentials":' + (persist ? 'true' : 'false') + ',"useKeyring":' + (keyring ? 'true' : 'false') + ',"showWarnings":' + (warnings ? 'true' : 'false') + '}';
-        netConfigWriteProc.command = ["sh", "-c", "mkdir -p '" + root._netConfigDir + "' && printf '%s' '" + json + "' > '" + root._netConfigPath + "'"];
-        netConfigWriteProc.running = false;
-        netConfigWriteProc.running = true;
+        netConfig.mountBackend = backend;
+        netConfig.persistCredentials = persist;
+        netConfig.useKeyring = keyring;
+        netConfig.showWarnings = warnings;
+        netConfigFile.writeAdapter();
     }
 
     function openPath(path) {
@@ -408,14 +409,11 @@ Singleton {
     }
 
     FileView {
+        id: netConfigFile
         path: root._netConfigPath
         watchChanges: true
         adapter: netConfig
         onFileChanged: reload()
-    }
-
-    Process {
-        id: netConfigWriteProc
     }
 
     // Dependency checks

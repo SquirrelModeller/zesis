@@ -57,22 +57,20 @@ Singleton {
         _write()
 
     function _write() {
-        writeProc.command = ["sh", "-c", "mkdir -p '" + root._configDir + "' && echo '" + JSON.stringify({
-                workSpaceAmount: root.workSpaceAmount,
-                minWorkSpaceAmount: root.minWorkSpaceAmount,
-                discRadius: root.discRadius,
-                toothWidth: root.toothWidth,
-                valleyDepth: root.valleyDepth,
-                chamberRadius: root.chamberRadius,
-                chamberSize: root.chamberSize,
-                expressive: root.expressive,
-                skin: root.skin,
-                monitors: root.monitors,
-                tuckEnabled: root.tuckEnabled,
-                showIslandBackground: root.showIslandBackground,
-                animateTransition: root.animateTransition
-            }) + "' > '" + root._configPath + "'"];
-        writeProc.running = true;
+        settingsData.workSpaceAmount = root.workSpaceAmount;
+        settingsData.minWorkSpaceAmount = root.minWorkSpaceAmount;
+        settingsData.discRadius = root.discRadius;
+        settingsData.toothWidth = root.toothWidth;
+        settingsData.valleyDepth = root.valleyDepth;
+        settingsData.chamberRadius = root.chamberRadius;
+        settingsData.chamberSize = root.chamberSize;
+        settingsData.expressive = root.expressive;
+        settingsData.skin = root.skin;
+        settingsData.monitors = root.monitors;
+        settingsData.tuckEnabled = root.tuckEnabled;
+        settingsData.showIslandBackground = root.showIslandBackground;
+        settingsData.animateTransition = root.animateTransition;
+        settingsFile.writeAdapter();
     }
 
     JsonAdapter {
@@ -93,12 +91,8 @@ Singleton {
     }
 
     FileView {
+        id: settingsFile
         path: root._configPath
         adapter: settingsData // qmllint disable missing-type
-    }
-
-    Process {
-        id: writeProc
-        running: false
     }
 }

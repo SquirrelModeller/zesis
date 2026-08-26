@@ -12,9 +12,9 @@ import Quickshell.Io
 // wallpaper, or a per-monitor split (ThemeState.perMonitorWallpaper) if
 // that's what was last applied.
 //
-// Applying a theme replays the colors through ColorOverrides.set() (lands in
-// whichever scope - per-wallpaper or global - is currently active there) and,
-// if the theme has a wallpaper, re-applies it per currently connected
+// Applying a theme replays the colors through ColorOverrides.setMany() (lands
+// in whichever scope - per-wallpaper or global - is currently active there)
+// and, if the theme has a wallpaper, re-applies it per currently connected
 // monitor: a monitor with an explicit entry gets that path via
 // ThemeState.applyToMonitor(), any other connected monitor gets `fallback`
 // (the single path if the theme was saved with one, otherwise whatever was

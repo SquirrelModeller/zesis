@@ -24,57 +24,61 @@ Singleton {
     property bool showIslandBackground: settingsData.showIslandBackground
     property bool animateTransition: settingsData.animateTransition
 
-    property bool _loaded: false
-    Component.onCompleted: Qt.callLater(function () {
-        root._loaded = true;
-    })
-
-    onWorkSpaceAmountChanged: if (_loaded)
-        _write()
-    onMinWorkSpaceAmountChanged: if (_loaded)
-        _write()
-    onDiscRadiusChanged: if (_loaded)
-        _write()
-    onToothWidthChanged: if (_loaded)
-        _write()
-    onValleyDepthChanged: if (_loaded)
-        _write()
-    onChamberRadiusChanged: if (_loaded)
-        _write()
-    onChamberSizeChanged: if (_loaded)
-        _write()
-    onExpressiveChanged: if (_loaded)
-        _write()
-    onSkinChanged: if (_loaded)
-        _write()
-    onMonitorsChanged: if (_loaded)
-        _write()
-    onTuckEnabledChanged: if (_loaded)
-        _write()
-    onShowIslandBackgroundChanged: if (_loaded)
-        _write()
-    onAnimateTransitionChanged: if (_loaded)
-        _write()
-
-    function _write() {
-        settingsData.workSpaceAmount = root.workSpaceAmount;
-        settingsData.minWorkSpaceAmount = root.minWorkSpaceAmount;
-        settingsData.discRadius = root.discRadius;
-        settingsData.toothWidth = root.toothWidth;
-        settingsData.valleyDepth = root.valleyDepth;
-        settingsData.chamberRadius = root.chamberRadius;
-        settingsData.chamberSize = root.chamberSize;
-        settingsData.expressive = root.expressive;
-        settingsData.skin = root.skin;
-        settingsData.monitors = root.monitors;
-        settingsData.tuckEnabled = root.tuckEnabled;
-        settingsData.showIslandBackground = root.showIslandBackground;
-        settingsData.animateTransition = root.animateTransition;
+    function setWorkSpaceAmount(v) {
+        settingsData.workSpaceAmount = v;
+        _writeDebounce.restart();
+    }
+    function setMinWorkSpaceAmount(v) {
+        settingsData.minWorkSpaceAmount = v;
+        _writeDebounce.restart();
+    }
+    function setDiscRadius(v) {
+        settingsData.discRadius = v;
+        _writeDebounce.restart();
+    }
+    function setToothWidth(v) {
+        settingsData.toothWidth = v;
+        _writeDebounce.restart();
+    }
+    function setValleyDepth(v) {
+        settingsData.valleyDepth = v;
+        _writeDebounce.restart();
+    }
+    function setChamberRadius(v) {
+        settingsData.chamberRadius = v;
+        _writeDebounce.restart();
+    }
+    function setChamberSize(v) {
+        settingsData.chamberSize = v;
+        _writeDebounce.restart();
+    }
+    function setExpressive(v) {
+        settingsData.expressive = v;
+        _writeDebounce.restart();
+    }
+    function setSkin(v) {
+        settingsData.skin = v;
+        _writeDebounce.restart();
+    }
+    function setMonitors(v) {
+        settingsData.monitors = v;
+        _writeDebounce.restart();
+    }
+    function setTuckEnabled(v) {
+        settingsData.tuckEnabled = v;
+        _writeDebounce.restart();
+    }
+    function setShowIslandBackground(v) {
+        settingsData.showIslandBackground = v;
+        _writeDebounce.restart();
+    }
+    function setAnimateTransition(v) {
+        settingsData.animateTransition = v;
         _writeDebounce.restart();
     }
 
-    // Coalesces bursts of writes (e.g. a slider dragged across many
-    // onMoved events) into a single disk write.
+    // Because it's on a timer, if the caller makes burst calls, it resets until
+    // it's been idle for N interval.
     Timer {
         id: _writeDebounce
         interval: 250
@@ -101,6 +105,11 @@ Singleton {
     FileView {
         id: settingsFile
         path: root._configPath
+        blockLoading: true
         adapter: settingsData // qmllint disable missing-type
+    }
+
+    Component.onCompleted: {
+        settingsFile.text();
     }
 }

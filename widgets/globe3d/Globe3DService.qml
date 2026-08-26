@@ -49,12 +49,6 @@ Singleton {
     property bool closeHeightGaps: settingsData.closeHeightGaps
 
     function _write(overrides) {
-        settingsData.rodFrequency = root.rodFrequency;
-        settingsData.use3DGlobe = root.use3DGlobe;
-        settingsData.settingsCollapsed = root.settingsCollapsed;
-        settingsData.glowEnabled = root.glowEnabled;
-        settingsData.dotsFollowRodHeight = root.dotsFollowRodHeight;
-        settingsData.closeHeightGaps = root.closeHeightGaps;
         for (var k in overrides)
             settingsData[k] = overrides[k];
         settingsFile.writeAdapter();

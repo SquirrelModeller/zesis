@@ -24,7 +24,7 @@ QtObject {
 
     // Better safe than sorry, we don't allow any calls to escape
     function _esc(s) {
-        return String(s).replace(/\\/g, "\\\\").replace(/"/g, "\\\"");
+        return String(s).replace(/[\r\n]/g, "").replace(/\\/g, "\\\\").replace(/"/g, "\\\"");
     }
 
     function focusWorkspace(id) {

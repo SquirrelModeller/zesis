@@ -43,7 +43,7 @@ QtObject {
     }
 
     function _luaEscape(s) {
-        return String(s).replace(/\\/g, "\\\\").replace(/"/g, "\\\"");
+        return String(s).replace(/[\r\n]/g, "").replace(/\\/g, "\\\\").replace(/"/g, "\\\"");
     }
 
     function apply(modeStr) {

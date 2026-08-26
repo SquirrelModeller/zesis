@@ -46,12 +46,10 @@ Singleton {
 
     function saveLocationMode(mode) {
         _writeConfig(mode, root.manualCity);
-        root.locationMode = mode;
     }
 
     function saveManualCity(city) {
         _writeConfig(root.locationMode, city);
-        root.manualCity = city;
     }
 
     function weatherIcon(code, day) {

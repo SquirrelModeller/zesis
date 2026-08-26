@@ -43,12 +43,13 @@ Singleton {
         id: calConfigFile
         path: root._configPath
         watchChanges: true
+        blockLoading: true
         adapter: calConfig
         onFileChanged: reload()
     }
 
     Component.onCompleted: {
-        writeConfig(calConfig.calendarDir, calConfig.syncIntervalMin);
+        calConfigFile.text();
         root.fetch();
     }
 
@@ -107,9 +108,6 @@ Singleton {
     }
 
     function writeConfig(dir, intervalMin) {
-        root.calendarDir = dir;
-        root.syncIntervalMin = intervalMin;
-        syncTimer.interval = intervalMin * 60000;
         calConfig.calendarDir = dir;
         calConfig.syncIntervalMin = intervalMin;
         calConfigFile.writeAdapter();

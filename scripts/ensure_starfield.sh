@@ -42,9 +42,12 @@ if [ ! -e "$js" ]; then
     if [ ! -e "$csv" ]; then
         echo "ensure_starfield: downloading HYG catalog (one-time, ~34MB)..." >&2
         curl -sL "https://raw.githubusercontent.com/astronexus/HYG-Database/$catalog_commit/hyg/CURRENT/hygdata_v41.csv" -o "$csv.tmp"
-        echo "$catalog_sha256  $csv.tmp" | sha256sum -c - >&2
         mv "$csv.tmp" "$csv"
     fi
+    # Verify every time we're about to build from $csv, not just on a fresh
+    # download - a cached file from before this check existed must not be
+    # trusted silently.
+    echo "$catalog_sha256  $csv" | sha256sum -c - >&2
     echo "ensure_starfield: generating RealStarField.js..." >&2
     python3 "$repo_root/scripts/build_starfield.py" "$csv" "$js"
 fi

@@ -178,8 +178,7 @@ Singleton {
     }
 
     function _applyPalette(palette, roleMap) {
-        for (var role in roleMap)
-            ColorOverrides.set(palette, role, roleMap[role]);
+        ColorOverrides.setMany(palette, roleMap);
     }
 
     // No per-monitor entries at all: one path for everything, simplest case -

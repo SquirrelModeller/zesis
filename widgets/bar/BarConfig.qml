@@ -126,7 +126,15 @@ Singleton {
     function _save(s) {
         for (var k in s)
             barData[k] = s[k];
-        barConfigFile.writeAdapter();
+        _writeDebounce.restart();
+    }
+
+    // Coalesces bursts of writes (e.g. a slider dragged across many
+    // onMoved events) into a single disk write.
+    Timer {
+        id: _writeDebounce
+        interval: 250
+        onTriggered: barConfigFile.writeAdapter()
     }
 
     JsonAdapter {

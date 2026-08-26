@@ -70,7 +70,15 @@ Singleton {
         settingsData.tuckEnabled = root.tuckEnabled;
         settingsData.showIslandBackground = root.showIslandBackground;
         settingsData.animateTransition = root.animateTransition;
-        settingsFile.writeAdapter();
+        _writeDebounce.restart();
+    }
+
+    // Coalesces bursts of writes (e.g. a slider dragged across many
+    // onMoved events) into a single disk write.
+    Timer {
+        id: _writeDebounce
+        interval: 250
+        onTriggered: settingsFile.writeAdapter()
     }
 
     JsonAdapter {

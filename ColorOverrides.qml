@@ -264,6 +264,19 @@ Singleton {
         root._saveEntry(entry);
     }
 
+    // Same as calling set() once per role, but persists once at the end
+    // instead of once per role - for bulk appliers like Themes.apply().
+    function setMany(palette, roleMap) {
+        var entry = root._copyEntry();
+        var target = palette === "dark" ? entry.dark : entry.light;
+        for (var role in roleMap) {
+            var hex = roleMap[role];
+            if (root.isValid(hex))
+                target[role] = hex.trim().toLowerCase();
+        }
+        root._saveEntry(entry);
+    }
+
     function clear(palette, role) {
         var entry = root._copyEntry();
         delete (palette === "dark" ? entry.dark : entry.light)[role];
@@ -315,6 +328,10 @@ Singleton {
         overrideData.scope = root.scope;
         overrideData.byWallpaper = root.byWallpaper;
         overrideData.global = root.global;
+        // Drop the legacy pre-scope fields once migrated - _adopt() only
+        // ever reads them back when byWallpaper/global are both still empty.
+        overrideData.dark = ({});
+        overrideData.light = ({});
         root._writingFromRoot = false;
         overrideFile.writeAdapter();
     }

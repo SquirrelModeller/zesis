@@ -9,6 +9,8 @@
   python3,
   athroisma,
   congeries,
+  makeFontsConf,
+  nerd-fonts,
 }:
 mkShell {
   packages = [
@@ -19,6 +21,7 @@ mkShell {
     qt6.qtshadertools
     athroisma
     congeries
+    nerd-fonts.symbols-only
     (python3.withPackages (ps:
       with ps; [
         icalendar
@@ -38,6 +41,8 @@ mkShell {
     "${qt6.qtdeclarative}/lib/qt-6/plugins"
     "${qt6.qtbase}/lib/qt-6/plugins"
   ];
+
+  FONTCONFIG_FILE = makeFontsConf {fontDirectories = [nerd-fonts.symbols-only];};
 
   ZESIS_DEV = "1";
 }

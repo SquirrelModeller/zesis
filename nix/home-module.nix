@@ -62,7 +62,8 @@ in {
               "${pkgs.qt6.qtquick3d}/lib/qt-6/qml"
               "${cfg.congeries.package}/lib/qt-6/qml"
             ]
-          }";
+          }"
+          ++ lib.optional cfg.fonts.enable "FONTCONFIG_FILE=${pkgs.makeFontsConf {fontDirectories = cfg.fonts.packages;}}";
       };
 
       Install.WantedBy = ["graphical-session.target"];

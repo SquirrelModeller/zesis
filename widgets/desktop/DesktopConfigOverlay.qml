@@ -8,6 +8,7 @@ import "./"
 import "../../"
 import "../shared/inputs"
 import "../globe2d"
+import "../cava"
 
 PanelWindow {
     id: root
@@ -52,6 +53,36 @@ PanelWindow {
     property var _snapGuideX // vertical line (x snap)
     property var _snapGuideY // horizontal line (y snap)
 
+    function _computeEdgeSnap(activeProxy, raw, axis) {
+        var thr = root.snapThreshold;
+        var extent = axis === "x" ? root.width : root.height;
+        var candidates = [0, extent, extent / 2];
+
+        for (var i = 0; i < widgetRepeater.count; i++) {
+            var o = widgetRepeater.itemAt(i);
+            if (o === null || o === activeProxy)
+                continue;
+            var start = axis === "x" ? o.x : o.y;
+            var size = axis === "x" ? o.width : o.height;
+            candidates.push(start, start + size, start + size / 2);
+        }
+
+        var best = raw, bestGuide = undefined, bestD = thr;
+        for (var j = 0; j < candidates.length; j++) {
+            var d = Math.abs(raw - candidates[j]);
+            if (d < bestD) {
+                bestD = d;
+                best = candidates[j];
+                bestGuide = candidates[j];
+            }
+        }
+
+        return {
+            value: best,
+            guide: bestGuide
+        };
+    }
+
     // Returns { x, y, guideX, guideY } where guide* may be undefined.
     function _computeSnap(activeProxy, rawX, rawY) {
         var pW = activeProxy.width;
@@ -61,6 +92,14 @@ PanelWindow {
         var xC = [
             {
                 snapX: (root.width - pW) / 2,
+                guideX: root.width / 2
+            },
+            {
+                snapX: root.width / 2,
+                guideX: root.width / 2
+            },
+            {
+                snapX: root.width / 2 - pW,
                 guideX: root.width / 2
             },
             {
@@ -75,6 +114,14 @@ PanelWindow {
         var yC = [
             {
                 snapY: (root.height - pH) / 2,
+                guideY: root.height / 2
+            },
+            {
+                snapY: root.height / 2,
+                guideY: root.height / 2
+            },
+            {
+                snapY: root.height / 2 - pH,
                 guideY: root.height / 2
             },
             {
@@ -188,6 +235,9 @@ PanelWindow {
 
             readonly property string wKey: modelData.key
             readonly property bool _selected: root.selectedKey === proxy.wKey
+
+            readonly property bool _isCava: proxy.wKey === "cava" || proxy.wKey === "cava-left" || proxy.wKey === "cava-right"
+            readonly property string _cavaChannel: proxy.wKey === "cava-left" ? "left" : proxy.wKey === "cava-right" ? "right" : "average"
             property real _nx: DesktopWidgetStore.getPos(wKey).nx
             property real _ny: DesktopWidgetStore.getPos(wKey).ny
 
@@ -444,6 +494,8 @@ PanelWindow {
                                 handle._startW = proxy.width;
                                 handle._startH = proxy.height;
                             } else {
+                                root._snapGuideX = undefined;
+                                root._snapGuideY = undefined;
                                 var w = Math.max(1, Math.round(proxy.width - proxy._bgPad * 2));
                                 var h = Math.max(1, Math.round(proxy.height - proxy._bgPad * 2));
                                 DesktopWidgetStore.setSize(proxy.wKey, w, h);
@@ -470,24 +522,52 @@ PanelWindow {
                             var minW = Math.round(40 * UIScale.value) + proxy._bgPad * 2;
                             var minH = Math.round(24 * UIScale.value) + proxy._bgPad * 2;
 
-                            var newW = handle._startW;
-                            var newH = handle._startH;
                             var newX = handle._startX;
                             var newY = handle._startY;
+                            var newW = handle._startW;
+                            var newH = handle._startH;
+                            var guideX, guideY;
 
                             if (handle._right) {
-                                newW = Math.max(minW, handle._startW + dx);
+                                var rawRight = handle._startX + handle._startW + dx;
+                                if (root.snapEnabled) {
+                                    var sr = root._computeEdgeSnap(proxy, rawRight, "x");
+                                    rawRight = sr.value;
+                                    guideX = sr.guide;
+                                }
+                                newW = Math.max(minW, rawRight - handle._startX);
                             } else if (handle._left) {
-                                newW = Math.max(minW, handle._startW - dx);
-                                newX = handle._startX + (handle._startW - newW);
+                                var rawLeft = handle._startX + dx;
+                                if (root.snapEnabled) {
+                                    var sl = root._computeEdgeSnap(proxy, rawLeft, "x");
+                                    rawLeft = sl.value;
+                                    guideX = sl.guide;
+                                }
+                                newW = Math.max(minW, handle._startX + handle._startW - rawLeft);
+                                newX = handle._startX + handle._startW - newW;
                             }
 
                             if (handle._bottom) {
-                                newH = Math.max(minH, handle._startH + dy);
+                                var rawBottom = handle._startY + handle._startH + dy;
+                                if (root.snapEnabled) {
+                                    var sb = root._computeEdgeSnap(proxy, rawBottom, "y");
+                                    rawBottom = sb.value;
+                                    guideY = sb.guide;
+                                }
+                                newH = Math.max(minH, rawBottom - handle._startY);
                             } else if (handle._top) {
-                                newH = Math.max(minH, handle._startH - dy);
-                                newY = handle._startY + (handle._startH - newH);
+                                var rawTop = handle._startY + dy;
+                                if (root.snapEnabled) {
+                                    var st = root._computeEdgeSnap(proxy, rawTop, "y");
+                                    rawTop = st.value;
+                                    guideY = st.guide;
+                                }
+                                newH = Math.max(minH, handle._startY + handle._startH - rawTop);
+                                newY = handle._startY + handle._startH - newH;
                             }
+
+                            root._snapGuideX = guideX;
+                            root._snapGuideY = guideY;
 
                             proxy.width = newW;
                             proxy.height = newH;
@@ -498,11 +578,17 @@ PanelWindow {
                 }
             }
 
-            // Per-widget settings card, appears below the proxy when selected.
+            // Default below widgets, flips to top. Always pushed within bounds
             Loader {
+                id: cardLoader
                 active: proxy._selected
                 anchors.horizontalCenter: parent.horizontalCenter
-                y: proxy.height + Math.round(UIScale.spacingSm) + UIScale.fontTiny + UIScale.spacingXs
+
+                readonly property real _gap: Math.round(UIScale.spacingSm) + UIScale.fontTiny + UIScale.spacingXs
+                readonly property real _cardHeight: item ? item.implicitHeight : 0
+                readonly property bool _fitsBelow: proxy.y + proxy.height + _gap + _cardHeight <= root.height
+
+                y: _fitsBelow ? (proxy.height + _gap) : Math.max(-proxy.y, -_gap - _cardHeight)
 
                 sourceComponent: Rectangle {
                     radius: UIScale.radiusSm
@@ -1070,6 +1156,274 @@ PanelWindow {
                                 HoverHandler {}
                                 TapHandler {
                                     onTapped: Globe2DSettings.setRotateMode("manual")
+                                }
+                            }
+                        }
+
+                        // Row 8: Cava-only bar count
+                        Row {
+                            visible: proxy._isCava
+                            spacing: Math.round(UIScale.spacingSm)
+
+                            Text {
+                                anchors.verticalCenter: parent.verticalCenter
+                                text: I18n.t("desktop.barCount")
+                                color: Colors.textDim
+                                font.pixelSize: UIScale.fontSmall
+                            }
+
+                            Rectangle {
+                                anchors.verticalCenter: parent.verticalCenter
+                                implicitWidth: Math.round(52 * UIScale.value)
+                                implicitHeight: barCountInput.implicitHeight + Math.round(UIScale.spacingXs * 2)
+                                color: Colors.withAlpha(Colors.outline, 0.2)
+                                radius: UIScale.radiusSm
+                                clip: true
+
+                                TextInput {
+                                    id: barCountInput
+                                    anchors {
+                                        fill: parent
+                                        margins: Math.round(UIScale.spacingXs)
+                                    }
+                                    text: String(CavaSettings.barCount)
+                                    color: Colors.text
+                                    font.pixelSize: UIScale.fontSmall
+                                    selectByMouse: true
+                                    validator: IntValidator {
+                                        bottom: 4
+                                        top: 256
+                                    }
+                                    onEditingFinished: {
+                                        CavaSettings.writeBarCount(parseInt(barCountInput.text) || CavaSettings.barCount);
+                                    }
+                                }
+                            }
+                        }
+
+                        // Row 9: Cava-only orientation
+                        Row {
+                            visible: proxy._isCava
+                            spacing: Math.round(UIScale.spacingSm)
+
+                            Text {
+                                anchors.verticalCenter: parent.verticalCenter
+                                text: I18n.t("desktop.orientation")
+                                color: Colors.textDim
+                                font.pixelSize: UIScale.fontSmall
+                            }
+
+                            Row {
+                                anchors.verticalCenter: parent.verticalCenter
+                                spacing: Math.round(UIScale.spacingXs)
+
+                                Repeater {
+                                    model: ["bottom", "top", "left", "right"]
+
+                                    delegate: Rectangle {
+                                        id: orientBtn
+                                        required property string modelData
+
+                                        property bool _active: CavaSettings.orientationFor(proxy._cavaChannel) === modelData
+
+                                        implicitWidth: orientLabel.implicitWidth + Math.round(UIScale.spacingMd * 2)
+                                        implicitHeight: orientLabel.implicitHeight + Math.round(UIScale.spacingXs * 2)
+                                        radius: height / 2
+                                        color: _active ? Colors.withAlpha(Colors.accent, 0.2) : Colors.withAlpha(Colors.outline, 0.15)
+                                        border.color: _active ? Colors.accent : "transparent"
+                                        border.width: 1
+
+                                        Text {
+                                            id: orientLabel
+                                            anchors.centerIn: parent
+                                            text: I18n.t("bar." + orientBtn.modelData)
+                                            color: orientBtn._active ? Colors.accent : Colors.textDim
+                                            font.pixelSize: UIScale.fontSmall
+                                        }
+
+                                        HoverHandler {}
+                                        TapHandler {
+                                            onTapped: CavaSettings.writeOrientation(proxy._cavaChannel, orientBtn.modelData)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        // Row 10: Cava-only style
+                        Row {
+                            visible: proxy._isCava
+                            spacing: Math.round(UIScale.spacingSm)
+
+                            Text {
+                                anchors.verticalCenter: parent.verticalCenter
+                                text: I18n.t("desktop.style")
+                                color: Colors.textDim
+                                font.pixelSize: UIScale.fontSmall
+                            }
+
+                            Row {
+                                anchors.verticalCenter: parent.verticalCenter
+                                spacing: Math.round(UIScale.spacingXs)
+
+                                Repeater {
+                                    model: ["bars", "area"]
+
+                                    delegate: Rectangle {
+                                        id: styleBtn
+                                        required property string modelData
+
+                                        property bool _active: CavaSettings.style === modelData
+
+                                        implicitWidth: styleLabel.implicitWidth + Math.round(UIScale.spacingMd * 2)
+                                        implicitHeight: styleLabel.implicitHeight + Math.round(UIScale.spacingXs * 2)
+                                        radius: height / 2
+                                        color: _active ? Colors.withAlpha(Colors.accent, 0.2) : Colors.withAlpha(Colors.outline, 0.15)
+                                        border.color: _active ? Colors.accent : "transparent"
+                                        border.width: 1
+
+                                        Text {
+                                            id: styleLabel
+                                            anchors.centerIn: parent
+                                            text: I18n.t("desktop.style" + (styleBtn.modelData === "area" ? "Area" : "Bars"))
+                                            color: styleBtn._active ? Colors.accent : Colors.textDim
+                                            font.pixelSize: UIScale.fontSmall
+                                        }
+
+                                        HoverHandler {}
+                                        TapHandler {
+                                            onTapped: CavaSettings.writeStyle(styleBtn.modelData)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        // Row 11: Cava-only renderer
+                        Row {
+                            visible: proxy._isCava
+                            spacing: Math.round(UIScale.spacingSm)
+
+                            Text {
+                                anchors.verticalCenter: parent.verticalCenter
+                                text: I18n.t("desktop.renderer")
+                                color: Colors.textDim
+                                font.pixelSize: UIScale.fontSmall
+                            }
+
+                            Row {
+                                anchors.verticalCenter: parent.verticalCenter
+                                spacing: Math.round(UIScale.spacingXs)
+
+                                Repeater {
+                                    model: ["cpu", "gpu"]
+
+                                    delegate: Rectangle {
+                                        id: rendererBtn
+                                        required property string modelData
+
+                                        property bool _active: CavaSettings.renderer === modelData
+
+                                        implicitWidth: rendererLabel.implicitWidth + Math.round(UIScale.spacingMd * 2)
+                                        implicitHeight: rendererLabel.implicitHeight + Math.round(UIScale.spacingXs * 2)
+                                        radius: height / 2
+                                        color: _active ? Colors.withAlpha(Colors.accent, 0.2) : Colors.withAlpha(Colors.outline, 0.15)
+                                        border.color: _active ? Colors.accent : "transparent"
+                                        border.width: 1
+
+                                        Text {
+                                            id: rendererLabel
+                                            anchors.centerIn: parent
+                                            text: I18n.t("desktop.renderer" + (rendererBtn.modelData === "gpu" ? "Gpu" : "Cpu"))
+                                            color: rendererBtn._active ? Colors.accent : Colors.textDim
+                                            font.pixelSize: UIScale.fontSmall
+                                        }
+
+                                        HoverHandler {}
+                                        TapHandler {
+                                            onTapped: CavaSettings.writeRenderer(rendererBtn.modelData)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        // Row 12: Cava-only flip, where bass is
+                        Row {
+                            visible: proxy._isCava
+                            spacing: Math.round(UIScale.spacingSm)
+
+                            Text {
+                                anchors.verticalCenter: parent.verticalCenter
+                                text: I18n.t("desktop.flip")
+                                color: Colors.textDim
+                                font.pixelSize: UIScale.fontSmall
+                            }
+
+                            Rectangle {
+                                id: flipBtn
+                                anchors.verticalCenter: parent.verticalCenter
+
+                                property bool _active: CavaSettings.flipFor(proxy._cavaChannel)
+
+                                implicitWidth: flipLabel.implicitWidth + Math.round(UIScale.spacingMd * 2)
+                                implicitHeight: flipLabel.implicitHeight + Math.round(UIScale.spacingXs * 2)
+                                radius: height / 2
+                                color: _active ? Colors.withAlpha(Colors.accent, 0.2) : Colors.withAlpha(Colors.outline, 0.15)
+                                border.color: _active ? Colors.accent : "transparent"
+                                border.width: 1
+
+                                Text {
+                                    id: flipLabel
+                                    anchors.centerIn: parent
+                                    text: I18n.t("desktop.flip" + (flipBtn._active ? "On" : "Off"))
+                                    color: flipBtn._active ? Colors.accent : Colors.textDim
+                                    font.pixelSize: UIScale.fontSmall
+                                }
+
+                                HoverHandler {}
+                                TapHandler {
+                                    onTapped: CavaSettings.writeFlip(proxy._cavaChannel, !flipBtn._active)
+                                }
+                            }
+                        }
+
+                        // Row 13: Cava-only auto-hide
+                        Row {
+                            visible: proxy._isCava
+                            spacing: Math.round(UIScale.spacingSm)
+
+                            Text {
+                                anchors.verticalCenter: parent.verticalCenter
+                                text: I18n.t("desktop.autoHide")
+                                color: Colors.textDim
+                                font.pixelSize: UIScale.fontSmall
+                            }
+
+                            Rectangle {
+                                id: autoHideBtn
+                                anchors.verticalCenter: parent.verticalCenter
+
+                                property bool _active: CavaSettings.autoHide
+
+                                implicitWidth: autoHideLabel.implicitWidth + Math.round(UIScale.spacingMd * 2)
+                                implicitHeight: autoHideLabel.implicitHeight + Math.round(UIScale.spacingXs * 2)
+                                radius: height / 2
+                                color: _active ? Colors.withAlpha(Colors.accent, 0.2) : Colors.withAlpha(Colors.outline, 0.15)
+                                border.color: _active ? Colors.accent : "transparent"
+                                border.width: 1
+
+                                Text {
+                                    id: autoHideLabel
+                                    anchors.centerIn: parent
+                                    text: I18n.t("desktop.autoHide" + (autoHideBtn._active ? "On" : "Off"))
+                                    color: autoHideBtn._active ? Colors.accent : Colors.textDim
+                                    font.pixelSize: UIScale.fontSmall
+                                }
+
+                                HoverHandler {}
+                                TapHandler {
+                                    onTapped: CavaSettings.writeAutoHide(!autoHideBtn._active)
                                 }
                             }
                         }

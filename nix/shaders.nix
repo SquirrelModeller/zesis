@@ -9,7 +9,7 @@
   qt6,
   src,
 }: let
-  shaderNames = ["globe" "gear"];
+  shaderNames = ["globe" "gear" "cava"];
   findShaders = "find . -name '_*' -prune -o -name '*.frag' -not -path '*/_*' -print | grep -E '/(${lib.concatStringsSep "|" shaderNames})\\.frag$'";
 in {
   package =

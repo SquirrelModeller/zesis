@@ -55,8 +55,11 @@ PanelWindow {
         left: Math.round(root._marginLeft)
     }
 
-    implicitWidth: (root._overrideW ? root._size.w : contentLoader.implicitWidth) + root._bgPad * 2
-    implicitHeight: (root._overrideH ? root._size.h : contentLoader.implicitHeight) + root._bgPad * 2
+    // This is used for the 1x1 trick to save on VRAM (cava)
+    readonly property bool _wantsMinimalSize: contentLoader.item?.wantsMinimalSize ?? false
+
+    implicitWidth: root._wantsMinimalSize ? 1 : (root._overrideW ? root._size.w : contentLoader.implicitWidth) + root._bgPad * 2
+    implicitHeight: root._wantsMinimalSize ? 1 : (root._overrideH ? root._size.h : contentLoader.implicitHeight) + root._bgPad * 2
 
     exclusiveZone: -1
     color: "transparent"

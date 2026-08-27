@@ -8,6 +8,7 @@ import "../weather"
 import "../sysmon"
 import "../globe2d"
 import "../power"
+import "../cava"
 import "../../"
 
 Singleton {
@@ -49,6 +50,24 @@ Singleton {
             label: I18n.t("desktop.vendingLabel"),
             description: I18n.t("desktop.vendingDescription"),
             component: _vendingComp
+        },
+        {
+            key: "cava",
+            label: I18n.t("desktop.cavaLabel"),
+            description: I18n.t("desktop.cavaDescription"),
+            component: _cavaComp
+        },
+        {
+            key: "cava-left",
+            label: I18n.t("desktop.cavaLeftLabel"),
+            description: I18n.t("desktop.cavaLeftDescription"),
+            component: _cavaLeftComp
+        },
+        {
+            key: "cava-right",
+            label: I18n.t("desktop.cavaRightLabel"),
+            description: I18n.t("desktop.cavaRightDescription"),
+            component: _cavaRightComp
         }
     ]
 
@@ -83,5 +102,21 @@ Singleton {
     Component {
         id: _vendingComp
         VendingMachine {}
+    }
+    Component {
+        id: _cavaComp
+        CavaVisualizer {}
+    }
+    Component {
+        id: _cavaLeftComp
+        CavaVisualizer {
+            channel: "left"
+        }
+    }
+    Component {
+        id: _cavaRightComp
+        CavaVisualizer {
+            channel: "right"
+        }
     }
 }

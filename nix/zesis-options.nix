@@ -110,33 +110,7 @@ in {
     };
     packages = lib.mkOption {
       type = lib.types.listOf lib.types.package;
-      default = with pkgs; [
-        bash
-        cifs-utils.bin
-        coreutils
-        curl
-        findutils
-        git
-        gnugrep
-        gnused
-        imagemagick
-        samba
-        systemd
-        util-linux
-        which
-        matugen
-        awww
-        bluez
-        avahi
-        hostname
-        libnotify
-        procps
-        xdg-utils
-        gawk
-        brightnessctl
-        slurp
-        wf-recorder
-      ];
+      default = import ./runtime-deps.nix {inherit pkgs;};
       description = "Packages put on the service's PATH when batteriesIncluded.enable is true.";
     };
   };

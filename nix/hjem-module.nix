@@ -56,6 +56,9 @@ in {
             "${pkgs.qt6.qtquick3d}/lib/qt-6/qml"
             "${cfg.congeries.package}/lib/qt-6/qml"
           ];
+        }
+        // lib.optionalAttrs cfg.fonts.enable {
+          FONTCONFIG_FILE = pkgs.makeFontsConf {fontDirectories = cfg.fonts.packages;};
         };
       serviceConfig = {
         ExecStart = "${cfg.package}/bin/quickshell -c zesis";

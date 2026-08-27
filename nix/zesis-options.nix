@@ -60,6 +60,26 @@ in {
     };
   };
 
+  fonts = {
+    enable = lib.mkOption {
+      type = lib.types.bool;
+      default = true;
+      description = ''
+        Point the zesis service's fontconfig at the fonts its widgets
+        render with (a Nerd Font symbol set for the bar/widget glyph
+        icons) via `FONTCONFIG_FILE`.
+      '';
+    };
+    packages = lib.mkOption {
+      type = lib.types.listOf lib.types.package;
+      default = [pkgs.nerd-fonts.symbols-only];
+      description = ''
+        Font packages visible to zesis service. Default is Nerd Font symbol
+        glyphs.
+      '';
+    };
+  };
+
   python = lib.mkOption {
     type = lib.types.package;
     default = pkgs.python3.withPackages (ps: with ps; [icalendar recurring-ical-events]);

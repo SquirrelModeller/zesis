@@ -68,6 +68,8 @@ Singleton {
     FileView {
         id: settingsFile
         path: root._configPath
+        watchChanges: true
+        onFileChanged: reload()
         adapter: settingsData // qmllint disable missing-type
     }
 

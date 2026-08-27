@@ -122,21 +122,55 @@ Singleton {
         property string colorSourceMonitor: ""
     }
 
+    function _adoptState() {
+        root.palette = stateData.palette;
+        root.lastWallpaper = stateData.lastWallpaper;
+        root.schemeType = stateData.schemeType;
+        root.wallpaperBackend = stateData.wallpaperBackend;
+        root.customWallpaperCommand = stateData.customWallpaperCommand;
+        root.wallpapersDirOverride = stateData.wallpapersDirOverride;
+        root.autoStartWallpaperDaemon = stateData.autoStartWallpaperDaemon;
+        root.perMonitorWallpaper = stateData.perMonitorWallpaper;
+        root.colorSourceMonitor = stateData.colorSourceMonitor;
+    }
+
+    // ProfileService nonsense. We need a read of state.json off disk
+    property bool _reapplyAfterLoad: false
+
+    function reloadAndReapply() {
+        root._reapplyAfterLoad = true;
+        stateFile.reload();
+    }
+
+    function reapplyWallpaper() {
+        var perMonitor = root.perMonitorWallpaper || ({});
+        var screens = Quickshell.screens;
+        if (Object.keys(perMonitor).length === 0) {
+            if (root.lastWallpaper !== "")
+                root.apply(root.lastWallpaper);
+            return;
+        }
+        for (var i = 0; i < screens.length; i++) {
+            var mon = screens[i].name;
+            var path = perMonitor[mon] || root.lastWallpaper;
+            if (path)
+                root.applyToMonitor(path, mon);
+        }
+    }
+
     FileView {
         id: stateFile
         path: root._stateFile
+        watchChanges: true
         adapter: stateData // qmllint disable missing-type
+        onFileChanged: reload()
         onLoaded: {
-            root.palette = stateData.palette;
-            root.lastWallpaper = stateData.lastWallpaper;
-            root.schemeType = stateData.schemeType;
-            root.wallpaperBackend = stateData.wallpaperBackend;
-            root.customWallpaperCommand = stateData.customWallpaperCommand;
-            root.wallpapersDirOverride = stateData.wallpapersDirOverride;
-            root.autoStartWallpaperDaemon = stateData.autoStartWallpaperDaemon;
-            root.perMonitorWallpaper = stateData.perMonitorWallpaper;
-            root.colorSourceMonitor = stateData.colorSourceMonitor;
+            root._adoptState();
             root.ensureWallpaperDaemon();
+            if (root._reapplyAfterLoad) {
+                root._reapplyAfterLoad = false;
+                root.reapplyWallpaper();
+            }
         }
     }
 

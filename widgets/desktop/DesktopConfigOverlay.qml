@@ -337,6 +337,8 @@ PanelWindow {
             property var _skewTR: DesktopWidgetStore.getSkew(wKey).tr
             property var _skewBR: DesktopWidgetStore.getSkew(wKey).br
             property var _skewBL: DesktopWidgetStore.getSkew(wKey).bl
+            // Never cover corner you are currently skewing
+            property string _skewDragEdge: ""
             function _rebindSkew() {
                 proxy._skewTL = Qt.binding(() => DesktopWidgetStore.getSkew(proxy.wKey).tl);
                 proxy._skewTR = Qt.binding(() => DesktopWidgetStore.getSkew(proxy.wKey).tr);
@@ -894,12 +896,14 @@ PanelWindow {
                                 corner._startScene = cornerDrag.centroid.scenePosition;
                                 corner._startX = corner._off.x;
                                 corner._startY = corner._off.y;
+                                proxy._skewDragEdge = corner._top ? "top" : "bottom";
                             } else {
                                 var v = proxy._skewLocal(corner.modelData);
                                 DesktopWidgetStore.setSkewCorner(proxy.wKey, corner.modelData, v.x, v.y);
                                 proxy._rebindSkew();
                                 root._snapGuideX = undefined;
                                 root._snapGuideY = undefined;
+                                proxy._skewDragEdge = "";
                             }
                         }
                         onCentroidChanged: {
@@ -968,6 +972,7 @@ PanelWindow {
                                 edge._startScene = edgeDrag.centroid.scenePosition;
                                 edge._s0 = proxy._skewLocal(edge._cn[0]);
                                 edge._s1 = proxy._skewLocal(edge._cn[1]);
+                                proxy._skewDragEdge = edge.modelData === "t" ? "top" : edge.modelData === "b" ? "bottom" : "";
                             } else {
                                 var v0 = proxy._skewLocal(edge._cn[0]);
                                 var v1 = proxy._skewLocal(edge._cn[1]);
@@ -976,6 +981,7 @@ PanelWindow {
                                 proxy._rebindSkew();
                                 root._snapGuideX = undefined;
                                 root._snapGuideY = undefined;
+                                proxy._skewDragEdge = "";
                             }
                         }
                         onCentroidChanged: {
@@ -1083,7 +1089,17 @@ PanelWindow {
                 readonly property real _cardHeight: item ? item.implicitHeight : 0
                 readonly property bool _fitsBelow: proxy.y + proxy.height + _gap + _cardHeight <= root.height
 
-                y: _fitsBelow ? (proxy.height + _gap) : Math.max(-proxy.y, -_gap - _cardHeight)
+                readonly property real _above: Math.max(-proxy.y, -_gap - _cardHeight)
+                readonly property real _below: Math.min(proxy.height + _gap, root.height - proxy.y - _cardHeight)
+
+                y: proxy._skewDragEdge === "bottom" ? _above : proxy._skewDragEdge === "top" ? _below : (_fitsBelow ? (proxy.height + _gap) : _above)
+
+                Behavior on y {
+                    NumberAnimation {
+                        duration: 110
+                        easing.type: Easing.OutCubic
+                    }
+                }
 
                 sourceComponent: Rectangle {
                     radius: UIScale.radiusSm

@@ -158,6 +158,10 @@ Item {
             if (cpuLoader.item)
                 cpuLoader.item.requestPaint();
         }
+        function onBeziersChanged() {
+            if (cpuLoader.item)
+                cpuLoader.item.requestPaint();
+        }
         function onAutoHideChanged() {
             root._checkActivity();
         }
@@ -249,23 +253,41 @@ Item {
                     canvas._paintBars(ctx, bars, n, orientation, vertical, pitch, gap);
             }
 
+            function _bezOff(t) {
+                var b = CavaSettings.bezierFor(root.channel);
+                if (!b.enabled)
+                    return 0;
+                var omt = 1 - t;
+                return omt * omt * omt * b.y0 + 3 * omt * omt * t * b.y1 + 3 * omt * t * t * b.y2 + t * t * t * b.y3;
+            }
+
+            function _bezFit() {
+                var b = CavaSettings.bezierFor(root.channel);
+                return b.enabled && b.fit;
+            }
+
             function _paintBars(ctx, bars, n, orientation, vertical, pitch, gap) {
                 ctx.fillStyle = Colors.accent;
+                var barExtent = vertical ? width : height;
+                var fit = canvas._bezFit();
                 for (var i = 0; i < n; i++) {
-                    var len = Math.max(1, bars[i] * (vertical ? width : height));
+                    var off = canvas._bezOff(n > 1 ? i / (n - 1) : 0) * barExtent;
+                    var base = fit ? Math.max(0, Math.min(barExtent, off)) : off;
+                    var avail = fit ? (barExtent - base) : barExtent;
+                    var len = Math.max(1, bars[i] * avail);
                     switch (orientation) {
                     case "top":
-                        ctx.fillRect(i * (pitch + gap), 0, pitch, len);
+                        ctx.fillRect(i * (pitch + gap), base, pitch, len);
                         break;
                     case "left":
-                        ctx.fillRect(0, i * (pitch + gap), len, pitch);
+                        ctx.fillRect(base, i * (pitch + gap), len, pitch);
                         break;
                     case "right":
-                        ctx.fillRect(width - len, i * (pitch + gap), len, pitch);
+                        ctx.fillRect(width - base - len, i * (pitch + gap), len, pitch);
                         break;
                     default:
                         // "bottom"
-                        ctx.fillRect(i * (pitch + gap), height - len, pitch, len);
+                        ctx.fillRect(i * (pitch + gap), height - base - len, pitch, len);
                     }
                 }
             }
@@ -275,26 +297,32 @@ Item {
                 var baseline;
                 var extent = vertical ? height : width;
                 var step = n > 1 ? extent / (n - 1) : 0;
+                var barExtent = vertical ? width : height;
+                var fit = canvas._bezFit();
+                function _room(o) {
+                    return fit ? Math.max(0, Math.min(barExtent, o)) : o;
+                }
                 for (var i = 0; i < n; i++) {
                     var cross = i * step;
-                    var len = Math.max(0, bars[i] * (vertical ? width : height));
+                    var off = _room(canvas._bezOff(n > 1 ? i / (n - 1) : 0) * barExtent);
+                    var len = Math.max(0, bars[i] * (fit ? (barExtent - off) : barExtent));
                     var along;
                     switch (orientation) {
                     case "top":
-                        along = len;
+                        along = len + off;
                         baseline = 0;
                         break;
                     case "left":
-                        along = len;
+                        along = len + off;
                         baseline = 0;
                         break;
                     case "right":
-                        along = width - len;
+                        along = width - off - len;
                         baseline = width;
                         break;
                     default:
                         // "bottom"
-                        along = height - len;
+                        along = height - off - len;
                         baseline = height;
                     }
                     pts[i] = vertical ? {
@@ -306,19 +334,23 @@ Item {
                     };
                 }
 
+                var off0 = _room(canvas._bezOff(0) * barExtent);
+                var offN = _room(canvas._bezOff(1) * barExtent);
+                var edge0 = orientation === "top" || orientation === "left" ? off0 : baseline - off0;
+                var edgeN = orientation === "top" || orientation === "left" ? offN : baseline - offN;
                 var baseStart = vertical ? {
-                    x: baseline,
+                    x: edge0,
                     y: pts[0].y
                 } : {
                     x: pts[0].x,
-                    y: baseline
+                    y: edge0
                 };
                 var baseEnd = vertical ? {
-                    x: baseline,
+                    x: edgeN,
                     y: pts[n - 1].y
                 } : {
                     x: pts[n - 1].x,
-                    y: baseline
+                    y: edgeN
                 };
 
                 var gradient = vertical ? ctx.createLinearGradient(baseline, 0, (orientation === "right" ? 0 : width), 0) : ctx.createLinearGradient(0, baseline, 0, (orientation === "top" ? height : 0));

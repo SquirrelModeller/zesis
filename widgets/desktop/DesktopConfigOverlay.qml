@@ -29,6 +29,7 @@ PanelWindow {
     onVisibleChanged: {
         if (!visible) {
             root.selectedKey = "";
+            root._lastMovedKey = "";
             root._fileDialogOpen = false;
         }
     }
@@ -36,7 +37,47 @@ PanelWindow {
     property bool snapEnabled: true
     readonly property real snapThreshold: 20
 
+    property bool skewSnapEnabled: true
+
     property string selectedKey: ""
+
+    // Arrow key target
+    property string _lastMovedKey: ""
+
+    function _proxyForKey(key) {
+        if (!key)
+            return null;
+        for (var i = 0; i < widgetRepeater.count; i++) {
+            var o = widgetRepeater.itemAt(i);
+            if (o && o.wKey === key)
+                return o;
+        }
+        return null;
+    }
+    function _nudgeTarget() {
+        return root._proxyForKey(root.selectedKey) || root._proxyForKey(root._lastMovedKey);
+    }
+    function _nudge(dx, dy) {
+        var p = root._nudgeTarget();
+        if (!p)
+            return;
+        var nx = Math.max(0, Math.min(1, p._nx + dx / Math.max(1, root.width - p.width)));
+        var ny = Math.max(0, Math.min(1, p._ny + dy / Math.max(1, root.height - p.height)));
+        DesktopWidgetStore.setPosCoalesced(p.wKey, nx, ny, "nudge:" + p.wKey);
+        p._nx = nx;
+        p._ny = ny;
+        p.x = Qt.binding(() => p._nx * Math.max(1, root.width - p.width));
+        p.y = Qt.binding(() => p._ny * Math.max(1, root.height - p.height));
+        root._lastMovedKey = p.wKey;
+    }
+
+    component NudgeShortcut: Shortcut {
+        property real dx: 0
+        property real dy: 0
+        autoRepeat: true
+        enabled: !root._fileDialogOpen
+        onActivated: root._nudge(dx, dy)
+    }
 
     // Goes click-through while a portal file-picker is open so the native window
     // can receive pointer events (WlrLayer.Top would otherwise intercept them).
@@ -216,6 +257,53 @@ PanelWindow {
         enabled: !root._fileDialogOpen
         onActivated: DesktopWidgetStore.configMode = false
     }
+    Shortcut {
+        sequences: ["Ctrl+Z"]
+        autoRepeat: false
+        enabled: !root._fileDialogOpen
+        onActivated: DesktopWidgetStore.undo()
+    }
+    Shortcut {
+        sequences: ["Ctrl+Shift+Z", "Ctrl+Y"]
+        autoRepeat: false
+        enabled: !root._fileDialogOpen
+        onActivated: DesktopWidgetStore.redo()
+    }
+
+    // Currently this is pixels, but we'll need them in factions later when
+    // all widgets are fractional
+    NudgeShortcut {
+        sequence: "Left"
+        dx: -1
+    }
+    NudgeShortcut {
+        sequence: "Right"
+        dx: 1
+    }
+    NudgeShortcut {
+        sequence: "Up"
+        dy: -1
+    }
+    NudgeShortcut {
+        sequence: "Down"
+        dy: 1
+    }
+    NudgeShortcut {
+        sequence: "Shift+Left"
+        dx: -10
+    }
+    NudgeShortcut {
+        sequence: "Shift+Right"
+        dx: 10
+    }
+    NudgeShortcut {
+        sequence: "Shift+Up"
+        dy: -10
+    }
+    NudgeShortcut {
+        sequence: "Shift+Down"
+        dy: 10
+    }
 
     // Background dim
     Rectangle {
@@ -240,6 +328,150 @@ PanelWindow {
             readonly property string _cavaChannel: proxy.wKey === "cava-left" ? "left" : proxy.wKey === "cava-right" ? "right" : "average"
             property real _nx: DesktopWidgetStore.getPos(wKey).nx
             property real _ny: DesktopWidgetStore.getPos(wKey).ny
+
+            readonly property bool _skewEnabled: {
+                var _ = DesktopWidgetStore._positions;
+                return DesktopWidgetStore.getSkew(wKey).enabled;
+            }
+            property var _skewTL: DesktopWidgetStore.getSkew(wKey).tl
+            property var _skewTR: DesktopWidgetStore.getSkew(wKey).tr
+            property var _skewBR: DesktopWidgetStore.getSkew(wKey).br
+            property var _skewBL: DesktopWidgetStore.getSkew(wKey).bl
+            function _rebindSkew() {
+                proxy._skewTL = Qt.binding(() => DesktopWidgetStore.getSkew(proxy.wKey).tl);
+                proxy._skewTR = Qt.binding(() => DesktopWidgetStore.getSkew(proxy.wKey).tr);
+                proxy._skewBR = Qt.binding(() => DesktopWidgetStore.getSkew(proxy.wKey).br);
+                proxy._skewBL = Qt.binding(() => DesktopWidgetStore.getSkew(proxy.wKey).bl);
+            }
+            function _skewLocal(name) {
+                return name === "tl" ? proxy._skewTL : name === "tr" ? proxy._skewTR : name === "br" ? proxy._skewBR : proxy._skewBL;
+            }
+            function _setSkewLocal(name, x, y) {
+                var v = {
+                    x: Math.max(-1, Math.min(2, x)),
+                    y: Math.max(-1, Math.min(2, y))
+                };
+                if (name === "tl")
+                    proxy._skewTL = v;
+                else if (name === "tr")
+                    proxy._skewTR = v;
+                else if (name === "br")
+                    proxy._skewBR = v;
+                else
+                    proxy._skewBL = v;
+            }
+
+            function _edgeCorners(edge) {
+                return edge === "t" ? ["tl", "tr"] : edge === "r" ? ["tr", "br"] : edge === "b" ? ["br", "bl"] : ["bl", "tl"];
+            }
+
+            function _skewPt(name, offs) {
+                var W = proxy.width, H = proxy.height;
+                var o = offs[name];
+                if (name === "tl")
+                    return Qt.point(o.x * W, o.y * H);
+                if (name === "tr")
+                    return Qt.point(W + o.x * W, o.y * H);
+                if (name === "br")
+                    return Qt.point(W + o.x * W, H + o.y * H);
+                return Qt.point(o.x * W, H + o.y * H); // bl
+            }
+
+            function _skewSnap(moving) {
+                if (!root.skewSnapEnabled)
+                    return {
+                        dx: 0,
+                        dy: 0
+                    };
+                var W = Math.max(1, proxy.width), H = Math.max(1, proxy.height);
+                var thrX = Math.round(7 * UIScale.value) / W;
+                var thrY = Math.round(7 * UIScale.value) / H;
+                var offs = {
+                    tl: proxy._skewTL,
+                    tr: proxy._skewTR,
+                    br: proxy._skewBR,
+                    bl: proxy._skewBL
+                };
+                var names = ["tl", "tr", "br", "bl"];
+                var k;
+                for (k in moving)
+                    offs[k] = moving[k];
+                var targetsX = [0, W], targetsY = [0, H];
+                for (var i = 0; i < 4; i++) {
+                    if (moving[names[i]] !== undefined)
+                        continue;
+                    var sp = proxy._skewPt(names[i], offs);
+                    targetsX.push(sp.x);
+                    targetsY.push(sp.y);
+                }
+                var bestDX = thrX, bestDY = thrY, gx, gy;
+                for (k in moving) {
+                    var p = proxy._skewPt(k, offs);
+                    for (var x = 0; x < targetsX.length; x++) {
+                        var df = (targetsX[x] - p.x) / W;
+                        if (Math.abs(df) < Math.abs(bestDX)) {
+                            bestDX = df;
+                            gx = targetsX[x];
+                        }
+                    }
+                    for (var y = 0; y < targetsY.length; y++) {
+                        var dg = (targetsY[y] - p.y) / H;
+                        if (Math.abs(dg) < Math.abs(bestDY)) {
+                            bestDY = dg;
+                            gy = targetsY[y];
+                        }
+                    }
+                }
+                return {
+                    dx: gx !== undefined ? bestDX : 0,
+                    dy: gy !== undefined ? bestDY : 0,
+                    guideX: gx,
+                    guideY: gy
+                };
+            }
+            function _applySkewGuides(snap) {
+                root._snapGuideX = snap.guideX !== undefined ? proxy.x + snap.guideX : undefined;
+                root._snapGuideY = snap.guideY !== undefined ? proxy.y + snap.guideY : undefined;
+            }
+
+            function _reseed() {
+                proxy._nx = Qt.binding(() => DesktopWidgetStore.getPos(proxy.wKey).nx);
+                proxy._ny = Qt.binding(() => DesktopWidgetStore.getPos(proxy.wKey).ny);
+                proxy._rebindSkew();
+            }
+            Connections {
+                target: DesktopWidgetStore
+                function onHistoryRestored() {
+                    proxy._reseed();
+                }
+            }
+
+            // Bezier baseline
+            readonly property bool _curveEnabled: proxy._isCava && CavaSettings.bezierFor(proxy._cavaChannel).enabled
+            property real _bezY0: CavaSettings.bezierFor(proxy._cavaChannel).y0
+            property real _bezY1: CavaSettings.bezierFor(proxy._cavaChannel).y1
+            property real _bezY2: CavaSettings.bezierFor(proxy._cavaChannel).y2
+            property real _bezY3: CavaSettings.bezierFor(proxy._cavaChannel).y3
+            function _rebindBez() {
+                proxy._bezY0 = Qt.binding(() => CavaSettings.bezierFor(proxy._cavaChannel).y0);
+                proxy._bezY1 = Qt.binding(() => CavaSettings.bezierFor(proxy._cavaChannel).y1);
+                proxy._bezY2 = Qt.binding(() => CavaSettings.bezierFor(proxy._cavaChannel).y2);
+                proxy._bezY3 = Qt.binding(() => CavaSettings.bezierFor(proxy._cavaChannel).y3);
+            }
+            function _bezValFor(name) {
+                return name === "c0" ? proxy._bezY0 : name === "c1" ? proxy._bezY1 : name === "c2" ? proxy._bezY2 : proxy._bezY3;
+            }
+            function _setBezLocal(name, v) {
+                v = Math.max(-1, Math.min(1, v));
+                if (name === "c0")
+                    proxy._bezY0 = v;
+                else if (name === "c1")
+                    proxy._bezY1 = v;
+                else if (name === "c2")
+                    proxy._bezY2 = v;
+                else
+                    proxy._bezY3 = v;
+            }
 
             readonly property var _bgConfig: {
                 var _ = DesktopWidgetStore._positions;
@@ -333,18 +565,58 @@ PanelWindow {
                 }
             }
 
-            DesktopWidgetBg {
+            // background, content warp together, handles stay outside
+            Item {
+                id: skewHost
                 anchors.fill: parent
-                bgConfig: proxy._bgConfig
+
+                transform: Matrix4x4 {
+                    matrix: proxy._skewEnabled ? DesktopWidgetStore.cornerMatrixFrom(skewHost.width, skewHost.height, proxy._skewTL, proxy._skewTR, proxy._skewBR, proxy._skewBL) : Qt.matrix4x4()
+                }
+
+                DesktopWidgetBg {
+                    anchors.fill: parent
+                    bgConfig: proxy._bgConfig
+                }
+
+                // width/height stay bound always, see docs/qml-patterns.md #2 for why
+                Loader {
+                    id: proxyContent
+                    anchors.centerIn: parent
+                    sourceComponent: proxy.modelData.component
+                    width: proxy._overrideW ? proxy._size.w : (item?.implicitWidth ?? 0)
+                    height: proxy._overrideH ? proxy._size.h : (item?.implicitHeight ?? 0)
+                }
             }
 
-            // width/height stay bound always, see docs/qml-patterns.md #2 for why
-            Loader {
-                id: proxyContent
-                anchors.centerIn: parent
-                sourceComponent: proxy.modelData.component
-                width: proxy._overrideW ? proxy._size.w : (item?.implicitWidth ?? 0)
-                height: proxy._overrideH ? proxy._size.h : (item?.implicitHeight ?? 0)
+            // Quad outline through the 4 skewed corners
+            Canvas {
+                id: skewOutline
+                anchors.fill: parent
+                visible: proxy._selected && proxy._skewEnabled
+                readonly property var cornerList: [proxy._skewTL, proxy._skewTR, proxy._skewBR, proxy._skewBL]
+                onCornerListChanged: requestPaint()
+                onWidthChanged: requestPaint()
+                onHeightChanged: requestPaint()
+                onPaint: {
+                    var ctx = getContext("2d");
+                    ctx.clearRect(0, 0, width, height);
+                    var homes = [[0, 0], [width, 0], [width, height], [0, height]];
+                    ctx.beginPath();
+                    for (var i = 0; i < 4; i++) {
+                        var px = homes[i][0] + skewOutline.cornerList[i].x * width;
+                        var py = homes[i][1] + skewOutline.cornerList[i].y * height;
+                        if (i === 0)
+                            ctx.moveTo(px, py);
+                        else
+                            ctx.lineTo(px, py);
+                    }
+                    ctx.closePath();
+                    ctx.strokeStyle = Colors.accent;
+                    ctx.lineWidth = Math.max(1, Math.round(1 * UIScale.value));
+                    ctx.setLineDash([Math.round(4 * UIScale.value), Math.round(3 * UIScale.value)]);
+                    ctx.stroke();
+                }
             }
 
             DragHandler {
@@ -367,6 +639,7 @@ PanelWindow {
                         proxy._nx = Math.max(0.0, Math.min(1.0, proxy.x / rW));
                         proxy._ny = Math.max(0.0, Math.min(1.0, proxy.y / rH));
                         DesktopWidgetStore.setPos(proxy.wKey, proxy._nx, proxy._ny);
+                        root._lastMovedKey = proxy.wKey;
                         proxy.x = Qt.binding(() => proxy._nx * Math.max(1, root.width - proxy.width));
                         proxy.y = Qt.binding(() => proxy._ny * Math.max(1, root.height - proxy.height));
                     }
@@ -434,7 +707,7 @@ PanelWindow {
             // Resize handles: 4 corner grabs (width + height) + 4 edge grabs
             // (single axis).
             Repeater {
-                model: proxy._selected ? ["nw", "n", "ne", "w", "e", "sw", "s", "se"] : []
+                model: proxy._selected ? (proxy._skewEnabled ? ["nw", "ne", "sw", "se"] : ["nw", "n", "ne", "w", "e", "sw", "s", "se"]) : []
 
                 delegate: Rectangle {
                     id: handle
@@ -505,6 +778,7 @@ PanelWindow {
                                 proxy._nx = Math.max(0.0, Math.min(1.0, proxy.x / rW));
                                 proxy._ny = Math.max(0.0, Math.min(1.0, proxy.y / rH));
                                 DesktopWidgetStore.setPos(proxy.wKey, proxy._nx, proxy._ny);
+                                root._lastMovedKey = proxy.wKey;
 
                                 proxy.x = Qt.binding(() => proxy._nx * Math.max(1, root.width - proxy.width));
                                 proxy.y = Qt.binding(() => proxy._ny * Math.max(1, root.height - proxy.height));
@@ -573,6 +847,227 @@ PanelWindow {
                             proxy.height = newH;
                             proxy.x = newX;
                             proxy.y = newY;
+                        }
+                    }
+                }
+            }
+
+            // Skew corner pucks. Drag, warp, persist on release
+            Repeater {
+                model: (proxy._selected && proxy._skewEnabled) ? ["tl", "tr", "br", "bl"] : []
+
+                delegate: Rectangle {
+                    id: corner
+                    required property string modelData
+
+                    readonly property bool _left: modelData === "tl" || modelData === "bl"
+                    readonly property bool _top: modelData === "tl" || modelData === "tr"
+                    readonly property var _off: proxy._skewLocal(modelData)
+
+                    width: Math.round(13 * UIScale.value)
+                    height: width
+                    radius: Math.round(2 * UIScale.value)
+                    rotation: 45
+                    color: Colors.accent
+                    border.color: Colors.bg
+                    border.width: Math.max(1, Math.round(1.5 * UIScale.value))
+                    z: 21
+
+                    x: (corner._left ? 0 : proxy.width) + corner._off.x * proxy.width - width / 2
+                    y: (corner._top ? 0 : proxy.height) + corner._off.y * proxy.height - height / 2
+
+                    property point _startScene
+                    property real _startX
+                    property real _startY
+
+                    HoverHandler {
+                        cursorShape: Qt.SizeAllCursor
+                    }
+
+                    DragHandler {
+                        id: cornerDrag
+                        target: null
+                        grabPermissions: PointerHandler.CanTakeOverFromAnything
+
+                        onActiveChanged: {
+                            if (cornerDrag.active) {
+                                corner._startScene = cornerDrag.centroid.scenePosition;
+                                corner._startX = corner._off.x;
+                                corner._startY = corner._off.y;
+                            } else {
+                                var v = proxy._skewLocal(corner.modelData);
+                                DesktopWidgetStore.setSkewCorner(proxy.wKey, corner.modelData, v.x, v.y);
+                                proxy._rebindSkew();
+                                root._snapGuideX = undefined;
+                                root._snapGuideY = undefined;
+                            }
+                        }
+                        onCentroidChanged: {
+                            if (!cornerDrag.active)
+                                return;
+                            var nx = corner._startX + (cornerDrag.centroid.scenePosition.x - corner._startScene.x) / Math.max(1, proxy.width);
+                            var ny = corner._startY + (cornerDrag.centroid.scenePosition.y - corner._startScene.y) / Math.max(1, proxy.height);
+                            var mv = {};
+                            mv[corner.modelData] = {
+                                x: nx,
+                                y: ny
+                            };
+                            var snap = proxy._skewSnap(mv);
+                            proxy._setSkewLocal(corner.modelData, nx + snap.dx, ny + snap.dy);
+                            proxy._applySkewGuides(snap);
+                        }
+                    }
+                }
+            }
+
+            // Skew edge handles. Drag both corners of one edge together
+            Repeater {
+                model: (proxy._selected && proxy._skewEnabled) ? ["t", "r", "b", "l"] : []
+
+                delegate: Rectangle {
+                    id: edge
+                    required property string modelData
+
+                    readonly property bool _horiz: modelData === "t" || modelData === "b"
+                    readonly property var _cn: proxy._edgeCorners(modelData)
+                    readonly property var _offs: ({
+                            tl: proxy._skewTL,
+                            tr: proxy._skewTR,
+                            br: proxy._skewBR,
+                            bl: proxy._skewBL
+                        })
+                    readonly property point _p0: proxy._skewPt(_cn[0], _offs)
+                    readonly property point _p1: proxy._skewPt(_cn[1], _offs)
+
+                    width: _horiz ? Math.round(20 * UIScale.value) : Math.round(8 * UIScale.value)
+                    height: _horiz ? Math.round(8 * UIScale.value) : Math.round(20 * UIScale.value)
+                    radius: Math.round(3 * UIScale.value)
+                    color: Colors.accent
+                    border.color: Colors.bg
+                    border.width: Math.max(1, Math.round(1.5 * UIScale.value))
+                    z: 21
+
+                    x: (edge._p0.x + edge._p1.x) / 2 - width / 2
+                    y: (edge._p0.y + edge._p1.y) / 2 - height / 2
+
+                    property point _startScene
+                    property var _s0
+                    property var _s1
+
+                    HoverHandler {
+                        cursorShape: edge._horiz ? Qt.SizeVerCursor : Qt.SizeHorCursor
+                    }
+
+                    DragHandler {
+                        id: edgeDrag
+                        target: null
+                        grabPermissions: PointerHandler.CanTakeOverFromAnything
+
+                        onActiveChanged: {
+                            if (edgeDrag.active) {
+                                edge._startScene = edgeDrag.centroid.scenePosition;
+                                edge._s0 = proxy._skewLocal(edge._cn[0]);
+                                edge._s1 = proxy._skewLocal(edge._cn[1]);
+                            } else {
+                                var v0 = proxy._skewLocal(edge._cn[0]);
+                                var v1 = proxy._skewLocal(edge._cn[1]);
+                                DesktopWidgetStore.setSkewCorner(proxy.wKey, edge._cn[0], v0.x, v0.y);
+                                DesktopWidgetStore.setSkewCorner(proxy.wKey, edge._cn[1], v1.x, v1.y);
+                                proxy._rebindSkew();
+                                root._snapGuideX = undefined;
+                                root._snapGuideY = undefined;
+                            }
+                        }
+                        onCentroidChanged: {
+                            if (!edgeDrag.active)
+                                return;
+                            var dnx = (edgeDrag.centroid.scenePosition.x - edge._startScene.x) / Math.max(1, proxy.width);
+                            var dny = (edgeDrag.centroid.scenePosition.y - edge._startScene.y) / Math.max(1, proxy.height);
+                            var t0 = {
+                                x: edge._s0.x + dnx,
+                                y: edge._s0.y + dny
+                            };
+                            var t1 = {
+                                x: edge._s1.x + dnx,
+                                y: edge._s1.y + dny
+                            };
+                            var mv = {};
+                            mv[edge._cn[0]] = t0;
+                            mv[edge._cn[1]] = t1;
+                            var snap = proxy._skewSnap(mv);
+                            proxy._setSkewLocal(edge._cn[0], t0.x + snap.dx, t0.y + snap.dy);
+                            proxy._setSkewLocal(edge._cn[1], t1.x + snap.dx, t1.y + snap.dy);
+                            proxy._applySkewGuides(snap);
+                        }
+                    }
+                }
+            }
+
+            // Bezier baseline handles (cava only): 4 control-point pucks at cross
+            // 0, 1/3, 2/3, 1, draggable along the growth axis only.
+            Repeater {
+                model: (proxy._selected && proxy._curveEnabled) ? ["c0", "c1", "c2", "c3"] : []
+
+                delegate: Rectangle {
+                    id: bez
+                    required property string modelData
+
+                    readonly property string _orient: CavaSettings.orientationFor(proxy._cavaChannel)
+                    readonly property bool _vertical: _orient === "left" || _orient === "right"
+                    readonly property real _t: modelData === "c0" ? 0 : modelData === "c1" ? (1 / 3) : modelData === "c2" ? (2 / 3) : 1
+                    readonly property real _val: proxy._bezValFor(modelData)
+                    readonly property real _extent: _vertical ? proxy.width : proxy.height
+                    readonly property real _px: _val * _extent
+
+                    width: Math.round(12 * UIScale.value)
+                    height: width
+                    radius: width / 2
+                    color: Colors.bg
+                    border.color: Colors.accent
+                    border.width: Math.max(1, Math.round(2 * UIScale.value))
+                    z: 21
+
+                    x: {
+                        if (bez._vertical)
+                            return (bez._orient === "left" ? bez._px : proxy.width - bez._px) - width / 2;
+                        return bez._t * proxy.width - width / 2;
+                    }
+                    y: {
+                        if (!bez._vertical)
+                            return (bez._orient === "top" ? bez._px : proxy.height - bez._px) - height / 2;
+                        return bez._t * proxy.height - height / 2;
+                    }
+
+                    property point _startScene
+                    property real _startVal
+
+                    HoverHandler {
+                        cursorShape: bez._vertical ? Qt.SizeHorCursor : Qt.SizeVerCursor
+                    }
+
+                    DragHandler {
+                        id: bezDrag
+                        target: null
+                        grabPermissions: PointerHandler.CanTakeOverFromAnything
+
+                        onActiveChanged: {
+                            if (bezDrag.active) {
+                                bez._startScene = bezDrag.centroid.scenePosition;
+                                bez._startVal = bez._val;
+                            } else {
+                                CavaSettings.writeBezierControl(proxy._cavaChannel, proxy._bezY0, proxy._bezY1, proxy._bezY2, proxy._bezY3);
+                                proxy._rebindBez();
+                            }
+                        }
+                        onCentroidChanged: {
+                            if (!bezDrag.active)
+                                return;
+                            var delta;
+                            if (bez._vertical)
+                                delta = (bezDrag.centroid.scenePosition.x - bez._startScene.x) / Math.max(1, bez._extent) * (bez._orient === "left" ? 1 : -1);
+                            else
+                                delta = (bezDrag.centroid.scenePosition.y - bez._startScene.y) / Math.max(1, bez._extent) * (bez._orient === "top" ? 1 : -1);
+                            proxy._setBezLocal(bez.modelData, bez._startVal + delta);
                         }
                     }
                 }
@@ -1160,6 +1655,99 @@ PanelWindow {
                             }
                         }
 
+                        // Row 7b: Skew, toggle and reset
+                        Row {
+                            spacing: Math.round(UIScale.spacingSm)
+
+                            Text {
+                                anchors.verticalCenter: parent.verticalCenter
+                                text: I18n.t("desktop.skew")
+                                color: Colors.textDim
+                                font.pixelSize: UIScale.fontSmall
+                            }
+
+                            Rectangle {
+                                id: skewBtn
+                                anchors.verticalCenter: parent.verticalCenter
+                                property bool _active: proxy._skewEnabled
+                                implicitWidth: skewLabel.implicitWidth + Math.round(UIScale.spacingMd * 2)
+                                implicitHeight: skewLabel.implicitHeight + Math.round(UIScale.spacingXs * 2)
+                                radius: height / 2
+                                color: _active ? Colors.withAlpha(Colors.accent, 0.2) : Colors.withAlpha(Colors.outline, 0.15)
+                                border.color: _active ? Colors.accent : "transparent"
+                                border.width: 1
+
+                                Text {
+                                    id: skewLabel
+                                    anchors.centerIn: parent
+                                    text: I18n.t("desktop.skew" + (skewBtn._active ? "On" : "Off"))
+                                    color: skewBtn._active ? Colors.accent : Colors.textDim
+                                    font.pixelSize: UIScale.fontSmall
+                                }
+
+                                HoverHandler {}
+                                TapHandler {
+                                    onTapped: {
+                                        DesktopWidgetStore.setSkewEnabled(proxy.wKey, !skewBtn._active);
+                                        proxy._rebindSkew();
+                                    }
+                                }
+                            }
+
+                            Rectangle {
+                                id: skewSnapBtn
+                                anchors.verticalCenter: parent.verticalCenter
+                                visible: proxy._skewEnabled
+                                property bool _active: root.skewSnapEnabled
+                                implicitWidth: skewSnapLabel.implicitWidth + Math.round(UIScale.spacingMd * 2)
+                                implicitHeight: skewSnapLabel.implicitHeight + Math.round(UIScale.spacingXs * 2)
+                                radius: height / 2
+                                color: _active ? Colors.withAlpha(Colors.accent, 0.2) : Colors.withAlpha(Colors.outline, 0.15)
+                                border.color: _active ? Colors.accent : "transparent"
+                                border.width: 1
+
+                                Text {
+                                    id: skewSnapLabel
+                                    anchors.centerIn: parent
+                                    text: I18n.t("desktop.snap")
+                                    color: skewSnapBtn._active ? Colors.accent : Colors.textDim
+                                    font.pixelSize: UIScale.fontSmall
+                                }
+
+                                HoverHandler {}
+                                TapHandler {
+                                    onTapped: root.skewSnapEnabled = !root.skewSnapEnabled
+                                }
+                            }
+
+                            Rectangle {
+                                anchors.verticalCenter: parent.verticalCenter
+                                visible: proxy._skewEnabled
+                                implicitWidth: skewResetLabel.implicitWidth + Math.round(UIScale.spacingMd * 2)
+                                implicitHeight: skewResetLabel.implicitHeight + Math.round(UIScale.spacingXs * 2)
+                                radius: height / 2
+                                color: skewResetHover.hovered ? Colors.withAlpha(Colors.outline, 0.4) : Colors.withAlpha(Colors.outline, 0.2)
+
+                                Text {
+                                    id: skewResetLabel
+                                    anchors.centerIn: parent
+                                    text: I18n.t("desktop.reset")
+                                    color: Colors.muted
+                                    font.pixelSize: UIScale.fontSmall
+                                }
+
+                                HoverHandler {
+                                    id: skewResetHover
+                                }
+                                TapHandler {
+                                    onTapped: {
+                                        DesktopWidgetStore.resetSkew(proxy.wKey);
+                                        proxy._rebindSkew();
+                                    }
+                                }
+                            }
+                        }
+
                         // Row 8: Cava-only bar count
                         Row {
                             visible: proxy._isCava
@@ -1427,6 +2015,100 @@ PanelWindow {
                                 }
                             }
                         }
+
+                        // Row 14: Cava-only baseline curve, toggle and reset
+                        Row {
+                            visible: proxy._isCava
+                            spacing: Math.round(UIScale.spacingSm)
+
+                            Text {
+                                anchors.verticalCenter: parent.verticalCenter
+                                text: I18n.t("desktop.curve")
+                                color: Colors.textDim
+                                font.pixelSize: UIScale.fontSmall
+                            }
+
+                            Rectangle {
+                                id: curveBtn
+                                anchors.verticalCenter: parent.verticalCenter
+                                property bool _active: proxy._curveEnabled
+                                implicitWidth: curveLabel.implicitWidth + Math.round(UIScale.spacingMd * 2)
+                                implicitHeight: curveLabel.implicitHeight + Math.round(UIScale.spacingXs * 2)
+                                radius: height / 2
+                                color: _active ? Colors.withAlpha(Colors.accent, 0.2) : Colors.withAlpha(Colors.outline, 0.15)
+                                border.color: _active ? Colors.accent : "transparent"
+                                border.width: 1
+
+                                Text {
+                                    id: curveLabel
+                                    anchors.centerIn: parent
+                                    text: I18n.t("desktop.curve" + (curveBtn._active ? "On" : "Off"))
+                                    color: curveBtn._active ? Colors.accent : Colors.textDim
+                                    font.pixelSize: UIScale.fontSmall
+                                }
+
+                                HoverHandler {}
+                                TapHandler {
+                                    onTapped: {
+                                        CavaSettings.writeBezierEnabled(proxy._cavaChannel, !curveBtn._active);
+                                        proxy._rebindBez();
+                                    }
+                                }
+                            }
+
+                            Rectangle {
+                                id: curveFitBtn
+                                anchors.verticalCenter: parent.verticalCenter
+                                visible: proxy._curveEnabled
+                                property bool _fit: CavaSettings.bezierFor(proxy._cavaChannel).fit
+                                implicitWidth: curveFitLabel.implicitWidth + Math.round(UIScale.spacingMd * 2)
+                                implicitHeight: curveFitLabel.implicitHeight + Math.round(UIScale.spacingXs * 2)
+                                radius: height / 2
+                                color: Colors.withAlpha(Colors.accent, 0.2)
+                                border.color: Colors.accent
+                                border.width: 1
+
+                                Text {
+                                    id: curveFitLabel
+                                    anchors.centerIn: parent
+                                    text: I18n.t("desktop.curveFit" + (curveFitBtn._fit ? "On" : "Off"))
+                                    color: Colors.accent
+                                    font.pixelSize: UIScale.fontSmall
+                                }
+
+                                HoverHandler {}
+                                TapHandler {
+                                    onTapped: CavaSettings.writeBezierFit(proxy._cavaChannel, !curveFitBtn._fit)
+                                }
+                            }
+
+                            Rectangle {
+                                anchors.verticalCenter: parent.verticalCenter
+                                visible: proxy._curveEnabled
+                                implicitWidth: curveResetLabel.implicitWidth + Math.round(UIScale.spacingMd * 2)
+                                implicitHeight: curveResetLabel.implicitHeight + Math.round(UIScale.spacingXs * 2)
+                                radius: height / 2
+                                color: curveResetHover.hovered ? Colors.withAlpha(Colors.outline, 0.4) : Colors.withAlpha(Colors.outline, 0.2)
+
+                                Text {
+                                    id: curveResetLabel
+                                    anchors.centerIn: parent
+                                    text: I18n.t("desktop.reset")
+                                    color: Colors.muted
+                                    font.pixelSize: UIScale.fontSmall
+                                }
+
+                                HoverHandler {
+                                    id: curveResetHover
+                                }
+                                TapHandler {
+                                    onTapped: {
+                                        CavaSettings.resetBezier(proxy._cavaChannel);
+                                        proxy._rebindBez();
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -1553,6 +2235,52 @@ PanelWindow {
         anchors.top: parent.top
         anchors.margins: Math.round(UIScale.spacingLg)
         spacing: Math.round(UIScale.spacingSm)
+
+        Repeater {
+            model: [
+                {
+                    key: "undo",
+                    label: "desktop.undo"
+                },
+                {
+                    key: "redo",
+                    label: "desktop.redo"
+                }
+            ]
+
+            delegate: Rectangle {
+                id: histBtn
+                required property var modelData
+                readonly property bool _enabled: modelData.key === "undo" ? DesktopWidgetStore.canUndo : DesktopWidgetStore.canRedo
+                implicitWidth: histLabel.implicitWidth + Math.round(UIScale.spacingMd * 2)
+                implicitHeight: histLabel.implicitHeight + Math.round(UIScale.spacingSm * 2)
+                radius: height / 2
+                opacity: _enabled ? 1 : 0.4
+                color: (histBtn._enabled && histHover.hovered) ? Colors.withAlpha(Colors.accent, 0.18) : Colors.surface
+
+                Behavior on color {
+                    ColorAnimation {
+                        duration: 100
+                    }
+                }
+
+                Text {
+                    id: histLabel
+                    anchors.centerIn: parent
+                    text: I18n.t(histBtn.modelData.label)
+                    color: (histBtn._enabled && histHover.hovered) ? Colors.accent : Colors.textDim
+                    font.pixelSize: UIScale.fontSmall
+                }
+
+                HoverHandler {
+                    id: histHover
+                }
+                TapHandler {
+                    enabled: histBtn._enabled
+                    onTapped: histBtn.modelData.key === "undo" ? DesktopWidgetStore.undo() : DesktopWidgetStore.redo()
+                }
+            }
+        }
 
         Rectangle {
             implicitWidth: snapLabel.implicitWidth + Math.round(UIScale.spacingMd * 2)

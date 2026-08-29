@@ -48,7 +48,18 @@
   "mask": "Mask",
   "rotation": "Rotation",
   "manual": "Manual",
+  "skew": "Skew",
+  "skewOn": "On",
+  "skewOff": "Off",
+  "curve": "Curve",
+  "curveOn": "On",
+  "curveOff": "Off",
+  "curveFitOn": "Fit",
+  "curveFitOff": "Overshoot",
+  "reset": "Reset",
   "widgetConfigMode": "Widget config mode",
   "snap": "Snap",
+  "undo": "Undo",
+  "redo": "Redo",
   "done": "Done"
 }

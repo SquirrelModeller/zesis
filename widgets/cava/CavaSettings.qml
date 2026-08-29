@@ -74,6 +74,62 @@ Singleton {
         settingsFile.writeAdapter();
     }
 
+    // Bezier curves are locked for now to 0, 1/3 2/3 1.
+    readonly property var beziers: settingsData.beziers
+
+    function bezierFor(channel) {
+        var b = settingsData.beziers[channel];
+        function c(v) {
+            return Math.max(-1, Math.min(1, v ?? 0));
+        }
+        return {
+            enabled: b?.enabled === true,
+            // bar compression to fit raised baseline
+            fit: b?.fit !== false,
+            y0: c(b?.y0),
+            y1: c(b?.y1),
+            y2: c(b?.y2),
+            y3: c(b?.y3)
+        };
+    }
+
+    function _writeBezier(channel, patch) {
+        var copy = Object.assign({}, settingsData.beziers);
+        copy[channel] = Object.assign({}, bezierFor(channel), patch);
+        settingsData.beziers = copy;
+        settingsFile.writeAdapter();
+    }
+
+    function writeBezierEnabled(channel, val) {
+        _writeBezier(channel, {
+            enabled: !!val
+        });
+    }
+
+    function writeBezierFit(channel, val) {
+        _writeBezier(channel, {
+            fit: !!val
+        });
+    }
+
+    function writeBezierControl(channel, y0, y1, y2, y3) {
+        _writeBezier(channel, {
+            y0: Math.max(-1, Math.min(1, y0)),
+            y1: Math.max(-1, Math.min(1, y1)),
+            y2: Math.max(-1, Math.min(1, y2)),
+            y3: Math.max(-1, Math.min(1, y3))
+        });
+    }
+
+    function resetBezier(channel) {
+        _writeBezier(channel, {
+            y0: 0,
+            y1: 0,
+            y2: 0,
+            y3: 0
+        });
+    }
+
     JsonAdapter {
         id: settingsData
         property int barCount: 32
@@ -82,6 +138,7 @@ Singleton {
         property string renderer: "cpu"
         property var flips: ({})
         property bool autoHide: true
+        property var beziers: ({})
     }
 
     FileView {

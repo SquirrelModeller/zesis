@@ -1,6 +1,7 @@
 {
   mkShell,
   lib,
+  pkgs,
   quickshell,
   clang-tools,
   imagemagick,
@@ -11,9 +12,8 @@
   congeries,
   makeFontsConf,
   nerd-fonts,
-}:
-mkShell {
-  packages = [
+}: let
+  projectPackages = [
     quickshell
     clang-tools
     imagemagick
@@ -29,20 +29,25 @@ mkShell {
       ]))
   ];
 
-  QML_IMPORT_PATH = lib.concatStringsSep ":" [
-    "${qt6.qtdeclarative}/lib/qt-6/qml"
-    "${qt6.qtquick3d}/lib/qt-6/qml"
-    "${quickshell}/lib/qt-6/qml"
-    "${congeries}/lib/qt-6/qml"
-  ];
+  shellRuntimePackages = import ./runtime-deps.nix {inherit pkgs;};
+in
+  mkShell {
+    packages = projectPackages ++ shellRuntimePackages;
 
-  QT_PLUGIN_PATH = lib.concatStringsSep ":" [
-    "${qt6.qtquick3d}/lib/qt-6/plugins"
-    "${qt6.qtdeclarative}/lib/qt-6/plugins"
-    "${qt6.qtbase}/lib/qt-6/plugins"
-  ];
+    QML_IMPORT_PATH = lib.concatStringsSep ":" [
+      "${qt6.qtdeclarative}/lib/qt-6/qml"
+      "${qt6.qtquick3d}/lib/qt-6/qml"
+      "${quickshell}/lib/qt-6/qml"
+      "${congeries}/lib/qt-6/qml"
+    ];
 
-  FONTCONFIG_FILE = makeFontsConf {fontDirectories = [nerd-fonts.symbols-only];};
+    QT_PLUGIN_PATH = lib.concatStringsSep ":" [
+      "${qt6.qtquick3d}/lib/qt-6/plugins"
+      "${qt6.qtdeclarative}/lib/qt-6/plugins"
+      "${qt6.qtbase}/lib/qt-6/plugins"
+    ];
 
-  ZESIS_DEV = "1";
-}
+    FONTCONFIG_FILE = makeFontsConf {fontDirectories = [nerd-fonts.symbols-only];};
+
+    ZESIS_DEV = "1";
+  }

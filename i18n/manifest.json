@@ -32,6 +32,7 @@
     "notifications",
     "polkit",
     "power",
+    "profiles",
     "pumppanel",
     "record",
     "settings_chrome",

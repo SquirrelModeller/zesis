@@ -41,6 +41,8 @@ Singleton {
         path: root._path
         blockLoading: true
         printErrors: false
+        watchChanges: true
+        onFileChanged: reload()
         onLoaded: root._load(configFile.text())
     }
 

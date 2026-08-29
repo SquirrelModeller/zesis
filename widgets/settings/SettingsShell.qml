@@ -68,6 +68,13 @@ IndexedPanelShell {
                     label: I18n.t("settings_chrome.navWallpaper"),
                     component: wallpaperPanelComp,
                     files: ["themeswitcher/WallpaperPanel.qml"]
+                },
+                {
+                    id: "profiles",
+                    icon: "",
+                    label: I18n.t("settings_chrome.navProfiles"),
+                    component: profilesPanelComp,
+                    files: ["config/ProfilesPanel.qml"]
                 }
             ],
             "barWidgets": [
@@ -146,6 +153,10 @@ IndexedPanelShell {
     Component {
         id: wallpaperPanelComp
         WallpaperPanel {}
+    }
+    Component {
+        id: profilesPanelComp
+        ProfilesPanel {}
     }
     Component {
         id: barPanelComp

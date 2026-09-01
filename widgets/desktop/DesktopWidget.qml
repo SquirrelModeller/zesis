@@ -84,18 +84,32 @@ PanelWindow {
 
     visible: !DesktopWidgetStore.configMode
 
-    DesktopWidgetBg {
-        anchors.fill: parent
-        bgConfig: root._bgConfig
+    readonly property bool _skewEnabled: {
+        var _ = DesktopWidgetStore._positions;
+        return DesktopWidgetStore.getSkew(root.storeKey).enabled;
     }
 
-    // width/height stay bound always, see docs/qml-patterns.md #2 for why
-    Loader {
-        id: contentLoader
-        anchors.centerIn: parent
-        sourceComponent: root.content
-        width: root._overrideW ? root._size.w : (item?.implicitWidth ?? 0)
-        height: root._overrideH ? root._size.h : (item?.implicitHeight ?? 0)
+    Item {
+        id: skewHost
+        anchors.fill: parent
+
+        transform: Matrix4x4 {
+            matrix: root._skewEnabled ? DesktopWidgetStore.cornerMatrix(root.storeKey, skewHost.width, skewHost.height) : Qt.matrix4x4()
+        }
+
+        DesktopWidgetBg {
+            anchors.fill: parent
+            bgConfig: root._bgConfig
+        }
+
+        // width/height stay bound always, see docs/qml-patterns.md #2 for why
+        Loader {
+            id: contentLoader
+            anchors.centerIn: parent
+            sourceComponent: root.content
+            width: root._overrideW ? root._size.w : (item?.implicitWidth ?? 0)
+            height: root._overrideH ? root._size.h : (item?.implicitHeight ?? 0)
+        }
     }
 
     // Re-read position from store when config mode exits (overlay may have moved us).

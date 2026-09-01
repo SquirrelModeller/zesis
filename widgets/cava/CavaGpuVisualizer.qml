@@ -16,6 +16,7 @@ Item {
     }
     readonly property int _styleIndex: CavaSettings.style === "area" ? 1 : 0
     readonly property int _flip: CavaSettings.flipFor(root.channel) ? 1 : 0
+    readonly property var _bezier: CavaSettings.bezierFor(root.channel)
 
     Canvas {
         id: dataCanvas
@@ -61,6 +62,12 @@ Item {
         property int flip: root._flip
         property real gapPx: Math.max(1, Math.round(2 * UIScale.value))
         property real lineWidthPx: Math.max(1, Math.round(1.5 * UIScale.value))
+        property int bezEnabled: root._bezier.enabled ? 1 : 0
+        property int bezFit: root._bezier.fit ? 1 : 0
+        property real bezY0: root._bezier.y0
+        property real bezY1: root._bezier.y1
+        property real bezY2: root._bezier.y2
+        property real bezY3: root._bezier.y3
         property color accentColor: Colors.accent
 
         fragmentShader: "cavashader/cava.qsb"

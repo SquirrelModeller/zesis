@@ -48,7 +48,18 @@
   "mask": "Máscara",
   "rotation": "Rotação",
   "manual": "Manual",
+  "skew": "Perspectiva",
+  "skewOn": "Ativado",
+  "skewOff": "Desativado",
+  "curve": "Curva",
+  "curveOn": "Ativado",
+  "curveOff": "Desativado",
+  "curveFitOn": "Ajustar",
+  "curveFitOff": "Transbordar",
+  "reset": "Redefinir",
   "widgetConfigMode": "Modo de configuração de widgets",
   "snap": "Encaixar",
+  "undo": "Desfazer",
+  "redo": "Refazer",
   "done": "Concluído"
 }

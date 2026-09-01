@@ -11,12 +11,11 @@ Singleton {
     readonly property string _configDir: (Quickshell.env("XDG_CACHE_HOME") || (Quickshell.env("HOME") + "/.cache")) + "/zesis"
 
     property int _refCount: 0
-    property int _refCountLeft: 0
-    property int _refCountRight: 0
     readonly property bool running: _refCount > 0
-    readonly property bool runningLeft: _refCountLeft > 0
-    readonly property bool runningRight: _refCountRight > 0
 
+    // bars       - mean of left and right
+    // barsLeft   - left channel,  low frequency at index 0
+    // barsRight  - right channel, low frequency at index 0
     property var bars: []
     property var barsLeft: []
     property var barsRight: []
@@ -24,26 +23,18 @@ Singleton {
     property bool cavaAvailable: true
 
     function acquire(channel) {
-        if (channel === "left")
-            root._refCountLeft++;
-        else if (channel === "right")
-            root._refCountRight++;
-        else
-            root._refCount++;
+        root._refCount++;
     }
 
     function release(channel) {
-        if (channel === "left")
-            root._refCountLeft = Math.max(0, root._refCountLeft - 1);
-        else if (channel === "right")
-            root._refCountRight = Math.max(0, root._refCountRight - 1);
-        else
-            root._refCount = Math.max(0, root._refCount - 1);
+        root._refCount = Math.max(0, root._refCount - 1);
     }
 
-    // Live reload goes brrrrr
-    function _configText(monoOption) {
-        var lines = ["[general]", "live-config = 1", "framerate = 60", "bars = " + CavaSettings.barCount, "", "[input]", "method = pipewire", "source = auto", "", "[output]", "method = raw", "raw_target = /dev/stdout", "data_format = ascii", "ascii_max_range = 1000", "bar_delimiter = 59", "frame_delimiter = 10", "channels = mono", "mono_option = " + monoOption, "", "[smoothing]", "noise_reduction = 77", ""];
+    // Live reload goes brrrrr.
+    // We request both left and right, which means we need the visualizer
+    // barcount * 2.
+    function _configText() {
+        var lines = ["[general]", "live-config = 1", "framerate = 60", "bars = " + (CavaSettings.barCount * 2), "", "[input]", "method = pipewire", "source = auto", "", "[output]", "method = raw", "raw_target = /dev/stdout", "data_format = ascii", "ascii_max_range = 1000", "bar_delimiter = 59", "frame_delimiter = 10", "channels = stereo", "", "[smoothing]", "noise_reduction = 77", ""];
         return lines.join("\n");
     }
 
@@ -57,53 +48,47 @@ Singleton {
         return true;
     }
 
-    function _onFrame(line, channel) {
+    function _onFrame(line) {
         line = line.trim();
         if (!line)
             return;
         var raw = line.split(";").filter(p => p.length > 0);
-        var out = new Array(raw.length);
-        for (var i = 0; i < raw.length; i++)
-            out[i] = Math.max(0, Math.min(1, (parseInt(raw[i], 10) || 0) / 1000));
-        if (channel === "left") {
-            if (!root._framesEqual(root.barsLeft, out))
-                root.barsLeft = out;
-        } else if (channel === "right") {
-            if (!root._framesEqual(root.barsRight, out))
-                root.barsRight = out;
-        } else {
-            if (!root._framesEqual(root.bars, out))
-                root.bars = out;
+        var n = raw.length >> 1;
+        if (n < 1)
+            return;
+        var left = new Array(n);
+        var right = new Array(n);
+        var avg = new Array(n);
+        for (var i = 0; i < n; i++) {
+            // Left half is mirrored. Index 0 is the highest frequency bar.
+            var l = Math.max(0, Math.min(1, (parseInt(raw[n - 1 - i], 10) || 0) / 1000));
+            var r = Math.max(0, Math.min(1, (parseInt(raw[n + i], 10) || 0) / 1000));
+            left[i] = l;
+            right[i] = r;
+            avg[i] = (l + r) / 2;
         }
+        if (!root._framesEqual(root.bars, avg))
+            root.bars = avg;
+        if (!root._framesEqual(root.barsLeft, left))
+            root.barsLeft = left;
+        if (!root._framesEqual(root.barsRight, right))
+            root.barsRight = right;
+    }
+
+    function _resetBars() {
+        var zero = new Array(CavaSettings.barCount).fill(0);
+        root.bars = zero;
+        root.barsLeft = zero.slice();
+        root.barsRight = zero.slice();
     }
 
     onRunningChanged: {
         if (running) {
-            root.bars = new Array(CavaSettings.barCount).fill(0);
-            configFile.setText(root._configText("average"));
+            root._resetBars();
+            configFile.setText(root._configText());
             cavaProc.running = true;
         } else {
             cavaProc.running = false;
-        }
-    }
-
-    onRunningLeftChanged: {
-        if (runningLeft) {
-            root.barsLeft = new Array(CavaSettings.barCount).fill(0);
-            configFileLeft.setText(root._configText("left"));
-            cavaProcLeft.running = true;
-        } else {
-            cavaProcLeft.running = false;
-        }
-    }
-
-    onRunningRightChanged: {
-        if (runningRight) {
-            root.barsRight = new Array(CavaSettings.barCount).fill(0);
-            configFileRight.setText(root._configText("right"));
-            cavaProcRight.running = true;
-        } else {
-            cavaProcRight.running = false;
         }
     }
 
@@ -111,16 +96,8 @@ Singleton {
         target: CavaSettings
         function onBarCountChanged() {
             if (root.running) {
-                root.bars = new Array(CavaSettings.barCount).fill(0);
-                configFile.setText(root._configText("average"));
-            }
-            if (root.runningLeft) {
-                root.barsLeft = new Array(CavaSettings.barCount).fill(0);
-                configFileLeft.setText(root._configText("left"));
-            }
-            if (root.runningRight) {
-                root.barsRight = new Array(CavaSettings.barCount).fill(0);
-                configFileRight.setText(root._configText("right"));
+                root._resetBars();
+                configFile.setText(root._configText());
             }
         }
     }
@@ -143,39 +120,13 @@ Singleton {
         path: root._configDir + "/cava-widget.conf"
         printErrors: false
     }
-    FileView {
-        id: configFileLeft
-        path: root._configDir + "/cava-widget-left.conf"
-        printErrors: false
-    }
-    FileView {
-        id: configFileRight
-        path: root._configDir + "/cava-widget-right.conf"
-        printErrors: false
-    }
 
     Process {
         id: cavaProc
         running: false
         command: ["cava", "-p", configFile.path]
         stdout: SplitParser {
-            onRead: data => root._onFrame(data, "average")
-        }
-    }
-    Process {
-        id: cavaProcLeft
-        running: false
-        command: ["cava", "-p", configFileLeft.path]
-        stdout: SplitParser {
-            onRead: data => root._onFrame(data, "left")
-        }
-    }
-    Process {
-        id: cavaProcRight
-        running: false
-        command: ["cava", "-p", configFileRight.path]
-        stdout: SplitParser {
-            onRead: data => root._onFrame(data, "right")
+            onRead: data => root._onFrame(data)
         }
     }
 }

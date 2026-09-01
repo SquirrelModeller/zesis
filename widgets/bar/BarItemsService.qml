@@ -107,17 +107,17 @@ Singleton {
         {
             id: "home",
             label: I18n.t("bar.itemHome"),
-            icon: ""
+            src: "../home/HomeBarButton.qml"
         },
         {
             id: "settings",
             label: I18n.t("bar.itemSettings"),
-            icon: "󰘮"
+            src: "../settings/SettingsBarButton.qml"
         },
         {
             id: "lock",
             label: I18n.t("bar.itemLock"),
-            icon: "󰌾"
+            src: "../lockscreen/LockBarButton.qml"
         },
         {
             id: "clock",
@@ -133,7 +133,7 @@ Singleton {
         return s;
     }
 
-    // Ordered list going from Zones -> Islands -> Atom ids Atoms are catalog
+    // Ordered list going from Zones -> Islands -> Atom ids. Atoms are catalog
     // items, tray icons, taskbar and so on.
     property var zones: []
 
@@ -146,10 +146,135 @@ Singleton {
         const result = [];
         for (const zone of root.zones)
             for (const group of zone)
-                for (const id of group)
+                for (const id of root._islandLeafIds(group))
                     if (byId[id])
                         result.push(byId[id]);
         return result;
+    }
+
+    // Island member helpers
+    //
+    // Island is an ordered array. Entries are "atoms" i.e. an id string or
+    // manual chevron object { chevron: "<id>", ids: ["atom",...] }
+    function _memberIsChevron(m) {
+        return !!m && typeof m === "object" && typeof m.chevron === "string";
+    }
+
+    function _memberId(m) {
+        return root._memberIsChevron(m) ? m.chevron : m;
+    }
+
+    // Flat atom-id list for an island, expanding any chevrons.
+    function _islandLeafIds(island) {
+        var out = [];
+        for (var i = 0; i < island.length; i++) {
+            var m = island[i];
+            if (root._memberIsChevron(m))
+                out = out.concat(m.ids);
+            else
+                out.push(m);
+        }
+        return out;
+    }
+
+    // Index of the top-level member whose member-id is id, or -1.
+    function _islandMemberIndex(island, id) {
+        for (var i = 0; i < island.length; i++)
+            if (root._memberId(island[i]) === id)
+                return i;
+        return -1;
+    }
+
+    function _findIslandInZone(zone, id) {
+        for (var i = 0; i < zone.length; i++)
+            if (root._islandMemberIndex(zone[i], id) >= 0)
+                return zone[i];
+        return null;
+    }
+
+    function _newChevronId() {
+        return "chv-" + Math.random().toString(36).slice(2, 8) + "-" + Date.now().toString(36).slice(-4);
+    }
+
+    // Removes whichever member (a bare atom string, or a whole chevron object)
+    // resolves to member-id id
+    function _extractMember(zonesList, id) {
+        for (var zi = 0; zi < zonesList.length; zi++) {
+            var zone = zonesList[zi];
+            for (var ii = 0; ii < zone.length; ii++) {
+                var island = zone[ii];
+                var mi = root._islandMemberIndex(island, id);
+                if (mi >= 0) {
+                    var member = island.splice(mi, 1)[0];
+                    if (island.length === 0)
+                        zone.splice(ii, 1);
+                    return {
+                        member: member,
+                        zoneIdx: zi
+                    };
+                }
+                for (var ci = 0; ci < island.length; ci++) {
+                    var m = island[ci];
+                    if (root._memberIsChevron(m)) {
+                        var k = m.ids.indexOf(id);
+                        if (k >= 0) {
+                            m.ids.splice(k, 1);
+                            return {
+                                member: id,
+                                zoneIdx: zi
+                            };
+                        }
+                    }
+                }
+            }
+        }
+        return null;
+    }
+
+    // Safty check, pull workspace atoms out of chevrons (even automatic ones)
+    // It'll still appear as an entry in the automatic chevron...
+    // TODO Somehow fix this
+    function _evictFloatAtomsFromChevrons(zonesList) {
+        var changed = false;
+        for (var zi = 0; zi < zonesList.length; zi++)
+            for (var ii = 0; ii < zonesList[zi].length; ii++) {
+                var island = zonesList[zi][ii];
+                for (var mi = 0; mi < island.length; mi++) {
+                    var m = island[mi];
+                    if (!root._memberIsChevron(m))
+                        continue;
+                    var k = m.ids.indexOf("workspace");
+                    if (k >= 0) {
+                        m.ids.splice(k, 1);
+                        island.splice(mi, 0, "workspace");
+                        mi++; // step past the bare member we just inserted
+                        changed = true;
+                    }
+                }
+            }
+        return changed;
+    }
+
+    function _normalizeChevrons(zonesList) {
+        for (var zi = 0; zi < zonesList.length; zi++) {
+            var zone = zonesList[zi];
+            for (var ii = zone.length - 1; ii >= 0; ii--) {
+                var island = zone[ii];
+                for (var mi = island.length - 1; mi >= 0; mi--) {
+                    var m = island[mi];
+                    if (!root._memberIsChevron(m))
+                        continue;
+                    if (m.ids.length >= 2)
+                        continue;
+                    if (m.ids.length === 1)
+                        island.splice(mi, 1, m.ids[0]);
+                    else
+                        island.splice(mi, 1);
+                }
+                if (island.length === 0)
+                    zone.splice(ii, 1);
+            }
+        }
     }
 
     readonly property bool anyEnabled: {
@@ -165,7 +290,9 @@ Singleton {
         const s = Object.assign({}, _state);
         s[id] = !isEnabled(id);
         _state = s;
-        BarConfig.writeItemStates(s);
+        BarConfig.patch({
+            itemStates: s
+        });
     }
 
     property var pinnedIds: BarConfig.pinnedIds
@@ -182,34 +309,39 @@ Singleton {
         else
             next.push(id);
         root.pinnedIds = next;
-        BarConfig.writePinnedIds(next);
+        BarConfig.patch({
+            pinnedIds: next
+        });
     }
 
-    // Clones the current zones structure into mutable arrays, for mutation
-    // functions to work on before committing via _commitZones.
+    // Clones the current zones structure into mutable arrays (chevron objects
+    // deep-copied), for mutation functions to work on before committing via
+    // _commitZones.
     function _cloneZones() {
-        return root.zones.map(zone => zone.map(arr => arr.slice()));
+        return root.zones.map(zone => zone.map(island => island.map(m => root._memberIsChevron(m) ? ({
+                            chevron: m.chevron,
+                            ids: m.ids.slice()
+                        }) : m)));
     }
 
-    // Removes id from wherever it currently lives (any zone, any island),
-    // pruning the island it leaves behind if that empties it. Returns the
-    // raw zone index id was removed from (-1 if not found), so the caller
-    // can targeted-prune that specific zone via _maybePruneEmptyZone below
-    // if it's now empty.
-    function _removeAtom(zonesList, id) {
-        for (let zi = 0; zi < zonesList.length; zi++) {
-            const zone = zonesList[zi];
-            for (let ii = 0; ii < zone.length; ii++) {
-                const idx = zone[ii].indexOf(id);
-                if (idx >= 0) {
-                    zone[ii].splice(idx, 1);
-                    if (zone[ii].length === 0)
-                        zone.splice(ii, 1);
-                    return zi;
+    // Enabled and chevron-normalized view of zones
+    function renderZones() {
+        var out = root._cloneZones();
+        for (var zi = 0; zi < out.length; zi++) {
+            var zone = out[zi];
+            for (var ii = 0; ii < zone.length; ii++) {
+                var island = zone[ii];
+                for (var mi = island.length - 1; mi >= 0; mi--) {
+                    var m = island[mi];
+                    if (root._memberIsChevron(m))
+                        m.ids = m.ids.filter(id => root.isEnabled(id));
+                    else if (!root.isEnabled(m))
+                        island.splice(mi, 1);
                 }
             }
         }
-        return -1;
+        root._normalizeChevrons(out);
+        return out;
     }
 
     // Removes zonesList[rawIdx] if it's now empty and doing so wouldn't
@@ -219,12 +351,15 @@ Singleton {
             zonesList.splice(rawIdx, 1);
     }
 
-    // Floor guarantee
+    // Heal degenerate chevrons, then enforce the >= 3 zone floor.
     function _commitZones(zonesList) {
+        root._normalizeChevrons(zonesList);
         while (zonesList.length < 3)
             zonesList.push([]);
         root.zones = zonesList;
-        BarConfig.writeZones(zonesList);
+        BarConfig.patch({
+            zones: zonesList
+        });
     }
 
     // Moves id to an explicit position within a specific island in
@@ -236,15 +371,17 @@ Singleton {
         if (targetIslandIds.length === 0)
             return; // id dropped back into its own solo island, so no-op
         const zonesList = root._cloneZones();
-        const sourceZoneIdx = root._removeAtom(zonesList, id);
+        const ext = root._extractMember(zonesList, id);
+        const sourceZoneIdx = ext ? ext.zoneIdx : -1;
+        const member = ext ? ext.member : id;
         const targetZone = zonesList[targetZoneIdx];
         if (!targetZone)
             return;
-        const target = targetZone.find(arr => arr.indexOf(targetIslandIds[0]) >= 0);
+        const target = root._findIslandInZone(targetZone, targetIslandIds[0]);
         if (!target)
             return;
-        const at = beforeId ? target.indexOf(beforeId) : -1;
-        target.splice(at < 0 ? target.length : at, 0, id);
+        const at = beforeId ? root._islandMemberIndex(target, beforeId) : -1;
+        target.splice(at < 0 ? target.length : at, 0, member);
 
         root._maybePruneEmptyZone(zonesList, sourceZoneIdx);
         root._commitZones(zonesList);
@@ -258,12 +395,13 @@ Singleton {
         const targetZone = zonesList[targetZoneIdx];
         if (!targetZone)
             return;
-        let at = beforeIslandAnchorId ? targetZone.findIndex(arr => arr.indexOf(beforeIslandAnchorId) >= 0) : -1;
+        let at = beforeIslandAnchorId ? targetZone.findIndex(isl => root._islandMemberIndex(isl, beforeIslandAnchorId) >= 0) : -1;
+        let member = id;
         let fromIdx = -1;
         for (let i = 0; i < targetZone.length; i++) {
-            const idx = targetZone[i].indexOf(id);
-            if (idx >= 0) {
-                targetZone[i].splice(idx, 1);
+            const mi = root._islandMemberIndex(targetZone[i], id);
+            if (mi >= 0) {
+                member = targetZone[i].splice(mi, 1)[0];
                 fromIdx = i;
                 break;
             }
@@ -275,11 +413,25 @@ Singleton {
                     at--;
             }
         } else {
-            const sourceZoneIdx = root._removeAtom(zonesList, id);
-            root._maybePruneEmptyZone(zonesList, sourceZoneIdx);
+            const ext = root._extractMember(zonesList, id);
+            if (ext)
+                member = ext.member;
+            root._maybePruneEmptyZone(zonesList, ext ? ext.zoneIdx : -1);
         }
-        targetZone.splice(at < 0 ? targetZone.length : at, 0, [id]);
+        targetZone.splice(at < 0 ? targetZone.length : at, 0, [member]);
         root._commitZones(zonesList);
+    }
+
+    function _extractIsland(zonesList, anchor) {
+        for (let zi = 0; zi < zonesList.length; zi++) {
+            const idx = zonesList[zi].findIndex(isl => root._islandMemberIndex(isl, anchor) >= 0);
+            if (idx >= 0)
+                return {
+                    island: zonesList[zi].splice(idx, 1)[0],
+                    fromZoneIdx: zi
+                };
+        }
+        return null;
     }
 
     // Moves a whole island (identified by any current member id in
@@ -290,24 +442,15 @@ Singleton {
         if (islandIds.length === 0)
             return;
         const zonesList = root._cloneZones();
-        let fromZoneIdx = -1, fromIslandIdx = -1;
-        for (let zi = 0; zi < zonesList.length; zi++) {
-            const idx = zonesList[zi].findIndex(arr => arr.indexOf(islandIds[0]) >= 0);
-            if (idx >= 0) {
-                fromZoneIdx = zi;
-                fromIslandIdx = idx;
-                break;
-            }
-        }
-        if (fromZoneIdx < 0)
+        const ext = root._extractIsland(zonesList, root._memberId(islandIds[0]));
+        if (!ext)
             return;
-        const moving = zonesList[fromZoneIdx].splice(fromIslandIdx, 1)[0];
         const targetZone = zonesList[targetZoneIdx];
         if (!targetZone)
             return;
-        const at = beforeIslandAnchorId ? targetZone.findIndex(arr => arr.indexOf(beforeIslandAnchorId) >= 0) : -1;
-        targetZone.splice(at < 0 ? targetZone.length : at, 0, moving);
-        root._maybePruneEmptyZone(zonesList, fromZoneIdx);
+        const at = beforeIslandAnchorId ? targetZone.findIndex(isl => root._islandMemberIndex(isl, beforeIslandAnchorId) >= 0) : -1;
+        targetZone.splice(at < 0 ? targetZone.length : at, 0, ext.island);
+        root._maybePruneEmptyZone(zonesList, ext.fromZoneIdx);
         root._commitZones(zonesList);
     }
 
@@ -318,7 +461,9 @@ Singleton {
     // live rendered gap geometry.
     function spawnZone(id, atIndex) {
         const zonesList = root._cloneZones();
-        const sourceZoneIdx = root._removeAtom(zonesList, id);
+        const ext = root._extractMember(zonesList, id);
+        const member = ext ? ext.member : id;
+        const sourceZoneIdx = ext ? ext.zoneIdx : -1;
         let at = atIndex;
         if (sourceZoneIdx >= 0 && zonesList[sourceZoneIdx] && zonesList[sourceZoneIdx].length === 0 && zonesList.length > 3) {
             zonesList.splice(sourceZoneIdx, 1);
@@ -326,7 +471,7 @@ Singleton {
                 at--;
         }
         at = Math.max(0, Math.min(at, zonesList.length));
-        zonesList.splice(at, 0, [[id]]);
+        zonesList.splice(at, 0, [[member]]);
         root._commitZones(zonesList);
     }
 
@@ -338,27 +483,80 @@ Singleton {
         if (islandIds.length === 0)
             return;
         const zonesList = root._cloneZones();
-        let fromZoneIdx = -1, fromIslandIdx = -1;
-        for (let zi = 0; zi < zonesList.length; zi++) {
-            const idx = zonesList[zi].findIndex(arr => arr.indexOf(islandIds[0]) >= 0);
-            if (idx >= 0) {
-                fromZoneIdx = zi;
-                fromIslandIdx = idx;
-                break;
-            }
-        }
-        if (fromZoneIdx < 0)
+        const ext = root._extractIsland(zonesList, root._memberId(islandIds[0]));
+        if (!ext)
             return;
-        const moving = zonesList[fromZoneIdx].splice(fromIslandIdx, 1)[0];
         let at = atIndex;
-        if (zonesList[fromZoneIdx].length === 0 && zonesList.length > 3) {
-            zonesList.splice(fromZoneIdx, 1);
-            if (at > fromZoneIdx)
+        if (zonesList[ext.fromZoneIdx].length === 0 && zonesList.length > 3) {
+            zonesList.splice(ext.fromZoneIdx, 1);
+            if (at > ext.fromZoneIdx)
                 at--;
         }
         at = Math.max(0, Math.min(at, zonesList.length));
-        zonesList.splice(at, 0, [moving]);
+        zonesList.splice(at, 0, [ext.island]);
         root._commitZones(zonesList);
+    }
+
+    function spawnChevron(draggedId, targetAtomId, draggedBefore) {
+        if (!draggedId || !targetAtomId || draggedId === targetAtomId)
+            return;
+        // For now we don't let workspaces live in chevrons
+        if (draggedId === "workspace" || targetAtomId === "workspace")
+            return;
+        const zonesList = root._cloneZones();
+        const ext = root._extractMember(zonesList, draggedId);
+        if (!ext)
+            return;
+        for (let zi = 0; zi < zonesList.length; zi++) {
+            const zone = zonesList[zi];
+            for (let ii = 0; ii < zone.length; ii++) {
+                const island = zone[ii];
+                const mi = root._islandMemberIndex(island, targetAtomId);
+                if (mi >= 0 && !root._memberIsChevron(island[mi])) {
+                    island.splice(mi, 1, {
+                        chevron: root._newChevronId(),
+                        ids: draggedBefore ? [draggedId, targetAtomId] : [targetAtomId, draggedId]
+                    });
+                    root._maybePruneEmptyZone(zonesList, ext.zoneIdx);
+                    root._commitZones(zonesList);
+                    return;
+                }
+            }
+        }
+    }
+
+    function addToChevron(draggedId, chevronId, beforeId) {
+        if (!draggedId || !chevronId)
+            return;
+        if (draggedId === "workspace")
+            return;
+
+        const zonesList = root._cloneZones();
+        const ext = root._extractMember(zonesList, draggedId);
+        if (!ext)
+            return;
+        for (let zi = 0; zi < zonesList.length; zi++) {
+            const zone = zonesList[zi];
+            for (let ii = 0; ii < zone.length; ii++) {
+                const island = zone[ii];
+                for (let mi = 0; mi < island.length; mi++) {
+                    const m = island[mi];
+                    if (root._memberIsChevron(m) && m.chevron === chevronId) {
+                        if (m.ids.indexOf(draggedId) < 0) {
+                            const at = beforeId ? m.ids.indexOf(beforeId) : -1;
+                            m.ids.splice(at < 0 ? m.ids.length : at, 0, draggedId);
+                        }
+                        root._maybePruneEmptyZone(zonesList, ext.zoneIdx);
+                        root._commitZones(zonesList);
+                        return;
+                    }
+                }
+            }
+        }
+    }
+
+    function _defaultZones() {
+        return [[["workspace"]], [["music"], ["taskbar"]], [["systray"], ["sysmon", "theme", "keybinds", "bluetooth", "wifi", "airpods", "weather", "brightness", "sound", "mic", "notifications", "config", "battery", "record", "gitupdate"], ["settings", "home", "lock", "clock"]]];
     }
 
     function _merge() {
@@ -380,13 +578,11 @@ Singleton {
         }
         _state = s;
         if (dirty)
-            BarConfig.writeItemStates(s);
+            BarConfig.patch({
+                itemStates: s
+            });
     }
 
-    // Drops ids/islands that no longer exist, appends brand-new catalog ids
-    // into the last zone's last island, enforces the zones.length >= 3 floor.
-    //
-    // Also handles one-time migration.
     function _mergeZones() {
         const known = new Set(items.map(x => x.id));
         let raw = BarConfig.zones;
@@ -394,8 +590,7 @@ Singleton {
 
         if (!raw || raw.length === 0) {
             dirty = true;
-            const legacy = BarConfig._legacyItemIslands;
-            raw = [[["workspace"]], [["music"], ["taskbar"]], (legacy && legacy.length > 0) ? legacy : []];
+            raw = root._defaultZones();
         }
 
         const seen = new Set();
@@ -403,28 +598,42 @@ Singleton {
         for (const zone of raw) {
             const resultZone = [];
             for (const group of (zone || [])) {
-                const filtered = group.filter(id => known.has(id) && !seen.has(id));
-                if (filtered.length !== group.length)
-                    dirty = true;
-                filtered.forEach(id => seen.add(id));
+                const filtered = [];
+                for (const m of group) {
+                    if (root._memberIsChevron(m)) {
+                        const kids = m.ids.filter(id => known.has(id) && !seen.has(id));
+                        if (kids.length !== m.ids.length)
+                            dirty = true;
+                        kids.forEach(id => seen.add(id));
+                        if (kids.length > 0)
+                            filtered.push({
+                                chevron: m.chevron || root._newChevronId(),
+                                ids: kids
+                            });
+                    } else if (known.has(m) && !seen.has(m)) {
+                        filtered.push(m);
+                        seen.add(m);
+                    } else {
+                        dirty = true;
+                    }
+                }
                 if (filtered.length > 0)
                     resultZone.push(filtered);
             }
             result.push(resultZone);
         }
 
+        if (root._evictFloatAtomsFromChevrons(result))
+            dirty = true;
+
+        root._normalizeChevrons(result);
+
         while (result.length < 3) {
             result.push([]);
             dirty = true;
         }
 
-        if (!seen.has("workspace") && known.has("workspace")) {
-            dirty = true;
-            result[0].unshift(["workspace"]);
-            seen.add("workspace");
-        }
-
-        const newIds = items.map(i => i.id).filter(id => id !== "workspace" && !seen.has(id));
+        const newIds = items.map(i => i.id).filter(id => !seen.has(id));
         if (newIds.length > 0) {
             dirty = true;
             const lastZone = result[result.length - 1];
@@ -436,7 +645,9 @@ Singleton {
 
         root.zones = result;
         if (dirty)
-            BarConfig.writeZones(result);
+            BarConfig.patch({
+                zones: result
+            });
     }
 
     Connections {

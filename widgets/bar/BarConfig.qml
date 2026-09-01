@@ -24,8 +24,6 @@ Singleton {
 
     property var pinnedIds: barData.pinnedIds
 
-    // Legacy migration step
-    readonly property var _legacyItemIslands: barData.itemIslands
     // Names of screens (ShellScreen.name) the bar should appear on
     property var monitors: barData.monitors
 
@@ -41,91 +39,9 @@ Singleton {
     // True when FileView completes loading
     property bool ready: false
 
-    function _snapshot() {
-        return {
-            side: root.side,
-            edgeGap: root.edgeGap,
-            endGap: root.endGap,
-            islandRoundness: root.islandRoundness,
-            showStrip: root.showStrip,
-            showIslands: root.showIslands,
-            stripMargin: root.stripMargin,
-            itemStates: root.itemStates,
-            zones: root.zones,
-            monitors: root.monitors,
-            pinnedIds: root.pinnedIds
-        };
-    }
-
-    function write(newSide) {
-        _save(Object.assign(root._snapshot(), {
-            side: newSide
-        }));
-    }
-
-    function writeEdgeGap(newGap) {
-        _save(Object.assign(root._snapshot(), {
-            edgeGap: newGap
-        }));
-    }
-
-    function writeEndGap(newGap) {
-        _save(Object.assign(root._snapshot(), {
-            endGap: newGap
-        }));
-    }
-
-    function writeIslandRoundness(newRoundness) {
-        _save(Object.assign(root._snapshot(), {
-            islandRoundness: newRoundness
-        }));
-    }
-
-    function writeStripMargin(newMargin) {
-        _save(Object.assign(root._snapshot(), {
-            stripMargin: newMargin
-        }));
-    }
-
-    function setShowStrip(show) {
-        _save(Object.assign(root._snapshot(), {
-            showStrip: show
-        }));
-    }
-
-    function setShowIslands(show) {
-        _save(Object.assign(root._snapshot(), {
-            showIslands: show
-        }));
-    }
-
-    function writeItemStates(states) {
-        _save(Object.assign(root._snapshot(), {
-            itemStates: states
-        }));
-    }
-
-    function writeZones(zones) {
-        _save(Object.assign(root._snapshot(), {
-            zones: zones
-        }));
-    }
-
-    function writeMonitors(monitors) {
-        _save(Object.assign(root._snapshot(), {
-            monitors: monitors
-        }));
-    }
-
-    function writePinnedIds(pinnedIds) {
-        _save(Object.assign(root._snapshot(), {
-            pinnedIds: pinnedIds
-        }));
-    }
-
-    function _save(s) {
-        for (var k in s)
-            barData[k] = s[k];
+    function patch(fields) {
+        for (var k in fields)
+            barData[k] = fields[k];
         _writeDebounce.restart();
     }
 
@@ -153,8 +69,6 @@ Singleton {
                 "wifi": false
             })
         property var zones: [[["workspace"]], [["music"], ["taskbar"]], [["systray"], ["sysmon", "theme", "keybinds", "bluetooth", "wifi", "airpods", "weather", "brightness", "sound", "mic", "notifications", "config", "battery", "record", "gitupdate"], ["settings", "home", "lock", "clock"]]]
-        // Legacy variable
-        property var itemIslands: []
         property var monitors: []
         property var pinnedIds: ["workspace"]
     }

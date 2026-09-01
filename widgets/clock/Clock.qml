@@ -15,6 +15,9 @@ Item {
     readonly property real vPad: Math.round(5 * UIScale.value)
     readonly property real charGap: Math.round(1 * UIScale.value)
 
+    // We just snap
+    readonly property bool barAnimatesSize: false
+
     // "breathe" | "on" | "off" | "hidden"
     property string colonMode: ClockSettings.colonMode
     // "fixed" | "fluid"
@@ -110,6 +113,13 @@ Item {
             engine.animateTo(root._resolveTarget(root._date));
         });
         engine.snapTo(_resolveTarget(new Date()));
+    }
+
+    Connections {
+        target: BarConfig
+        function onIsVerticalChanged() {
+            engine.animateTo(root._resolveTarget(root._date));
+        }
     }
 
     // Used by ClockPanel test UI

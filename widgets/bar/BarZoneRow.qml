@@ -2,9 +2,6 @@ pragma ComponentBehavior: Bound
 import QtQuick
 import QtQuick.Layouts
 import "../../"
-import "../home"
-import "../settings"
-import "../lockscreen"
 import "../shared"
 import "../workspaceindicator/disc"
 
@@ -19,7 +16,9 @@ Item {
     // Screen name this bar instance renders on
     property string screenName: ""
 
-    readonly property real _pad: Math.round(24 * UIScale.value)
+    // TODO Make this variable available to adjust in settings
+    readonly property real _pad: 1 * Math.round(12 * UIScale.value)
+    // TODO Make this variable available to adjust in settings
     readonly property real _gap: 4
     readonly property real _pillGap: Math.round(10 * UIScale.value)
     // Gap between adjacent zones
@@ -27,9 +26,55 @@ Item {
     readonly property real _chevronWidth: Math.round(30 * UIScale.value)
     readonly property int _spawnHoldMs: 500
 
+    readonly property int _spawnChevronHoldMs: 1000
     readonly property int _spawnZoneHoldMs: 400
     readonly property real _zoneTickRadius: Math.round(24 * UIScale.value)
     readonly property real _emptyZoneCatchmentHalfWidth: Math.round(40 * UIScale.value)
+
+    // Manual chevrons, they inline their contents instead of a popup.
+    property var _expandedChevrons: ({})
+    function _isChevronExpanded(id) {
+        return root._expandedChevrons[id] === true;
+    }
+    function _toggleChevronExpanded(id) {
+        var m = Object.assign({}, root._expandedChevrons);
+        if (m[id])
+            delete m[id];
+        else
+            m[id] = true;
+        root._expandedChevrons = m;
+    }
+
+    // >0 while one or more atom slots are morphing
+    property int _atomResizing: 0
+    // Returns value the caller should assign to _atomResizing.
+    function _atomResizingAfter(delta) {
+        return Math.max(0, root._atomResizing + delta);
+    }
+
+    // False while the bar is loading its config.
+    property bool _morphReady: false
+    Timer {
+        interval: 900
+        running: true
+        onTriggered: root._morphReady = true
+    }
+
+    // Snapshot of BarConfig, UIScale, workspace disc, pinned
+    readonly property var _cfg: ({
+            isVertical: BarConfig.isVertical,
+            endGap: BarConfig.endGap,
+            pad: root._pad,
+            gap: root._gap,
+            pillGap: root._pillGap,
+            zoneGap: root._zoneGap,
+            chevronWidth: root._chevronWidth,
+            zoneTickRadius: root._zoneTickRadius,
+            emptyZoneCatchmentHalfWidth: root._emptyZoneCatchmentHalfWidth,
+            totalRaw: BarItemsService.zones.length,
+            pinnedIds: BarItemsService.pinnedIds,
+            wsPadSuppressed: WorkspaceDiscService.tuckEnabled || !WorkspaceDiscService.showIslandBackground
+        })
 
     readonly property var _catalogById: {
         var m = {};
@@ -54,76 +99,84 @@ Item {
     property var _widthMap: ({})
     property var _heightMap: ({})
 
+    // These functions are pure in the sense that they only perform reads
+    // on root. They never mutate variables, they only return and let the caller
+    // mutate. This let's us stay sane, and have deterministic behavior.
+
+    function _isChevron(m) {
+        return BarItemsService._memberIsChevron(m);
+    }
+    function _canPin(rawIndex) {
+        return rawIndex !== 0 && rawIndex !== root._cfg.totalRaw - 1;
+    }
+
+    // Manual chevrons which are expanded cannot be compressed.
+    function _idsHaveExpandedChevron(ids) {
+        for (var i = 0; i < ids.length; i++)
+            if (root._isChevron(ids[i]) && root._expandedChevrons[ids[i].chevron] === true)
+                return true;
+        return false;
+    }
+
+    // ids present for layout
     function _availableIdsIn(ids) {
         var out = [];
         for (var i = 0; i < ids.length; i++)
-            if (root._isAvailable(ids[i]))
+            if (root._isChevron(ids[i]) || root._availabilityMap[ids[i]] !== false)
                 out.push(ids[i]);
         return out;
     }
 
-    // All zones filtered to show islands with only actice ids
-    readonly property var _allZoneIslandGroups: {
-        var raw = BarItemsService.zones;
-        var out = [];
-        for (var zi = 0; zi < raw.length; zi++) {
-            var groups = raw[zi];
-            var filtered = [];
-            for (var j = 0; j < groups.length; j++) {
-                var isl = [];
-                for (var k = 0; k < groups[j].length; k++)
-                    if (BarItemsService.isEnabled(groups[j][k]))
-                        isl.push(groups[j][k]);
-                if (isl.length > 0)
-                    filtered.push(isl);
-            }
-            out.push(filtered);
-        }
-        return out;
+    // All atoms are measured the same. TrayItemSlot eases and quantizes its
+    // size which publishes the one integer into _widthMap / _heightMap.
+    // Those two maps are what GrudLayout and all layout fn read from. One
+    // source of truth.
+    function _memberAxisSize(m) {
+        var id = root._isChevron(m) ? m.chevron : m;
+        var s = (root._cfg.isVertical ? root._heightMap[id] : root._widthMap[id]) || 0;
+        return (s > 0) ? s : (root._isChevron(m) ? root._cfg.chevronWidth : 0);
     }
+
+    // Enabled + chevron normalized zones
+    readonly property var _renderZones: BarItemsService.renderZones()
 
     // Zones which hold at least 1 enabled island, index tagged.
     readonly property var _liveZones: {
         var out = [];
-        for (var zi = 0; zi < root._allZoneIslandGroups.length; zi++)
-            if (root._allZoneIslandGroups[zi].length > 0)
+        for (var zi = 0; zi < root._renderZones.length; zi++)
+            if (root._renderZones[zi].length > 0)
                 out.push({
                     rawIndex: zi,
-                    islandGroups: root._allZoneIslandGroups[zi]
+                    islandGroups: root._renderZones[zi]
                 });
         return out;
     }
 
-    // Whatever axis the flows on is the natural width
     function _islandNaturalWidth(ids) {
         var avail = root._availableIdsIn(ids);
         var used = 0;
         for (var i = 0; i < avail.length; i++)
-            used += (i > 0 ? root._gap : 0) + (BarConfig.isVertical ? root._itemHeight(avail[i]) : root._itemWidth(avail[i]));
+            used += (i > 0 ? root._cfg.gap : 0) + root._memberAxisSize(avail[i]);
         return used;
     }
 
-    function _fitCountFor(ids, budget) {
+    function _fitCountFor(members, budget) {
         if (budget < 0)
-            return ids.length;
-        var innerBudget = budget - root._pad;
+            return members.length;
+        var innerBudget = budget - root._cfg.pad;
 
-        // Logic
-        // Can everything fit with no chevron? If not, perform a reserve-based
-        // greedy loop, it'll reserve room for a chevron. This makes items
-        // shrink gradually.
         var totalNatural = 0;
-        for (var t = 0; t < ids.length; t++)
-            totalNatural += (t > 0 ? root._gap : 0) + (BarConfig.isVertical ? root._itemHeight(ids[t]) : root._itemWidth(ids[t]));
+        for (var t = 0; t < members.length; t++)
+            totalNatural += (t > 0 ? root._cfg.gap : 0) + root._memberAxisSize(members[t]);
         if (totalNatural <= innerBudget)
-            return ids.length;
+            return members.length;
 
         var used = 0;
         var count = 0;
-        for (var i = ids.length - 1; i >= 0; i--) {
-            var w = BarConfig.isVertical ? root._itemHeight(ids[i]) : root._itemWidth(ids[i]);
-            var next = used + (count > 0 ? root._gap : 0) + w;
-            var reserve = (i > 0) ? (root._gap + root._chevronWidth) : 0;
+        for (var i = members.length - 1; i >= 0; i--) {
+            var w = root._memberAxisSize(members[i]);
+            var next = used + (count > 0 ? root._cfg.gap : 0) + w;
+            var reserve = (i > 0) ? (root._cfg.gap + root._cfg.chevronWidth) : 0;
             if (next + reserve > innerBudget)
                 break;
             used = next;
@@ -135,34 +188,53 @@ Item {
     // Is this idlands pill background and padding suppressed?
     function _islandPad(ids) {
         var isWorkspaceOnly = ids.length === 1 && ids[0] === "workspace";
-        var suppressed = isWorkspaceOnly && (WorkspaceDiscService.tuckEnabled || !WorkspaceDiscService.showIslandBackground);
-        return suppressed ? 0 : root._pad;
+        return (isWorkspaceOnly && root._cfg.wsPadSuppressed) ? 0 : root._cfg.pad;
     }
 
-    // Minimum width of a non-empty island when collapsed.
+    // Minimum width of a non-empty island when fully collapsed.
+    // NOTE An island holding an unfolded manual chevron is incompressible!
     function _islandMinWidth(ids) {
         var avail = root._availableIdsIn(ids);
         if (avail.length === 0)
             return 0;
         var pad = root._islandPad(ids);
-        return Math.min(root._islandNaturalWidth(ids) + pad, pad + root._chevronWidth);
+        var natural = root._islandNaturalWidth(ids) + pad;
+        if (root._idsHaveExpandedChevron(ids))
+            return natural;
+        return Math.min(natural, pad + root._cfg.chevronWidth);
     }
 
-    // Per-island width budget within a zone, given that zone's own
-    // allocated width.
+    function _islandRenderedWidth(ids, budget) {
+        var avail = root._availableIdsIn(ids);
+        if (avail.length === 0)
+            return 0;
+        var pad = root._islandPad(ids);
+        // We freeze any overflow state while the island is morphing.
+        if (budget < 0 || root._atomResizing > 0)
+            return root._islandNaturalWidth(ids) + pad;
+        var fitCount = root._fitCountFor(avail, budget);
+        var hasOverflow = fitCount < avail.length;
+        var used = 0;
+        for (var i = avail.length - fitCount; i < avail.length; i++)
+            used += (used > 0 ? root._cfg.gap : 0) + root._memberAxisSize(avail[i]);
+        if (hasOverflow)
+            used += (used > 0 ? root._cfg.gap : 0) + root._cfg.chevronWidth;
+        return Math.max(used + pad, root._islandMinWidth(ids));
+    }
+
+    // Per island width budget within a zone, given that zone's own width.
     function _islandBudgetsForZone(rawIndex, zoneWidth) {
-        var groups = root._allZoneIslandGroups[rawIndex] || [];
+        var groups = root._renderZones[rawIndex] || [];
         var n = groups.length;
         var budgets = new Array(n);
         if (zoneWidth < 0) {
-            for (var i = 0; i < n; i++)
-                budgets[i] = -1;
+            for (var i0 = 0; i0 < n; i0++)
+                budgets[i0] = -1;
             return budgets;
         }
         var mins = new Array(n);
         var naturals = new Array(n);
         var totalMin = 0;
-
         var visibleCount = 0;
         for (var i = 0; i < n; i++) {
             var ids = groups[i];
@@ -178,7 +250,7 @@ Item {
             budgets[i] = mins[i];
             visibleCount++;
         }
-        var available = zoneWidth - Math.max(0, visibleCount - 1) * root._pillGap;
+        var available = zoneWidth - Math.max(0, visibleCount - 1) * root._cfg.pillGap;
         var bonus = Math.max(0, available - totalMin);
         for (var j = n - 1; j >= 0; j--) {
             var extra = naturals[j] - mins[j];
@@ -193,33 +265,15 @@ Item {
         return budgets;
     }
 
-    function _islandRenderedWidth(ids, budget) {
-        var avail = root._availableIdsIn(ids);
-        if (avail.length === 0)
-            return 0;
-        var pad = root._islandPad(ids);
-        if (budget < 0)
-            return root._islandNaturalWidth(ids) + pad;
-        var fitCount = root._fitCountFor(avail, budget);
-        var hasOverflow = fitCount < avail.length;
-        var used = 0;
-        for (var i = avail.length - fitCount; i < avail.length; i++)
-            used += (used > 0 ? root._gap : 0) + (BarConfig.isVertical ? root._itemHeight(avail[i]) : root._itemWidth(avail[i]));
-        if (hasOverflow)
-            used += (used > 0 ? root._gap : 0) + root._chevronWidth;
-        return Math.max(used + pad, root._islandMinWidth(ids));
-    }
-
-    // Per-island x offset and width, in islandGroups order.
-    // When there are no pinned atoms, we just use a singular row instead
+    // Island x offset (relative to zone center) and width, in islandGroups
+    // order. Pinned items move to the center of a zone.
     function _islandLayout(rawIndex, budgetWidth) {
-        var groups = root._allZoneIslandGroups[rawIndex] || [];
+        var groups = root._renderZones[rawIndex] || [];
+        var canPin = root._canPin(rawIndex);
         var n = groups.length;
         var widths = new Array(n).fill(0);
         var visible = new Array(n).fill(false);
         var anchorIdx = -1;
-        var totalRaw = BarItemsService.zones.length;
-        var canPin = rawIndex !== 0 && rawIndex !== totalRaw - 1;
         var budgets = (budgetWidth !== undefined && budgetWidth >= 0) ? root._islandBudgetsForZone(rawIndex, budgetWidth) : null;
         for (var i = 0; i < n; i++) {
             var avail = root._availableIdsIn(groups[i]);
@@ -229,7 +283,7 @@ Item {
             widths[i] = budgets ? root._islandRenderedWidth(groups[i], budgets[i]) : Math.max(root._islandMinWidth(groups[i]), root._islandNaturalWidth(groups[i]) + root._islandPad(groups[i]));
             if (canPin && anchorIdx < 0)
                 for (var j = 0; j < avail.length; j++)
-                    if (BarItemsService.isPinned(avail[j])) {
+                    if (!root._isChevron(avail[j]) && root._cfg.pinnedIds.indexOf(avail[j]) >= 0) {
                         anchorIdx = i;
                         break;
                     }
@@ -242,46 +296,50 @@ Item {
             var flowW = 0;
             for (var k = 0; k < n; k++)
                 if (visible[k])
-                    flowW += (flowW > 0 ? root._pillGap : 0) + widths[k];
-            var cursor = -flowW / 2;
+                    flowW += (flowW > 0 ? root._cfg.pillGap : 0) + widths[k];
+            // We round to prevent jitter. xs[] computes to a whole pixel.
+            var cursor = -Math.round(flowW / 2);
+            var started = false;
             for (var m = 0; m < n; m++) {
                 if (!visible[m])
                     continue;
-                if (cursor > -flowW / 2)
-                    cursor += root._pillGap;
+                if (started)
+                    cursor += root._cfg.pillGap;
                 xs[m] = cursor;
                 cursor += widths[m];
+                started = true;
             }
             totalWidth = flowW;
         } else {
             var leftW = 0, rightW = 0;
             for (var l = 0; l < anchorIdx; l++)
                 if (visible[l])
-                    leftW += (leftW > 0 ? root._pillGap : 0) + widths[l];
+                    leftW += (leftW > 0 ? root._cfg.pillGap : 0) + widths[l];
             for (var r = anchorIdx + 1; r < n; r++)
                 if (visible[r])
-                    rightW += (rightW > 0 ? root._pillGap : 0) + widths[r];
+                    rightW += (rightW > 0 ? root._cfg.pillGap : 0) + widths[r];
             var side = Math.max(leftW, rightW);
-            totalWidth = widths[anchorIdx] + 2 * (side + root._pillGap);
+            totalWidth = widths[anchorIdx] + 2 * (side + root._cfg.pillGap);
 
-            var anchorX = -widths[anchorIdx] / 2;
+            // Rounding is critical to prevent jitter
+            var anchorX = -Math.round(widths[anchorIdx] / 2);
             xs[anchorIdx] = anchorX;
 
-            var leftEdge = anchorX - root._pillGap;
+            var leftEdge = anchorX - root._cfg.pillGap;
             for (var li = anchorIdx - 1; li >= 0; li--) {
                 if (!visible[li])
                     continue;
                 leftEdge -= widths[li];
                 xs[li] = leftEdge;
-                leftEdge -= root._pillGap;
+                leftEdge -= root._cfg.pillGap;
             }
 
-            var rightEdge = anchorX + widths[anchorIdx] + root._pillGap;
+            var rightEdge = anchorX + widths[anchorIdx] + root._cfg.pillGap;
             for (var ri = anchorIdx + 1; ri < n; ri++) {
                 if (!visible[ri])
                     continue;
                 xs[ri] = rightEdge;
-                rightEdge += widths[ri] + root._pillGap;
+                rightEdge += widths[ri] + root._cfg.pillGap;
             }
         }
 
@@ -298,37 +356,41 @@ Item {
         return root._islandLayout(rawIndex).totalWidth;
     }
 
-    // Minimum rendered width of a non-empty zone. All of its islands collapsed
-    // to its own floor (_islandMinWidth).
+    // Minimum rendered width of a non empty zone. Every island collapsed to
+    // its own floor.
     function _zoneMinWidth(rawIndex) {
-        var groups = root._allZoneIslandGroups[rawIndex] || [];
+        var groups = root._renderZones[rawIndex] || [];
         var sum = 0, count = 0;
         for (var i = 0; i < groups.length; i++) {
             var avail = root._availableIdsIn(groups[i]);
             if (avail.length === 0)
                 continue;
-            sum += (count > 0 ? root._pillGap : 0) + root._islandMinWidth(groups[i]);
+            sum += (count > 0 ? root._cfg.pillGap : 0) + root._islandMinWidth(groups[i]);
             count++;
         }
         return sum;
     }
 
-    // Positions are absolute for all zones. They are at fixed fractions.
-    // I.e. the raw index divided by  zone count total.
+    readonly property real _mainSize: BarConfig.isVertical ? root.height : root.width
+
+    // Absolute pos and width for every live zone in their fractions.
     readonly property var _zoneLayout: {
+        var renderZones = root._renderZones;
+        var cfg = root._cfg;
+        var usable = Math.max(0, root._mainSize - 2 * cfg.endGap);
+
         var liveRaw = [];
-        for (var i = 0; i < root._liveZones.length; i++) {
-            var rawIdx = root._liveZones[i].rawIndex;
-            if (root._zoneNaturalWidth(rawIdx) > 0)
-                liveRaw.push(rawIdx);
+        for (var z = 0; z < renderZones.length; z++) {
+            if (renderZones[z].length === 0)
+                continue;
+            if (root._zoneNaturalWidth(z) > 0)
+                liveRaw.push(z);
         }
         var n = liveRaw.length;
         if (n === 0)
             return [];
 
-        var totalRaw = BarItemsService.zones.length;
-        var mainSize = BarConfig.isVertical ? root.height : root.width;
-        var usable = Math.max(0, mainSize - 2 * BarConfig.endGap);
+        var totalRaw = cfg.totalRaw;
 
         var mins = new Array(n), naturals = new Array(n);
         for (var i = 0; i < n; i++) {
@@ -352,7 +414,7 @@ Item {
             positions[ci] = frac * usable - widths[ci] / 2;
             if (c > 0) {
                 var prev = centerIdxs[c - 1];
-                var prevEdge = positions[prev] + widths[prev] + root._zoneGap;
+                var prevEdge = positions[prev] + widths[prev] + cfg.zoneGap;
                 if (positions[ci] < prevEdge)
                     positions[ci] = prevEdge;
             }
@@ -365,24 +427,23 @@ Item {
             var firstC = centerIdxs[0];
             var lastC = centerIdxs[centerIdxs.length - 1];
             if (leftIdx >= 0) {
-                var leftRoom = Math.max(0, positions[firstC] - root._zoneGap);
+                var leftRoom = Math.max(0, positions[firstC] - cfg.zoneGap);
                 widths[leftIdx] = Math.max(mins[leftIdx], Math.min(naturals[leftIdx], leftRoom));
                 positions[leftIdx] = 0;
             }
             if (rightIdx >= 0) {
-                var farEdge = positions[lastC] + widths[lastC] + root._zoneGap;
+                var farEdge = positions[lastC] + widths[lastC] + cfg.zoneGap;
                 var rightRoom = Math.max(0, usable - farEdge);
                 widths[rightIdx] = Math.max(mins[rightIdx], Math.min(naturals[rightIdx], rightRoom));
                 positions[rightIdx] = usable - widths[rightIdx];
             }
         } else {
-            // No interior zone live right now
             var edgeIdxs = [];
             if (leftIdx >= 0)
                 edgeIdxs.push(leftIdx);
             if (rightIdx >= 0)
                 edgeIdxs.push(rightIdx);
-            var totalGap = Math.max(0, edgeIdxs.length - 1) * root._zoneGap;
+            var totalGap = Math.max(0, edgeIdxs.length - 1) * cfg.zoneGap;
             var availableForZones = Math.max(0, usable - totalGap);
             var totalMin = 0;
             for (var e = 0; e < edgeIdxs.length; e++) {
@@ -406,37 +467,39 @@ Item {
         }
 
         var out = [];
-        for (var m = 0; m < n; m++)
+        for (var mm = 0; mm < n; mm++)
             out.push({
-                rawIndex: liveRaw[m],
-                pos: positions[m],
-                width: widths[m],
-                budget: widths[m]
+                rawIndex: liveRaw[mm],
+                pos: positions[mm],
+                width: widths[mm],
+                budget: widths[mm]
             });
         return out;
     }
 
-    function _zoneWidthFor(rawIndex) {
-        for (var i = 0; i < root._zoneLayout.length; i++)
-            if (root._zoneLayout[i].rawIndex === rawIndex)
-                return root._zoneLayout[i].budget;
-        return -1;
+    // keyed by rawIndex, I.e. brrrrr speeds
+    readonly property var _zoneLayoutByRaw: {
+        var m = ({});
+        var zl = root._zoneLayout;
+        for (var i = 0; i < zl.length; i++)
+            m[zl[i].rawIndex] = zl[i];
+        return m;
     }
 
-    // Effective bounds for every raw zone. Ordered in raw-index.
-    // Live zones computes rendered pos/width from _zoneLayout.
-    // Empty zones get a fixed-size placeholder centered on the same fixed
-    // anchor fraction _zoneLayout would use if they had content, so they
-    // stay a reachable drop target and a sensible gap reference point.
+    function _zoneWidthFor(rawIndex) {
+        var e = root._zoneLayoutByRaw[rawIndex];
+        return e ? e.budget : -1;
+    }
+
+    // Effective bounds for every raw zone, in raw index order. Live zones use
+    // their rendered pos/width.
     readonly property var _allZoneBounds: {
-        var totalRaw = BarItemsService.zones.length;
+        var cfg = root._cfg;
+        var totalRaw = cfg.totalRaw;
         if (totalRaw === 0)
             return [];
-        var mainSize = BarConfig.isVertical ? root.height : root.width;
-        var usable = Math.max(0, mainSize - 2 * BarConfig.endGap);
-        var byRaw = {};
-        for (var i = 0; i < root._zoneLayout.length; i++)
-            byRaw[root._zoneLayout[i].rawIndex] = root._zoneLayout[i];
+        var usable = Math.max(0, root._mainSize - 2 * cfg.endGap);
+        var byRaw = root._zoneLayoutByRaw;
         var out = [];
         for (var idx = 0; idx < totalRaw; idx++) {
             var entry = byRaw[idx];
@@ -451,24 +514,22 @@ Item {
                 var anchor = frac * usable;
                 out.push({
                     rawIndex: idx,
-                    start: anchor - root._emptyZoneCatchmentHalfWidth,
-                    end: anchor + root._emptyZoneCatchmentHalfWidth
+                    start: anchor - cfg.emptyZoneCatchmentHalfWidth,
+                    end: anchor + cfg.emptyZoneCatchmentHalfWidth
                 });
             }
         }
         return out;
     }
 
-    // The N+1 candidate zone-insertion slots (before raw zone 0, between
-    // each adjacent pair of raw zones, after the last), positioned at the
-    // midpoint of the gap between each pair's bounds. rawAt is the index to
-    // splice a new zone at in BarItemsService.zones.
+    // The N+1 candidate zone-insertion slots, at the midpoint of each gap.
+    // rawAt is the index to splice a new zone at in BarItemsService.zones.
     readonly property var _zoneGapCandidates: {
         var bounds = root._allZoneBounds;
         var n = bounds.length;
-        var mainSize = BarConfig.isVertical ? root.height : root.width;
-        var usable = Math.max(0, mainSize - 2 * BarConfig.endGap);
-        var totalRaw = BarItemsService.zones.length;
+        var cfg = root._cfg;
+        var usable = Math.max(0, root._mainSize - 2 * cfg.endGap);
+        var totalRaw = cfg.totalRaw;
         var out = [];
         if (n === 0) {
             out.push({
@@ -525,14 +586,6 @@ Item {
         return pill ? pill.slotFor(id) : null;
     }
 
-    function _itemWidth(id) {
-        return root._widthMap[id] || 0;
-    }
-
-    function _itemHeight(id) {
-        return root._heightMap[id] || 0;
-    }
-
     function _isVisibleInRow(id) {
         var pill = root._pillFor(id);
         return pill ? pill.isVisibleInRow(id) : false;
@@ -568,17 +621,17 @@ Item {
         return null;
     }
 
-    // Zone catchment for island-spawn hit-testing.
+    // Zone catchment and gap-tick hit-testing.
     function _zoneIndexAtPos(pos) {
         var coord = BarConfig.isVertical ? pos.y : pos.x;
-        var origin = BarConfig.endGap;
+        var origin = root._cfg.endGap;
         var bounds = root._allZoneBounds;
         var cands = root._zoneGapCandidates;
         for (var i = 0; i < bounds.length; i++) {
             var loCand = cands[i];
             var hiCand = cands[i + 1];
-            var lo = Math.min(origin + bounds[i].start, origin + loCand.pos + root._zoneTickRadius);
-            var hi = Math.max(origin + bounds[i].end, origin + hiCand.pos - root._zoneTickRadius);
+            var lo = Math.min(origin + bounds[i].start, origin + loCand.pos + root._cfg.zoneTickRadius);
+            var hi = Math.max(origin + bounds[i].end, origin + hiCand.pos - root._cfg.zoneTickRadius);
             if (coord >= lo && coord <= hi)
                 return bounds[i].rawIndex;
         }
@@ -587,12 +640,12 @@ Item {
 
     function _zoneGapCandidateAt(pos) {
         var coord = BarConfig.isVertical ? pos.y : pos.x;
-        var origin = BarConfig.endGap;
+        var origin = root._cfg.endGap;
         var cands = root._zoneGapCandidates;
         for (var i = 0; i < cands.length; i++) {
             if (cands[i].wide)
                 return cands[i];
-            if (Math.abs(coord - (origin + cands[i].pos)) <= root._zoneTickRadius)
+            if (Math.abs(coord - (origin + cands[i].pos)) <= root._cfg.zoneTickRadius)
                 return cands[i];
         }
         return null;
@@ -624,7 +677,7 @@ Item {
         var coord = BarConfig.isVertical ? pos.y : pos.x;
         var beforeId = "";
         for (var i = 0; i < pill.ids.length; i++) {
-            var id = pill.ids[i];
+            var id = BarItemsService._memberId(pill.ids[i]);
             if (id === draggedId || !root._isVisibleInRow(id))
                 continue;
             var slot = root._slotFor(id);
@@ -639,7 +692,7 @@ Item {
         }
         return {
             zoneRawIdx: pill.zoneRawIndex,
-            islandIds: pill.ids.filter(function (x) {
+            islandIds: pill._memberIds.filter(function (x) {
                 return x !== draggedId;
             }),
             beforeId: beforeId
@@ -670,6 +723,11 @@ Item {
     property int _spawnZoneAtIndex: -1
     property real _spawnZonePos: 0
 
+    property string _dropTargetChevronId: ""
+    // When a chevron is ready to be created
+    property bool _spawnChevronArmed: false
+    property string _chevronHoldTargetAtomId: ""
+
     // Identifies whichever hold-target the pointer is currently over, or ""
     // for pill-hover/dead-space.
     property string _holdTargetKey: ""
@@ -679,8 +737,10 @@ Item {
             return;
         spawnHoldTimer.stop();
         spawnZoneHoldTimer.stop();
+        chevronHoldTimer.stop();
         root._spawnArmed = false;
         root._spawnZoneArmed = false;
+        root._spawnChevronArmed = false;
         root._holdTargetKey = key;
         if (timer)
             timer.restart();
@@ -701,15 +761,22 @@ Item {
         return root._dropTargetIslandIds[root._dropTargetIslandIds.length - 1];
     }
 
+    // Clear where atoms or islands are dropped to
+    function _clearDropTargets() {
+        root._dropTargetIslandIds = null;
+        root._dropTargetZoneRawIdx = -1;
+        root._dropBeforeId = "";
+        root._dropTargetChevronId = "";
+        root._chevronHoldTargetAtomId = "";
+    }
+
     function _beginDrag(slot) {
         root._dragItemData = slot.itemData;
         root._dragItemW = slot.width;
         root._dragItemH = slot.height;
         root._dragGrab = null;
         root._setHoldTarget("");
-        root._dropTargetIslandIds = null;
-        root._dropTargetZoneRawIdx = -1;
-        root._dropBeforeId = "";
+        root._clearDropTargets();
         root._dragPos = root._mapToRoot(slot, slot.width / 2, slot.height / 2);
         if (slot.itemRef && slot.itemRef.grabToImage)
             slot.itemRef.grabToImage(function (result) {
@@ -720,15 +787,41 @@ Item {
     function _updateDragPos(p) {
         root._dragPos = p;
 
+        var draggedId = root._dragItemData.id;
+        var draggingChevron = root._dragItemData.chevron === true;
+        // We just don't put workspace atoms in chevrons... at some point we can
+        // fix the rendering issues that come with it. I just don't have time.
+        // In other words: I can't be bothered
+        var chevronEligible = !draggingChevron && draggedId !== "workspace";
+
         var islandHit = root._islandHitAt(p);
         if (islandHit) {
-            root._setHoldTarget("");
-            var target = root._computeMergeTarget(root._dragItemData.id, p, islandHit.pill);
+            var mem = islandHit.pill.memberAt(p);
+
+            if (mem && mem.isChevron && mem.id !== draggedId && chevronEligible) {
+                root._setHoldTarget("");
+                root._dropTargetChevronId = mem.id;
+                root._dropTargetZoneRawIdx = islandHit.pill.zoneRawIndex;
+                root._dropTargetIslandIds = null;
+                root._dropBeforeId = "";
+                return;
+            }
+            root._dropTargetChevronId = "";
+
+            var target = root._computeMergeTarget(draggedId, p, islandHit.pill);
             root._dropTargetZoneRawIdx = target.zoneRawIdx;
             root._dropTargetIslandIds = target.islandIds;
             root._dropBeforeId = target.beforeId;
+
+            if (mem && !mem.isChevron && mem.id !== draggedId && chevronEligible && mem.id !== "workspace") {
+                root._chevronHoldTargetAtomId = mem.id;
+                root._setHoldTarget("chv:" + mem.id, chevronHoldTimer);
+            } else {
+                root._setHoldTarget("");
+            }
             return;
         }
+        root._dropTargetChevronId = "";
         root._dropTargetZoneRawIdx = -1;
         root._dropTargetIslandIds = null;
         root._dropBeforeId = "";
@@ -755,14 +848,19 @@ Item {
     function _endDrag() {
         spawnHoldTimer.stop();
         spawnZoneHoldTimer.stop();
+        chevronHoldTimer.stop();
         if (root._dragItemData) {
-            if (root._spawnZoneArmed) {
+            if (root._dropTargetChevronId) {
+                BarItemsService.addToChevron(root._dragItemData.id, root._dropTargetChevronId, "");
+            } else if (root._spawnChevronArmed && root._chevronHoldTargetAtomId) {
+                BarItemsService.spawnChevron(root._dragItemData.id, root._chevronHoldTargetAtomId, false);
+            } else if (root._spawnZoneArmed) {
                 BarItemsService.spawnZone(root._dragItemData.id, root._spawnZoneAtIndex);
             } else if (root._spawnArmed) {
                 var zi = root._spawnTargetZoneRawIdx;
-                var groups = root._allZoneIslandGroups[zi] || [];
+                var groups = root._renderZones[zi] || [];
                 var idx = root._spawnBeforeIslandIdx;
-                var anchorId = (idx >= 0 && idx < groups.length) ? groups[idx][0] : "";
+                var anchorId = (idx >= 0 && idx < groups.length) ? BarItemsService._memberId(groups[idx][0]) : "";
                 BarItemsService.spawnIsland(root._dragItemData.id, zi, anchorId);
             } else if (root._dropTargetIslandIds !== null) {
                 BarItemsService.moveIconToIsland(root._dragItemData.id, root._dropTargetZoneRawIdx, root._dropTargetIslandIds, root._dropBeforeId);
@@ -774,9 +872,8 @@ Item {
         root._holdTargetKey = "";
         root._spawnArmed = false;
         root._spawnZoneArmed = false;
-        root._dropTargetIslandIds = null;
-        root._dropTargetZoneRawIdx = -1;
-        root._dropBeforeId = "";
+        root._spawnChevronArmed = false;
+        root._clearDropTargets();
         root._spawnBeforeIslandIdx = -1;
         root._spawnTargetZoneRawIdx = -1;
         root._spawnZoneAtIndex = -1;
@@ -826,9 +923,9 @@ Item {
                 BarItemsService.spawnZoneWithIsland(root._dragIslandIds, root._spawnZoneAtIndex);
             } else {
                 var rawIdx = root._islandDropZoneRawIdx;
-                var groups = root._allZoneIslandGroups[rawIdx] || [];
+                var groups = root._renderZones[rawIdx] || [];
                 var idx = root._islandDropIdx;
-                var anchorId = (idx >= 0 && idx < groups.length) ? groups[idx][0] : "";
+                var anchorId = (idx >= 0 && idx < groups.length) ? BarItemsService._memberId(groups[idx][0]) : "";
                 BarItemsService.moveIsland(root._dragIslandIds, rawIdx, anchorId);
             }
         }
@@ -906,9 +1003,7 @@ Item {
         root._dragItemH = h;
         root._dragGrab = null;
         root._setHoldTarget("");
-        root._dropTargetIslandIds = null;
-        root._dropTargetZoneRawIdx = -1;
-        root._dropBeforeId = "";
+        root._clearDropTargets();
         root._dragPos = Qt.point(barLocalX, barLocalY);
     }
     function updateWorkspaceDragPos(barLocalX, barLocalY) {
@@ -936,49 +1031,111 @@ Item {
         onTriggered: root._spawnZoneArmed = true
     }
 
+    Timer {
+        id: chevronHoldTimer
+        interval: root._spawnChevronHoldMs
+        onTriggered: root._spawnChevronArmed = true
+    }
+
     Component {
-        id: simpleButton
-        BarButton {}
+        id: chevronComponent
+        ChevronAtom {}
     }
 
     // The inner Loader stays active/visible, the wrapper's own visible is the
-    // place overflow/disabled/unavailable state is expressed..
+    // place overflow/disabled/unavailable state is expressed.
+    //
+    // Slots own along-flow size animatio. Atoms report its target
+    // implicitWidth/Height. Slots ease that delta and are the only ones
+    // to report that quantized value to a whole pixel.
     component TrayItemSlot: Item {
         id: slot
         required property var itemData
         property bool forceVisible: false
         property bool reorderable: false
+        // Workspace placeholder does not wanna ease sizing
+        property bool animateSize: true
+        property bool clipToSlot: false
 
-        readonly property real itemWidth: content.item ? content.implicitWidth : 0
-        readonly property real itemHeight: content.item ? content.implicitHeight : 0
+        // Size of the atoms. Drag ghosts, overflow, popup-measurements need
+        // this.
+        readonly property real itemWidth: content.item ? content.item.implicitWidth : 0
+        readonly property real itemHeight: content.item ? content.item.implicitHeight : 0
         readonly property var itemRef: content.item
         readonly property bool itemAvailable: content.item ? content.item.available !== false : true
 
         readonly property bool _isDragging: root._dragItemData !== null && root._dragItemData.id === slot.itemData.id
         readonly property bool _showDropBefore: root._dragItemData !== null && !slot._isDragging && root._dropBeforeId === slot.itemData.id
         readonly property bool _showDropAfter: root._dragItemData !== null && root._dropBeforeId === "" && root._dropEndTargetId === slot.itemData.id
+
+        // Eased sizes
+        property real _animW: slot.itemWidth
+        property real _animH: slot.itemHeight
+        readonly property int effectiveWidth: Math.round(slot._animW)
+        readonly property int effectiveHeight: Math.round(slot._animH)
+
+        property bool _sizeSettled: false
+        function _armSettle() {
+            if (!slot._sizeSettled && (slot.effectiveWidth > 0 || slot.effectiveHeight > 0))
+                settleTimer.restart();
+        }
+        Timer {
+            id: settleTimer
+            interval: 0
+            onTriggered: slot._sizeSettled = true
+        }
+        Behavior on _animW {
+            enabled: slot.animateSize && root._morphReady && slot._sizeSettled
+            NumberAnimation {
+                id: wAnim
+                duration: Anim.morph
+                easing.type: Easing.BezierSpline
+                easing.bezierCurve: Anim.standard
+                onRunningChanged: root._atomResizing = root._atomResizingAfter(running ? 1 : -1)
+            }
+        }
+        Behavior on _animH {
+            enabled: slot.animateSize && root._morphReady && slot._sizeSettled
+            NumberAnimation {
+                id: hAnim
+                duration: Anim.morph
+                easing.type: Easing.BezierSpline
+                easing.bezierCurve: Anim.standard
+                onRunningChanged: root._atomResizing = root._atomResizingAfter(running ? 1 : -1)
+            }
+        }
+        Component.onDestruction: {
+            if (wAnim.running)
+                root._atomResizing = root._atomResizingAfter(-1);
+            if (hAnim.running)
+                root._atomResizing = root._atomResizingAfter(-1);
+        }
+
         onItemAvailableChanged: {
             var m = Object.assign({}, root._availabilityMap);
             m[slot.itemData.id] = slot.itemAvailable;
             root._availabilityMap = m;
         }
-        onItemWidthChanged: {
+        onEffectiveWidthChanged: {
             var m = Object.assign({}, root._widthMap);
-            m[slot.itemData.id] = slot.itemWidth;
+            m[slot.itemData.id] = slot.effectiveWidth;
             root._widthMap = m;
+            slot._armSettle();
         }
-        onItemHeightChanged: {
+        onEffectiveHeightChanged: {
             var m = Object.assign({}, root._heightMap);
-            m[slot.itemData.id] = slot.itemHeight;
+            m[slot.itemData.id] = slot.effectiveHeight;
             root._heightMap = m;
+            slot._armSettle();
         }
 
         Layout.alignment: Qt.AlignCenter
         visible: slot.forceVisible || root._isVisibleInRow(slot.itemData.id)
-        Layout.preferredWidth: slot.itemWidth
-        Layout.preferredHeight: slot.itemHeight
-        implicitWidth: Layout.preferredWidth
-        implicitHeight: Layout.preferredHeight
+        clip: slot.clipToSlot
+        Layout.preferredWidth: slot.effectiveWidth
+        Layout.preferredHeight: slot.effectiveHeight
+        implicitWidth: slot.effectiveWidth
+        implicitHeight: slot.effectiveHeight
 
         DragHandler {
             id: dragHandler
@@ -1021,48 +1178,131 @@ Item {
             y: BarConfig.isVertical ? parent.height + root._gap / 2 - height / 2 : 0
         }
 
+        // Lit while a drag is held over this atom, arming a manual-chevron spawn.
+        Rectangle {
+            anchors.fill: parent
+            anchors.margins: -3
+            radius: 8
+            color: "transparent"
+            border.color: Colors.accent
+            border.width: 2
+            opacity: 0.7
+            z: 9
+            visible: root._dragItemData !== null && !slot._isDragging && root._holdTargetKey === ("chv:" + slot.itemData.id)
+        }
+
         Loader {
             id: content
+            // Renders at items implicit width/height as soon as it loads.
+            anchors.centerIn: parent
             active: BarItemsService.isEnabled(slot.itemData.id)
             visible: active && (item == null || item.available !== false)
             opacity: slot._isDragging ? 0.3 : 1
 
             Component.onCompleted: {
-                if (slot.itemData.src)
-                    content.source = slot.itemData.src;
+                if (slot.itemData.chevron)
+                    content.sourceComponent = chevronComponent;
                 else
-                    content.sourceComponent = simpleButton;
+                    content.source = slot.itemData.src;
             }
 
             onLoaded: {
-                if (!slot.itemData.src) {
-                    content.item.icon = slot.itemData.icon ?? "";
-                    if (slot.itemData.id === "home") {
-                        content.item.active = Qt.binding(() => HomeWindowService.windowOpen);
-                        content.item.clicked.connect(() => {
-                            if (HomeWindowService.windowOpen)
-                                HomeWindowService.requestClose();
-                            else
-                                HomeWindowService.openPage("home");
-                        });
-                    } else if (slot.itemData.id === "settings") {
-                        content.item.active = Qt.binding(() => SettingsWindowService.windowOpen);
-                        content.item.clicked.connect(() => {
-                            if (SettingsWindowService.windowOpen)
-                                SettingsWindowService.requestClose();
-                            else
-                                SettingsWindowService.openPage("appearance");
-                        });
-                    } else if (slot.itemData.id === "lock") {
-                        content.item.clicked.connect(() => {
-                            LockService.triggerLock();
-                        });
-                    }
+                if (content.item && content.item.barAnimatesSize === false)
+                    slot.animateSize = false;
+                if (slot.itemData.chevron) {
+                    slot.clipToSlot = true;
+                    content.width = Qt.binding(() => BarConfig.isVertical ? content.implicitWidth : slot.effectiveWidth);
+                    content.height = Qt.binding(() => BarConfig.isVertical ? slot.effectiveHeight : content.implicitHeight);
+                    content.item.chevronId = slot.itemData.id;
+                    content.item.memberIds = Qt.binding(() => slot.itemData.ids);
                 } else if (slot.itemData.id === "workspace") {
+                    // This is bad practice. But a quick fix.
+                    // TODO: We should let widgets declare it themselves.
+                    slot.animateSize = false;
                     content.item.screenName = Qt.binding(() => root.screenName);
                     content.item.barZoneRow = root;
                 }
             }
+        }
+    }
+    // Manual chevron rendered inline.
+    // Clicking it will expand/collapse it.
+    // The chevron only reports its target implicitWidth - _toggleExtent
+    // collapsed, _toggleExtent + gap + members expanded
+    component ChevronAtom: Item {
+        id: chAtom
+        property string chevronId: ""
+        property var memberIds: []
+        property bool available: true
+
+        readonly property bool expanded: root._isChevronExpanded(chAtom.chevronId)
+        readonly property bool _vert: BarConfig.isVertical
+        readonly property real _toggleExtent: root._chevronWidth
+
+        readonly property real _membersExtent: {
+            var ids = chAtom.memberIds || [];
+            var total = 0;
+            var n = 0;
+            for (var i = 0; i < ids.length; i++) {
+                if (root._availabilityMap[ids[i]] === false)
+                    continue;
+                var s = (chAtom._vert ? root._heightMap[ids[i]] : root._widthMap[ids[i]]) || 0;
+                if (s <= 0)
+                    continue;
+                total += s + (n > 0 ? root._gap : 0);
+                n++;
+            }
+            return total;
+        }
+
+        readonly property real _axisTarget: Math.round((chAtom.expanded && chAtom._membersExtent > 0) ? chAtom._toggleExtent + root._gap + chAtom._membersExtent : chAtom._toggleExtent)
+
+        implicitWidth: chAtom._vert ? chAtom._toggleExtent : chAtom._axisTarget
+        implicitHeight: chAtom._vert ? chAtom._axisTarget : chAtom._toggleExtent
+        clip: true
+
+        GridLayout {
+            id: membersGrid
+            rowSpacing: root._gap
+            columnSpacing: root._gap
+            rows: chAtom._vert ? -1 : 1
+            columns: chAtom._vert ? 1 : -1
+
+            anchors.right: chAtom._vert ? undefined : toggleBtn.left
+            anchors.rightMargin: chAtom._vert ? 0 : root._gap
+            anchors.bottom: chAtom._vert ? toggleBtn.top : undefined
+            anchors.bottomMargin: chAtom._vert ? root._gap : 0
+            anchors.verticalCenter: chAtom._vert ? undefined : parent.verticalCenter
+            anchors.horizontalCenter: chAtom._vert ? parent.horizontalCenter : undefined
+
+            opacity: chAtom.expanded ? 1 : 0
+            Behavior on opacity {
+                NumberAnimation {
+                    duration: Anim.fast
+                }
+            }
+
+            Repeater {
+                model: chAtom.memberIds
+                delegate: TrayItemSlot {
+                    id: chSlot
+                    required property string modelData
+                    itemData: root._catalogItem(chSlot.modelData)
+                    reorderable: true
+                    visible: chSlot.itemAvailable
+                }
+            }
+        }
+
+        BarButton {
+            id: toggleBtn
+            anchors.right: chAtom._vert ? undefined : parent.right
+            anchors.bottom: chAtom._vert ? parent.bottom : undefined
+            anchors.verticalCenter: chAtom._vert ? undefined : parent.verticalCenter
+            anchors.horizontalCenter: chAtom._vert ? parent.horizontalCenter : undefined
+            icon: "»"
+            active: chAtom.expanded
+            onClicked: root._toggleChevronExpanded(chAtom.chevronId)
         }
     }
 
@@ -1074,48 +1314,119 @@ Item {
         required property int islandIndex
         required property var ids
 
+        readonly property var _members: pill.ids.map(function (m) {
+            return BarItemsService._memberIsChevron(m) ? ({
+                    id: m.chevron,
+                    chevron: true,
+                    ids: m.ids,
+                    label: "»"
+                }) : m;
+        })
+        readonly property var _memberIds: pill.ids.map(m => BarItemsService._memberId(m))
+        readonly property var _availableMembers: {
+            var out = [];
+            for (var i = 0; i < pill.ids.length; i++) {
+                var m = pill.ids[i];
+                if (BarItemsService._memberIsChevron(m) || root._isAvailable(m))
+                    out.push(m);
+            }
+            return out;
+        }
+        readonly property var _availableMemberIds: pill._availableMembers.map(m => BarItemsService._memberId(m))
+
         readonly property bool _suppressBackground: root._islandPad(pill.ids) === 0
 
-        visible: pill._availableIds.length > 0
+        visible: pill._availableMemberIds.length > 0
         implicitWidth: BarConfig.isVertical ? BarConfig.islandThickness : (pillLayout.implicitWidth + (pill._suppressBackground ? 0 : root._pad))
         implicitHeight: BarConfig.isVertical ? (pillLayout.implicitHeight + (pill._suppressBackground ? 0 : root._pad)) : BarConfig.islandThickness
 
-        readonly property var _availableIds: root._availableIdsIn(pill.ids)
         readonly property real _budget: root._islandBudgetsForZone(pill.zoneRawIndex, root._zoneWidthFor(pill.zoneRawIndex))[pill.islandIndex] ?? -1
-        readonly property int _fitCount: root._fitCountFor(pill._availableIds, pill._budget)
-        readonly property bool _hasOverflow: pill._fitCount < pill._availableIds.length
+        // An island with an unfolded chevron is incompressible (_islandMinWidth)
+        readonly property int _fitCountLive: root._idsHaveExpandedChevron(pill.ids) ? pill._availableMembers.length : root._fitCountFor(pill._availableMembers, pill._budget)
+        // Keeps track of _fitCountLive except for when an atom is
+        // mid-size-morph. Then it'll just wait and resyncs when the morph
+        // is completed.
+        property int _fitCount: pill._fitCountLive
+        property var _frozenVisibleIds: []
+        function _syncFitCount() {
+            if (root._atomResizing <= 0) {
+                pill._fitCount = pill._fitCountLive;
+                pill._frozenVisibleIds = pill._availableMemberIds.slice(Math.max(0, pill._availableMemberIds.length - pill._fitCount));
+                return;
+            }
+            if (pill._frozenVisibleIds.length === 0)
+                return; // nothing was visible pre-morph, leave _fitCount as-is
+            var ids = pill._availableMemberIds;
+            var minIdx = -1;
+            for (var i = 0; i < pill._frozenVisibleIds.length; i++) {
+                var k = ids.indexOf(pill._frozenVisibleIds[i]);
+                if (k >= 0 && (minIdx < 0 || k < minIdx))
+                    minIdx = k;
+            }
+            if (minIdx >= 0)
+                pill._fitCount = ids.length - minIdx;
+        }
+
+        Component.onCompleted: {
+            pill._fitCount = pill._fitCountLive;
+            pill._frozenVisibleIds = pill._availableMemberIds.slice(Math.max(0, pill._availableMemberIds.length - pill._fitCount));
+        }
+        on_FitCountLiveChanged: pill._syncFitCount()
+
+        readonly property int _availableCount: pill._availableMembers.length
+        on_AvailableCountChanged: pill._syncFitCount()
+        Connections {
+            target: root
+            function on_AtomResizingChanged() {
+                pill._syncFitCount();
+            }
+        }
+        readonly property bool _hasOverflow: pill._fitCount < pill._availableMembers.length
 
         function isOverflowed(id) {
-            var idx = pill._availableIds.indexOf(id);
-            return idx >= 0 && idx < (pill._availableIds.length - pill._fitCount);
+            var idx = pill._availableMemberIds.indexOf(id);
+            return idx >= 0 && idx < (pill._availableMemberIds.length - pill._fitCount);
         }
         function isVisibleInRow(id) {
-            var idx = pill._availableIds.indexOf(id);
-            return idx >= 0 && idx >= (pill._availableIds.length - pill._fitCount);
+            var idx = pill._availableMemberIds.indexOf(id);
+            return idx >= 0 && idx >= (pill._availableMemberIds.length - pill._fitCount);
         }
         function slotFor(id) {
-            var idx = pill.ids.indexOf(id);
+            var idx = pill._memberIds.indexOf(id);
             return idx >= 0 ? innerRepeater.itemAt(idx) : null;
         }
 
-        readonly property real _maxOverflowedItemWidth: {
+        function memberAt(p) {
+            for (var i = 0; i < innerRepeater.count; i++) {
+                var s = innerRepeater.itemAt(i);
+                if (!s || !s.visible)
+                    continue;
+                var tl = s.mapToItem(root, 0, 0);
+                if (p.x >= tl.x && p.x <= tl.x + s.width && p.y >= tl.y && p.y <= tl.y + s.height)
+                    return {
+                        id: pill._memberIds[i],
+                        isChevron: BarItemsService._memberIsChevron(pill.ids[i])
+                    };
+            }
+            return null;
+        }
+
+        // Largest uneased size among the currently overflowed members,
+        // on the given axis. Sizes the overflow popup rows.
+        function _maxOverflowedItem(vertical) {
             var max = 0;
-            for (var i = 0; i < pill._availableIds.length - pill._fitCount; i++) {
-                var s = pill.slotFor(pill._availableIds[i]);
-                if (s && s.itemWidth > max)
-                    max = s.itemWidth;
+            for (var i = 0; i < pill._availableMemberIds.length - pill._fitCount; i++) {
+                var s = pill.slotFor(pill._availableMemberIds[i]);
+                if (!s)
+                    continue;
+                var v = vertical ? s.itemHeight : s.itemWidth;
+                if (v > max)
+                    max = v;
             }
             return max;
         }
-        readonly property real _maxOverflowedItemHeight: {
-            var max = 0;
-            for (var i = 0; i < pill._availableIds.length - pill._fitCount; i++) {
-                var s = pill.slotFor(pill._availableIds[i]);
-                if (s && s.itemHeight > max)
-                    max = s.itemHeight;
-            }
-            return max;
-        }
+        readonly property real _maxOverflowedItemWidth: pill._maxOverflowedItem(false)
+        readonly property real _maxOverflowedItemHeight: pill._maxOverflowedItem(true)
 
         Surface {
             anchors.fill: parent
@@ -1167,11 +1478,11 @@ Item {
 
             Repeater {
                 id: innerRepeater
-                model: pill.ids
+                model: pill._members
                 delegate: TrayItemSlot {
                     id: traySlot
-                    required property string modelData
-                    itemData: root._catalogItem(traySlot.modelData)
+                    required property var modelData
+                    itemData: (typeof traySlot.modelData === "string") ? root._catalogItem(traySlot.modelData) : traySlot.modelData
                     reorderable: true
                 }
             }
@@ -1182,7 +1493,7 @@ Item {
             anchorItem: chevronLoader
             implicitWidth: Math.max(Math.round(180 * UIScale.value), pill._maxOverflowedItemWidth + Math.round(90 * UIScale.value) + UIScale.spacingSm * 4)
             readonly property real _rowHeight: Math.max(Math.round(30 * UIScale.value), pill._maxOverflowedItemHeight)
-            implicitHeight: Math.min(Math.round(320 * UIScale.value), Math.max(1, pill.ids.length - pill._fitCount) * (_rowHeight + 2) + Math.round(16 * UIScale.value))
+            implicitHeight: Math.min(Math.round(320 * UIScale.value), Math.max(1, pill._availableMembers.length - pill._fitCount) * (_rowHeight + 2) + Math.round(16 * UIScale.value))
             content: Component {
                 Flickable {
                     contentWidth: width
@@ -1195,11 +1506,13 @@ Item {
                         spacing: 2
 
                         Repeater {
-                            model: pill.ids
+                            model: pill._members
                             delegate: RowLayout {
                                 id: ovRow
-                                required property string modelData
-                                readonly property bool overflowed: pill.isOverflowed(ovRow.modelData)
+                                required property var modelData
+                                readonly property string _mid: (typeof ovRow.modelData === "string") ? ovRow.modelData : ovRow.modelData.id
+                                readonly property var _itemData: (typeof ovRow.modelData === "string") ? root._catalogItem(ovRow.modelData) : ovRow.modelData
+                                readonly property bool overflowed: pill.isOverflowed(ovRow._mid)
                                 Layout.fillWidth: true
                                 Layout.leftMargin: UIScale.spacingSm
                                 Layout.rightMargin: UIScale.spacingSm
@@ -1207,12 +1520,12 @@ Item {
                                 spacing: UIScale.spacingSm
 
                                 TrayItemSlot {
-                                    itemData: root._catalogItem(ovRow.modelData)
+                                    itemData: ovRow._itemData
                                     forceVisible: true
                                     reorderable: true
                                 }
                                 Text {
-                                    text: root._catalogItem(ovRow.modelData).label
+                                    text: (ovRow._itemData && ovRow._itemData.label) ? ovRow._itemData.label : ovRow._mid
                                     Layout.fillWidth: true
                                     color: Colors.text
                                     font.pixelSize: UIScale.fontSmall
@@ -1248,13 +1561,13 @@ Item {
         // flanking runs around it.
         readonly property var _layout: root._islandLayout(zoneGroup.rawIndex, root._zoneWidthFor(zoneGroup.rawIndex))
 
-        implicitWidth: BarConfig.isVertical ? BarConfig.islandThickness : _layout.totalWidth
-        implicitHeight: BarConfig.isVertical ? _layout.totalWidth : BarConfig.islandThickness
+        implicitWidth: BarConfig.isVertical ? BarConfig.islandThickness : Math.round(_layout.totalWidth)
+        implicitHeight: BarConfig.isVertical ? Math.round(_layout.totalWidth) : BarConfig.islandThickness
 
         function pillFor(id) {
             for (var i = 0; i < islandsRepeaterInner.count; i++) {
                 var p = islandsRepeaterInner.itemAt(i);
-                if (p && p.ids.indexOf(id) >= 0)
+                if (p && p._memberIds.indexOf(id) >= 0)
                     return p;
             }
             return null;
@@ -1274,8 +1587,10 @@ Item {
                 readonly property var _zoneLayout: zoneGroup._layout
                 visible: pill._zoneLayout.visible[pill.index] ?? false
 
-                x: BarConfig.isVertical ? (zoneGroup.width - pill.width) / 2 : zoneGroup.width / 2 + (pill._zoneLayout.xs[pill.index] ?? 0)
-                y: BarConfig.isVertical ? zoneGroup.height / 2 + (pill._zoneLayout.xs[pill.index] ?? 0) : (zoneGroup.height - pill.height) / 2
+                readonly property real _rawX: BarConfig.isVertical ? (zoneGroup.width - pill.width) / 2 : zoneGroup.width / 2 + (pill._zoneLayout.xs[pill.index] ?? 0)
+                readonly property real _rawY: BarConfig.isVertical ? zoneGroup.height / 2 + (pill._zoneLayout.xs[pill.index] ?? 0) : (zoneGroup.height - pill.height) / 2
+                x: Math.round(pill._rawX)
+                y: Math.round(pill._rawY)
             }
         }
     }
@@ -1294,12 +1609,7 @@ Item {
             rawIndex: modelData.rawIndex
             islandGroups: modelData.islandGroups
 
-            readonly property var _layoutEntry: {
-                for (var i = 0; i < root._zoneLayout.length; i++)
-                    if (root._zoneLayout[i].rawIndex === zoneDelegate.rawIndex)
-                        return root._zoneLayout[i];
-                return null;
-            }
+            readonly property var _layoutEntry: root._zoneLayoutByRaw[zoneDelegate.rawIndex] ?? null
 
             // Trailing raw zone (e.g. the systray) is anchored to the edge
             // using its own renderedd width/height. _zoneLayout's width for
@@ -1307,20 +1617,22 @@ Item {
             // into that budget.
             readonly property bool _isTrailing: zoneDelegate.rawIndex === BarItemsService.zones.length - 1
 
-            x: {
+            readonly property real _rawX: {
                 if (BarConfig.isVertical)
                     return (root.width - width) / 2;
                 if (zoneDelegate._isTrailing)
                     return root.width - BarConfig.endGap - width;
                 return BarConfig.endGap + (_layoutEntry ? _layoutEntry.pos : 0);
             }
-            y: {
+            readonly property real _rawY: {
                 if (!BarConfig.isVertical)
                     return (root.height - height) / 2;
                 if (zoneDelegate._isTrailing)
                     return root.height - BarConfig.endGap - height;
                 return BarConfig.endGap + (_layoutEntry ? _layoutEntry.pos : 0);
             }
+            x: Math.round(zoneDelegate._rawX)
+            y: Math.round(zoneDelegate._rawY)
         }
     }
 
@@ -1400,7 +1712,32 @@ Item {
         y: root._dragPos.y - height / 2
     }
 
-    // Preview shown once a drag-out-and-hold has armed a brand new zone
+    // Preview shown once a hold over a bare atom has armed a manual chevron
+    // spawn wrapping that atom together with the dragged one.
+    Rectangle {
+        id: chevronSpawnPreview
+        visible: root._spawnChevronArmed
+        z: 999
+        radius: 100
+        color: Colors.barBg
+        opacity: 0.6
+        border.color: Colors.accent
+        border.width: 2
+        width: root._dragItemW + root._pad
+        height: root._dragItemH
+        x: root._dragPos.x - width / 2
+        y: root._dragPos.y - height / 2
+
+        Text {
+            anchors.centerIn: parent
+            text: "»"
+            color: Colors.accent
+            font.pixelSize: UIScale.fontLead
+            font.bold: true
+        }
+    }
+
+    // Preview shown once a drag out and hold has armed a brand new zone
     Item {
         id: spawnZonePreview
         visible: root._spawnZoneArmed

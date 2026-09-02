@@ -99,6 +99,17 @@ Item {
     property var _widthMap: ({})
     property var _heightMap: ({})
 
+    // Per-island snapshot of the visible atom count.
+    // Prevent jump while the manual chevron is expanding
+    property var _islandVisFreeze: ({})
+    function _setIslandVisFreeze(key, n) {
+        if (root._islandVisFreeze[key] === n)
+            return;
+        var m = Object.assign({}, root._islandVisFreeze);
+        m[key] = n;
+        root._islandVisFreeze = m;
+    }
+
     // These functions are pure in the sense that they only perform reads
     // on root. They never mutate variables, they only return and let the caller
     // mutate. This let's us stay sane, and have deterministic behavior.
@@ -110,12 +121,74 @@ Item {
         return rawIndex !== 0 && rawIndex !== root._cfg.totalRaw - 1;
     }
 
-    // Manual chevrons which are expanded cannot be compressed.
-    function _idsHaveExpandedChevron(ids) {
-        for (var i = 0; i < ids.length; i++)
-            if (root._isChevron(ids[i]) && root._expandedChevrons[ids[i].chevron] === true)
-                return true;
-        return false;
+    // Manual chevrons are never put into automatic chevrons
+    function _splitMembers(members) {
+        var chevExtent = 0;
+        var chevCount = 0;
+        var atomSizes = [];
+        for (var i = 0; i < members.length; i++) {
+            var s = root._memberAxisSize(members[i]);
+            if (root._isChevron(members[i])) {
+                chevExtent += s;
+                chevCount++;
+            } else {
+                atomSizes.push(s);
+            }
+        }
+        return {
+            chevExtent: chevExtent,
+            chevCount: chevCount,
+            atomSizes: atomSizes
+        };
+    }
+
+    // Amount of trailing bare atoms which render inline. Manual chevrons are
+    // never counted.
+    function _visibleAtomCountFor(members, budget) {
+        var sp = root._splitMembers(members);
+        var atomsN = sp.atomSizes.length;
+        if (budget < 0)
+            return atomsN;
+        if (atomsN === 0)
+            return 0;
+
+        var inner = budget - root._cfg.pad;
+        var chevPart = sp.chevExtent + sp.chevCount * root._cfg.gap;
+
+        var totalAtoms = 0;
+        for (var t = 0; t < atomsN; t++)
+            totalAtoms += (t > 0 ? root._cfg.gap : 0) + sp.atomSizes[t];
+        if (chevPart + totalAtoms <= inner)
+            return atomsN;
+
+        var used = 0;
+        var count = 0;
+        for (var a = atomsN - 1; a >= 0; a--) {
+            var next = used + (count > 0 ? root._cfg.gap : 0) + sp.atomSizes[a];
+            var reserve = (a > 0) ? (root._cfg.gap + root._cfg.chevronWidth) : 0;
+            if (chevPart + next + reserve > inner)
+                break;
+            used = next;
+            count++;
+        }
+        return count;
+    }
+
+    // Inner (pad-excluded) rendered width of an island's row.
+    function _rowInnerWidth(members, visAtoms) {
+        var sp = root._splitMembers(members);
+        var atomsN = sp.atomSizes.length;
+        var k = Math.max(0, Math.min(visAtoms, atomsN));
+        var sum = sp.chevExtent;
+        for (var j = atomsN - k; j < atomsN; j++)
+            sum += sp.atomSizes[j];
+        var hasOverflow = k < atomsN;
+        if (hasOverflow)
+            sum += root._cfg.chevronWidth;
+        var items = sp.chevCount + k + (hasOverflow ? 1 : 0);
+        if (items === 0)
+            return 0;
+        return sum + (items - 1) * root._cfg.gap;
     }
 
     // ids present for layout
@@ -160,31 +233,6 @@ Item {
         return used;
     }
 
-    function _fitCountFor(members, budget) {
-        if (budget < 0)
-            return members.length;
-        var innerBudget = budget - root._cfg.pad;
-
-        var totalNatural = 0;
-        for (var t = 0; t < members.length; t++)
-            totalNatural += (t > 0 ? root._cfg.gap : 0) + root._memberAxisSize(members[t]);
-        if (totalNatural <= innerBudget)
-            return members.length;
-
-        var used = 0;
-        var count = 0;
-        for (var i = members.length - 1; i >= 0; i--) {
-            var w = root._memberAxisSize(members[i]);
-            var next = used + (count > 0 ? root._cfg.gap : 0) + w;
-            var reserve = (i > 0) ? (root._cfg.gap + root._cfg.chevronWidth) : 0;
-            if (next + reserve > innerBudget)
-                break;
-            used = next;
-            count++;
-        }
-        return count;
-    }
-
     // Is this idlands pill background and padding suppressed?
     function _islandPad(ids) {
         var isWorkspaceOnly = ids.length === 1 && ids[0] === "workspace";
@@ -192,34 +240,24 @@ Item {
     }
 
     // Minimum width of a non-empty island when fully collapsed.
-    // NOTE An island holding an unfolded manual chevron is incompressible!
+    // NOTE Manual chevruns do not fuld into the automatic ones.
     function _islandMinWidth(ids) {
         var avail = root._availableIdsIn(ids);
         if (avail.length === 0)
             return 0;
         var pad = root._islandPad(ids);
         var natural = root._islandNaturalWidth(ids) + pad;
-        if (root._idsHaveExpandedChevron(ids))
-            return natural;
-        return Math.min(natural, pad + root._cfg.chevronWidth);
+        return Math.min(natural, root._rowInnerWidth(avail, 0) + pad);
     }
 
-    function _islandRenderedWidth(ids, budget) {
+    function _islandRenderedWidth(ids, budget, freezeKey) {
         var avail = root._availableIdsIn(ids);
         if (avail.length === 0)
             return 0;
         var pad = root._islandPad(ids);
-        // We freeze any overflow state while the island is morphing.
-        if (budget < 0 || root._atomResizing > 0)
-            return root._islandNaturalWidth(ids) + pad;
-        var fitCount = root._fitCountFor(avail, budget);
-        var hasOverflow = fitCount < avail.length;
-        var used = 0;
-        for (var i = avail.length - fitCount; i < avail.length; i++)
-            used += (used > 0 ? root._cfg.gap : 0) + root._memberAxisSize(avail[i]);
-        if (hasOverflow)
-            used += (used > 0 ? root._cfg.gap : 0) + root._cfg.chevronWidth;
-        return Math.max(used + pad, root._islandMinWidth(ids));
+        var frozen = (root._atomResizing > 0 && freezeKey !== undefined) ? root._islandVisFreeze[freezeKey] : undefined;
+        var vis = (frozen !== undefined) ? frozen : root._visibleAtomCountFor(avail, budget);
+        return Math.max(root._rowInnerWidth(avail, vis) + pad, root._islandMinWidth(ids));
     }
 
     // Per island width budget within a zone, given that zone's own width.
@@ -280,7 +318,7 @@ Item {
             if (avail.length === 0)
                 continue;
             visible[i] = true;
-            widths[i] = budgets ? root._islandRenderedWidth(groups[i], budgets[i]) : Math.max(root._islandMinWidth(groups[i]), root._islandNaturalWidth(groups[i]) + root._islandPad(groups[i]));
+            widths[i] = budgets ? root._islandRenderedWidth(groups[i], budgets[i], rawIndex + ":" + i) : Math.max(root._islandMinWidth(groups[i]), root._islandNaturalWidth(groups[i]) + root._islandPad(groups[i]));
             if (canPin && anchorIdx < 0)
                 for (var j = 0; j < avail.length; j++)
                     if (!root._isChevron(avail[j]) && root._cfg.pinnedIds.indexOf(avail[j]) >= 0) {
@@ -1268,12 +1306,8 @@ Item {
             rows: chAtom._vert ? -1 : 1
             columns: chAtom._vert ? 1 : -1
 
-            anchors.right: chAtom._vert ? undefined : toggleBtn.left
-            anchors.rightMargin: chAtom._vert ? 0 : root._gap
-            anchors.bottom: chAtom._vert ? toggleBtn.top : undefined
-            anchors.bottomMargin: chAtom._vert ? root._gap : 0
-            anchors.verticalCenter: chAtom._vert ? undefined : parent.verticalCenter
-            anchors.horizontalCenter: chAtom._vert ? parent.horizontalCenter : undefined
+            x: chAtom._vert ? Math.round((chAtom.width - membersGrid.width) / 2) : (toggleBtn.x - root._gap - membersGrid.width)
+            y: chAtom._vert ? (toggleBtn.y - root._gap - membersGrid.height) : Math.round((chAtom.height - membersGrid.height) / 2)
 
             opacity: chAtom.expanded ? 1 : 0
             Behavior on opacity {
@@ -1296,10 +1330,10 @@ Item {
 
         BarButton {
             id: toggleBtn
-            anchors.right: chAtom._vert ? undefined : parent.right
-            anchors.bottom: chAtom._vert ? parent.bottom : undefined
-            anchors.verticalCenter: chAtom._vert ? undefined : parent.verticalCenter
-            anchors.horizontalCenter: chAtom._vert ? parent.horizontalCenter : undefined
+            // Pinned to the trailing (eased) edge in both orientations - x/y
+            // bindings, not toggled anchors (see membersGrid above).
+            x: chAtom._vert ? Math.round((chAtom.width - toggleBtn.width) / 2) : (chAtom.width - toggleBtn.width)
+            y: chAtom._vert ? (chAtom.height - toggleBtn.height) : Math.round((chAtom.height - toggleBtn.height) / 2)
             icon: "»"
             active: chAtom.expanded
             onClicked: root._toggleChevronExpanded(chAtom.chevronId)
@@ -1333,6 +1367,15 @@ Item {
             return out;
         }
         readonly property var _availableMemberIds: pill._availableMembers.map(m => BarItemsService._memberId(m))
+        readonly property var _availableAtomIds: {
+            var out = [];
+            for (var i = 0; i < pill._availableMembers.length; i++) {
+                var m = pill._availableMembers[i];
+                if (!BarItemsService._memberIsChevron(m))
+                    out.push(m);
+            }
+            return out;
+        }
 
         readonly property bool _suppressBackground: root._islandPad(pill.ids) === 0
 
@@ -1341,55 +1384,64 @@ Item {
         implicitHeight: BarConfig.isVertical ? (pillLayout.implicitHeight + (pill._suppressBackground ? 0 : root._pad)) : BarConfig.islandThickness
 
         readonly property real _budget: root._islandBudgetsForZone(pill.zoneRawIndex, root._zoneWidthFor(pill.zoneRawIndex))[pill.islandIndex] ?? -1
-        // An island with an unfolded chevron is incompressible (_islandMinWidth)
-        readonly property int _fitCountLive: root._idsHaveExpandedChevron(pill.ids) ? pill._availableMembers.length : root._fitCountFor(pill._availableMembers, pill._budget)
-        // Keeps track of _fitCountLive except for when an atom is
-        // mid-size-morph. Then it'll just wait and resyncs when the morph
-        // is completed.
-        property int _fitCount: pill._fitCountLive
-        property var _frozenVisibleIds: []
-        function _syncFitCount() {
+        readonly property int _visAtomCountLive: root._visibleAtomCountFor(pill._availableMembers, pill._budget)
+        // Tracks _visAtomCountLive except mid atom-size-morph, when it holds
+        // and resyncs once the morph is done.
+        property int _visAtomCount: pill._visAtomCountLive
+        property var _frozenVisibleAtomIds: []
+        // Publish the count for the pure geometry fns, but only while idle,
+        // during a morph _islandRenderedWidth wants the pre-morph value.
+        readonly property string _visFreezeKey: pill.zoneRawIndex + ":" + pill.islandIndex
+        function _publishVisFreeze() {
+            if (root._atomResizing <= 0)
+                root._setIslandVisFreeze(pill._visFreezeKey, pill._visAtomCount);
+        }
+        on_VisAtomCountChanged: pill._publishVisFreeze()
+        function _syncVisAtoms() {
             if (root._atomResizing <= 0) {
-                pill._fitCount = pill._fitCountLive;
-                pill._frozenVisibleIds = pill._availableMemberIds.slice(Math.max(0, pill._availableMemberIds.length - pill._fitCount));
+                pill._visAtomCount = pill._visAtomCountLive;
+                pill._frozenVisibleAtomIds = pill._availableAtomIds.slice(Math.max(0, pill._availableAtomIds.length - pill._visAtomCount));
                 return;
             }
-            if (pill._frozenVisibleIds.length === 0)
-                return; // nothing was visible pre-morph, leave _fitCount as-is
-            var ids = pill._availableMemberIds;
+            if (pill._frozenVisibleAtomIds.length === 0)
+                return; // nothing was visible pre-morph, leave _visAtomCount as-is
+            var ids = pill._availableAtomIds;
             var minIdx = -1;
-            for (var i = 0; i < pill._frozenVisibleIds.length; i++) {
-                var k = ids.indexOf(pill._frozenVisibleIds[i]);
+            for (var i = 0; i < pill._frozenVisibleAtomIds.length; i++) {
+                var k = ids.indexOf(pill._frozenVisibleAtomIds[i]);
                 if (k >= 0 && (minIdx < 0 || k < minIdx))
                     minIdx = k;
             }
             if (minIdx >= 0)
-                pill._fitCount = ids.length - minIdx;
+                pill._visAtomCount = ids.length - minIdx;
         }
 
         Component.onCompleted: {
-            pill._fitCount = pill._fitCountLive;
-            pill._frozenVisibleIds = pill._availableMemberIds.slice(Math.max(0, pill._availableMemberIds.length - pill._fitCount));
+            pill._visAtomCount = pill._visAtomCountLive;
+            pill._frozenVisibleAtomIds = pill._availableAtomIds.slice(Math.max(0, pill._availableAtomIds.length - pill._visAtomCount));
+            root._setIslandVisFreeze(pill._visFreezeKey, pill._visAtomCount);
         }
-        on_FitCountLiveChanged: pill._syncFitCount()
+        on_VisAtomCountLiveChanged: pill._syncVisAtoms()
 
         readonly property int _availableCount: pill._availableMembers.length
-        on_AvailableCountChanged: pill._syncFitCount()
+        on_AvailableCountChanged: pill._syncVisAtoms()
         Connections {
             target: root
             function on_AtomResizingChanged() {
-                pill._syncFitCount();
+                pill._syncVisAtoms();
             }
         }
-        readonly property bool _hasOverflow: pill._fitCount < pill._availableMembers.length
+        readonly property bool _hasOverflow: pill._visAtomCount < pill._availableAtomIds.length
 
         function isOverflowed(id) {
-            var idx = pill._availableMemberIds.indexOf(id);
-            return idx >= 0 && idx < (pill._availableMemberIds.length - pill._fitCount);
+            var idx = pill._availableAtomIds.indexOf(id);
+            return idx >= 0 && idx < (pill._availableAtomIds.length - pill._visAtomCount);
         }
         function isVisibleInRow(id) {
-            var idx = pill._availableMemberIds.indexOf(id);
-            return idx >= 0 && idx >= (pill._availableMemberIds.length - pill._fitCount);
+            if (pill._availableAtomIds.indexOf(id) < 0)
+                return pill._availableMemberIds.indexOf(id) >= 0;
+            var idx = pill._availableAtomIds.indexOf(id);
+            return idx >= (pill._availableAtomIds.length - pill._visAtomCount);
         }
         function slotFor(id) {
             var idx = pill._memberIds.indexOf(id);
@@ -1411,12 +1463,12 @@ Item {
             return null;
         }
 
-        // Largest uneased size among the currently overflowed members,
+        // Largest uneased size among the currently overflowed atoms,
         // on the given axis. Sizes the overflow popup rows.
         function _maxOverflowedItem(vertical) {
             var max = 0;
-            for (var i = 0; i < pill._availableMemberIds.length - pill._fitCount; i++) {
-                var s = pill.slotFor(pill._availableMemberIds[i]);
+            for (var i = 0; i < pill._availableAtomIds.length - pill._visAtomCount; i++) {
+                var s = pill.slotFor(pill._availableAtomIds[i]);
                 if (!s)
                     continue;
                 var v = vertical ? s.itemHeight : s.itemWidth;
@@ -1493,7 +1545,7 @@ Item {
             anchorItem: chevronLoader
             implicitWidth: Math.max(Math.round(180 * UIScale.value), pill._maxOverflowedItemWidth + Math.round(90 * UIScale.value) + UIScale.spacingSm * 4)
             readonly property real _rowHeight: Math.max(Math.round(30 * UIScale.value), pill._maxOverflowedItemHeight)
-            implicitHeight: Math.min(Math.round(320 * UIScale.value), Math.max(1, pill._availableMembers.length - pill._fitCount) * (_rowHeight + 2) + Math.round(16 * UIScale.value))
+            implicitHeight: Math.min(Math.round(320 * UIScale.value), Math.max(1, pill._availableAtomIds.length - pill._visAtomCount) * (_rowHeight + 2) + Math.round(16 * UIScale.value))
             content: Component {
                 Flickable {
                     contentWidth: width
@@ -1613,8 +1665,8 @@ Item {
 
             // Trailing raw zone (e.g. the systray) is anchored to the edge
             // using its own renderedd width/height. _zoneLayout's width for
-            // this zone is a budget. _fitCountFor fits a whole number of items
-            // into that budget.
+            // this zone is a budget. _visibleAtomCountFor fits a whole number
+            // of atoms into that budget.
             readonly property bool _isTrailing: zoneDelegate.rawIndex === BarItemsService.zones.length - 1
 
             readonly property real _rawX: {

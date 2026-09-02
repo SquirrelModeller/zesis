@@ -28,50 +28,41 @@ Singleton {
         set(next);
     }
 
-    function refresh() {
-        _buf = "";
-        _proc.running = true;
-    }
-
-    property string _buf: ""
+    property string _device: ""
 
     Process {
-        id: _proc
+        id: _detectProc
         running: !root.testMode
-        // -m = machine readable: "dev,name,type,current,max"
-        command: ["sh", "-c", "brightnessctl -m 2>/dev/null | head -1 | awk -F',' '{printf \"{\\\"available\\\":true,\\\"current\\\":%s,\\\"max\\\":%s}\\n\",$4,$5}' " + "|| echo '{\"available\":false}'"]
+        command: ["sh", "-c", "d=$(ls /sys/class/backlight 2>/dev/null | head -1); " + "if [ -n \"$d\" ]; then echo \"$d\"; cat \"/sys/class/backlight/$d/max_brightness\"; fi"]
 
-        stdout: SplitParser {
-            onRead: data => root._buf += data + "\n"
-        }
-
-        onRunningChanged: {
-            if (!running && root._buf.length > 0) {
-                var line = root._buf.trim();
-                root._buf = "";
-                try {
-                    var d = JSON.parse(line);
-                    root.available = d.available ?? false;
-                    if (d.available) {
-                        root.current = d.current ?? 0;
-                        root.max = d.max ?? 100;
-                    }
-                } catch (e) {}
+        stdout: StdioCollector {
+            onStreamFinished: {
+                var lines = text.trim().split("\n");
+                if (lines.length >= 2 && lines[0].length > 0) {
+                    root._device = lines[0];
+                    root.max = parseInt(lines[1]) || 100;
+                } else {
+                    root.available = false;
+                }
             }
+        }
+    }
+
+    // Rely on inotify to let us know brightness has changed
+    FileView {
+        id: _currentFile
+        path: root._device ? ("/sys/class/backlight/" + root._device + "/actual_brightness") : ""
+        blockLoading: true
+        watchChanges: true
+        onFileChanged: reload()
+        onLoaded: {
+            root.current = parseInt(text()) || 0;
+            root.available = true;
         }
     }
 
     Process {
         id: _setProc
         running: false
-        onRunningChanged: if (!running)
-            root.refresh()
-    }
-
-    Timer {
-        interval: 3000
-        running: !root.testMode
-        repeat: true
-        onTriggered: root.refresh()
     }
 }

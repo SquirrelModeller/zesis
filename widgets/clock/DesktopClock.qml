@@ -1,6 +1,7 @@
 pragma ComponentBehavior: Bound
 
 import QtQuick
+import Quickshell
 import "./"
 import "../../"
 
@@ -40,20 +41,18 @@ Item {
     property var _date: new Date()
     property bool _dayChangeInProgress: false
     property bool _simulating: false
-    property bool _colonOn: true
+    property real _colonOpacity: 0.85
     property real _naturalDateColW: 0
 
-    Timer {
-        running: true
-        repeat: true
-        interval: 1000
-        onTriggered: {
-            root._colonOn = !root._colonOn;
+    SystemClock {
+        id: sysClock
+        precision: SystemClock.Minutes
+        onDateChanged: {
             if (root._simulating)
                 return;
             if (!root._dayChangeInProgress)
                 root._naturalDateColW = dateCol.implicitWidth;
-            var now = new Date();
+            var now = date;
             var minuteChanged = now.getMinutes() !== root._date.getMinutes() || now.getHours() !== root._date.getHours();
             var dayChanged = now.getDate() !== root._date.getDate() || now.getMonth() !== root._date.getMonth();
             if (!minuteChanged && !dayChanged) {
@@ -67,6 +66,29 @@ Item {
             } else {
                 timeEngine.animateTo(root._toTimeChars(now));
             }
+        }
+    }
+
+    SequentialAnimation {
+        running: ClockSettings.colonMode === "breathe"
+        loops: Animation.Infinite
+        PauseAnimation {
+            duration: 850
+        }
+        NumberAnimation {
+            target: root
+            property: "_colonOpacity"
+            to: 0.18
+            duration: Anim.fast
+        }
+        PauseAnimation {
+            duration: 850
+        }
+        NumberAnimation {
+            target: root
+            property: "_colonOpacity"
+            to: 0.85
+            duration: Anim.fast
         }
     }
 
@@ -120,6 +142,7 @@ Item {
     Component.onCompleted: {
         timeEngine.snapTo(_toTimeChars(new Date()));
         dateEngine.snapTo(_toDateChars(new Date()));
+        root._naturalDateColW = dateCol.implicitWidth;
         ClockSettings.use12HourChanged.connect(function () {
             timeEngine.snapTo(root._toTimeChars(root._date));
         });
@@ -291,9 +314,10 @@ Item {
                     return 0.85;
                 if (ClockSettings.colonMode === "off")
                     return 0.18;
-                return root._colonOn ? 0.85 : 0.18;
+                return root._colonOpacity;
             }
             Behavior on opacity {
+                enabled: ClockSettings.colonMode !== "breathe"
                 NumberAnimation {
                     duration: Anim.fast
                 }

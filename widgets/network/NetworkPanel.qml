@@ -30,6 +30,8 @@ Item {
 
     readonly property bool anyConnected: (NetworkService.mountBackend === "smbnetfs" && NetworkService.smbnetfsConnected.length > 0) || (NetworkService.mountBackend === "mountcifs" && NetworkService.mounts.length > 0)
 
+    readonly property bool selectedHostConnected: (NetworkService.mountBackend === "smbnetfs" && NetworkService.smbnetfsConnected.indexOf(root.selectedHost) >= 0) || (NetworkService.mountBackend === "mountcifs" && NetworkService.serverState[root.selectedHost]?.status === "listed")
+
     ColumnLayout {
         anchors.fill: parent
         spacing: 0
@@ -149,20 +151,6 @@ Item {
                                 radius: width / 2
                                 color: Colors.accent
                                 anchors.verticalCenter: parent.verticalCenter
-
-                                SequentialAnimation on opacity {
-                                    loops: Animation.Infinite
-                                    NumberAnimation {
-                                        to: 0.55
-                                        duration: 1200
-                                        easing.type: Easing.InOutSine
-                                    }
-                                    NumberAnimation {
-                                        to: 1.0
-                                        duration: 1200
-                                        easing.type: Easing.InOutSine
-                                    }
-                                }
                             }
                             Text {
                                 text: I18n.t("network.connected")
@@ -472,6 +460,7 @@ Item {
                                             }
 
                                             SequentialAnimation on height {
+                                                running: root.selectedHostConnected
                                                 loops: Animation.Infinite
                                                 PauseAnimation {
                                                     duration: eqWrap.index * 130

@@ -38,7 +38,7 @@ Singleton {
         return lines.join("\n");
     }
 
-    // If the two frames math, we probably have silence
+    // If the two frames match, we probably have silence
     function _framesEqual(a, b) {
         if (a.length !== b.length)
             return false;
@@ -48,12 +48,38 @@ Singleton {
         return true;
     }
 
+    // Holds one frame's raw values (0..1000)
+    property var _scratch: []
+
+    // This is truly the most cursed JS, in order to avoid split, filter and
+    // parseInt. It parses "12;0;340;...;5;" into out with no allocation.
+    function _parseInto(line, out) {
+        var count = 0, acc = 0, has = false;
+        var len = line.length;
+        for (var i = 0; i < len; i++) {
+            var c = line.charCodeAt(i);
+            if (c >= 48 && c <= 57) {
+                // '0'..'9'
+                acc = acc * 10 + (c - 48);
+                has = true;
+            } else if (c === 59) {
+                // ';'
+                if (has) {
+                    out[count++] = acc;
+                    acc = 0;
+                    has = false;
+                }
+            }
+        }
+        if (has)
+            out[count++] = acc;
+        return count;
+    }
+
     function _onFrame(line) {
-        line = line.trim();
-        if (!line)
-            return;
-        var raw = line.split(";").filter(p => p.length > 0);
-        var n = raw.length >> 1;
+        var s = root._scratch;
+        var total = root._parseInto(line, s);
+        var n = total >> 1;
         if (n < 1)
             return;
         var left = new Array(n);
@@ -61,11 +87,13 @@ Singleton {
         var avg = new Array(n);
         for (var i = 0; i < n; i++) {
             // Left half is mirrored. Index 0 is the highest frequency bar.
-            var l = Math.max(0, Math.min(1, (parseInt(raw[n - 1 - i], 10) || 0) / 1000));
-            var r = Math.max(0, Math.min(1, (parseInt(raw[n + i], 10) || 0) / 1000));
+            var lv = s[n - 1 - i];
+            var rv = s[n + i];
+            var l = lv <= 0 ? 0 : lv >= 1000 ? 1 : lv / 1000;
+            var r = rv <= 0 ? 0 : rv >= 1000 ? 1 : rv / 1000;
             left[i] = l;
             right[i] = r;
-            avg[i] = (l + r) / 2;
+            avg[i] = (l + r) * 0.5;
         }
         if (!root._framesEqual(root.bars, avg))
             root.bars = avg;

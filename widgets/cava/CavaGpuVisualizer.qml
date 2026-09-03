@@ -24,17 +24,31 @@ Item {
         height: 1
         visible: false
 
+        renderTarget: Canvas.FramebufferObject
+        renderStrategy: Canvas.Cooperative
+
         property var barsData: root.bars
         onBarsDataChanged: requestPaint()
         Component.onCompleted: requestPaint()
+
+        readonly property var _greys: {
+            var g = new Array(256);
+            for (var i = 0; i < 256; i++) {
+                var f = i / 255;
+                g[i] = Qt.rgba(f, f, f, 1);
+            }
+            return g;
+        }
 
         onPaint: {
             var ctx = getContext("2d");
             var bars = root.bars;
             var n = bars.length;
+            var greys = dataCanvas._greys;
             for (var i = 0; i < n; i++) {
-                var v = Math.max(0, Math.min(1, bars[i]));
-                ctx.fillStyle = Qt.rgba(v, v, v, 1);
+                var b = bars[i];
+                var v = b <= 0 ? 0 : b >= 1 ? 255 : (b * 255) | 0;
+                ctx.fillStyle = greys[v];
                 ctx.fillRect(i, 0, 1, 1);
             }
             dataTexSource.scheduleUpdate();

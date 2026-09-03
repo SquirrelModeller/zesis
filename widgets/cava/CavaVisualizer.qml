@@ -105,6 +105,15 @@ Item {
         }
     }
 
+    property real _lastActivityCheck: 0
+    function _maybeCheckActivity() {
+        var now = Date.now();
+        if (now - root._lastActivityCheck < 150)
+            return;
+        root._lastActivityCheck = now;
+        root._checkActivity();
+    }
+
     Connections {
         target: DesktopWidgetStore
         function onConfigModeChanged() {
@@ -117,31 +126,16 @@ Item {
     onHeightChanged: if (cpuLoader.item)
         cpuLoader.item.requestPaint()
 
+    on_BarsChanged: {
+        if (cpuLoader.item)
+            cpuLoader.item.requestPaint();
+        root._maybeCheckActivity();
+    }
+
     Connections {
         target: CavaService
         function onCavaAvailableChanged() {
             root._checkActivity();
-        }
-        function onBarsChanged() {
-            if (root.channel === "average") {
-                if (cpuLoader.item)
-                    cpuLoader.item.requestPaint();
-                root._checkActivity();
-            }
-        }
-        function onBarsLeftChanged() {
-            if (root.channel === "left") {
-                if (cpuLoader.item)
-                    cpuLoader.item.requestPaint();
-                root._checkActivity();
-            }
-        }
-        function onBarsRightChanged() {
-            if (root.channel === "right") {
-                if (cpuLoader.item)
-                    cpuLoader.item.requestPaint();
-                root._checkActivity();
-            }
         }
     }
     Connections {
@@ -247,31 +241,27 @@ Item {
                 var vertical = orientation === "left" || orientation === "right";
                 var pitch = Math.max(1, ((vertical ? height : width) - gap * (n - 1)) / n);
 
+                var bez = CavaSettings.bezierFor(root.channel);
+
                 if (CavaSettings.style === "area")
-                    canvas._paintArea(ctx, bars, n, orientation, vertical);
+                    canvas._paintArea(ctx, bars, n, orientation, vertical, bez);
                 else
-                    canvas._paintBars(ctx, bars, n, orientation, vertical, pitch, gap);
+                    canvas._paintBars(ctx, bars, n, orientation, vertical, pitch, gap, bez);
             }
 
-            function _bezOff(t) {
-                var b = CavaSettings.bezierFor(root.channel);
+            function _bezOff(b, t) {
                 if (!b.enabled)
                     return 0;
                 var omt = 1 - t;
                 return omt * omt * omt * b.y0 + 3 * omt * omt * t * b.y1 + 3 * omt * t * t * b.y2 + t * t * t * b.y3;
             }
 
-            function _bezFit() {
-                var b = CavaSettings.bezierFor(root.channel);
-                return b.enabled && b.fit;
-            }
-
-            function _paintBars(ctx, bars, n, orientation, vertical, pitch, gap) {
+            function _paintBars(ctx, bars, n, orientation, vertical, pitch, gap, bez) {
                 ctx.fillStyle = Colors.accent;
                 var barExtent = vertical ? width : height;
-                var fit = canvas._bezFit();
+                var fit = bez.enabled && bez.fit;
                 for (var i = 0; i < n; i++) {
-                    var off = canvas._bezOff(n > 1 ? i / (n - 1) : 0) * barExtent;
+                    var off = canvas._bezOff(bez, n > 1 ? i / (n - 1) : 0) * barExtent;
                     var base = fit ? Math.max(0, Math.min(barExtent, off)) : off;
                     var avail = fit ? (barExtent - base) : barExtent;
                     var len = Math.max(1, bars[i] * avail);
@@ -292,19 +282,19 @@ Item {
                 }
             }
 
-            function _paintArea(ctx, bars, n, orientation, vertical) {
+            function _paintArea(ctx, bars, n, orientation, vertical, bez) {
                 var pts = new Array(n);
                 var baseline;
                 var extent = vertical ? height : width;
                 var step = n > 1 ? extent / (n - 1) : 0;
                 var barExtent = vertical ? width : height;
-                var fit = canvas._bezFit();
+                var fit = bez.enabled && bez.fit;
                 function _room(o) {
                     return fit ? Math.max(0, Math.min(barExtent, o)) : o;
                 }
                 for (var i = 0; i < n; i++) {
                     var cross = i * step;
-                    var off = _room(canvas._bezOff(n > 1 ? i / (n - 1) : 0) * barExtent);
+                    var off = _room(canvas._bezOff(bez, n > 1 ? i / (n - 1) : 0) * barExtent);
                     var len = Math.max(0, bars[i] * (fit ? (barExtent - off) : barExtent));
                     var along;
                     switch (orientation) {
@@ -334,8 +324,8 @@ Item {
                     };
                 }
 
-                var off0 = _room(canvas._bezOff(0) * barExtent);
-                var offN = _room(canvas._bezOff(1) * barExtent);
+                var off0 = _room(canvas._bezOff(bez, 0) * barExtent);
+                var offN = _room(canvas._bezOff(bez, 1) * barExtent);
                 var edge0 = orientation === "top" || orientation === "left" ? off0 : baseline - off0;
                 var edgeN = orientation === "top" || orientation === "left" ? offN : baseline - offN;
                 var baseStart = vertical ? {

@@ -43,6 +43,9 @@ Singleton {
     property var _currentStrings: ({})
     property var _fallbackStrings: ({})
 
+    // Only developers need live reload of the language files
+    readonly property bool _watchFiles: !!Quickshell.env("ZESIS_DEV")
+
     function t(key, args) {
         var s = root._currentStrings[key];
         if (s === undefined)
@@ -112,7 +115,7 @@ Singleton {
     FileView {
         id: manifestView
         path: root._i18nDir + "/manifest.json"
-        watchChanges: true
+        watchChanges: root._watchFiles
         onLoaded: root.manifest = JSON.parse(text())
         onFileChanged: reload()
     }
@@ -125,7 +128,7 @@ Singleton {
     FileView {
         id: localeFile
         path: root._configPath
-        watchChanges: true
+        watchChanges: root._watchFiles
         adapter: localeData
         onFileChanged: reload()
     }
@@ -139,7 +142,7 @@ Singleton {
             id: currentDomainView
             required property string modelData
             path: root._i18nDir + "/" + root.language + "/" + modelData + ".json"
-            watchChanges: true
+            watchChanges: root._watchFiles
             onLoaded: root._mergeCurrent(modelData, text())
             onFileChanged: reload()
         }
@@ -151,7 +154,7 @@ Singleton {
             id: fallbackDomainView
             required property string modelData
             path: root._i18nDir + "/" + root.fallbackLanguage + "/" + modelData + ".json"
-            watchChanges: true
+            watchChanges: root._watchFiles
             onLoaded: root._mergeFallback(modelData, text())
             onFileChanged: reload()
         }

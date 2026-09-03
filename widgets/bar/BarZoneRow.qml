@@ -127,8 +127,9 @@ Item {
         var chevCount = 0;
         var atomSizes = [];
         for (var i = 0; i < members.length; i++) {
-            var s = root._memberAxisSize(members[i]);
-            if (root._isChevron(members[i])) {
+            var isChev = root._isChevron(members[i]);
+            var s = root._memberAxisSizeChecked(members[i], isChev);
+            if (isChev) {
                 chevExtent += s;
                 chevCount++;
             } else {
@@ -142,10 +143,39 @@ Item {
         };
     }
 
+    // We compute in a single pass the unavailable members and partition what is
+    // left into chevrons vs bare atoms.
+    function _splitFor(ids) {
+        var avail = [];
+        var chevExtent = 0;
+        var chevCount = 0;
+        var atomSizes = [];
+        for (var i = 0; i < ids.length; i++) {
+            var m = ids[i];
+            var isChev = root._isChevron(m);
+            if (!(isChev || root._availabilityMap[m] !== false))
+                continue;
+            avail.push(m);
+            var s = root._memberAxisSizeChecked(m, isChev);
+            if (isChev) {
+                chevExtent += s;
+                chevCount++;
+            } else {
+                atomSizes.push(s);
+            }
+        }
+        return {
+            avail: avail,
+            chevExtent: chevExtent,
+            chevCount: chevCount,
+            atomSizes: atomSizes
+        };
+    }
+
     // Amount of trailing bare atoms which render inline. Manual chevrons are
     // never counted.
-    function _visibleAtomCountFor(members, budget) {
-        var sp = root._splitMembers(members);
+    function _visibleAtomCountFor(members, budget, split) {
+        var sp = split || root._splitMembers(members);
         var atomsN = sp.atomSizes.length;
         if (budget < 0)
             return atomsN;
@@ -174,18 +204,18 @@ Item {
         return count;
     }
 
-    // Inner (pad-excluded) rendered width of an island's row.
-    function _rowInnerWidth(members, visAtoms) {
-        var sp = root._splitMembers(members);
-        var atomsN = sp.atomSizes.length;
+    // Inner (pad-excluded) rendered width of an island's row, from an
+    // already-computed split.
+    function _rowInnerWidth(split, visAtoms) {
+        var atomsN = split.atomSizes.length;
         var k = Math.max(0, Math.min(visAtoms, atomsN));
-        var sum = sp.chevExtent;
+        var sum = split.chevExtent;
         for (var j = atomsN - k; j < atomsN; j++)
-            sum += sp.atomSizes[j];
+            sum += split.atomSizes[j];
         var hasOverflow = k < atomsN;
         if (hasOverflow)
             sum += root._cfg.chevronWidth;
-        var items = sp.chevCount + k + (hasOverflow ? 1 : 0);
+        var items = split.chevCount + k + (hasOverflow ? 1 : 0);
         if (items === 0)
             return 0;
         return sum + (items - 1) * root._cfg.gap;
@@ -205,9 +235,14 @@ Item {
     // Those two maps are what GrudLayout and all layout fn read from. One
     // source of truth.
     function _memberAxisSize(m) {
-        var id = root._isChevron(m) ? m.chevron : m;
+        return root._memberAxisSizeChecked(m, root._isChevron(m));
+    }
+
+    // _memberAxisSize, but takes chevron to check for
+    function _memberAxisSizeChecked(m, isChev) {
+        var id = isChev ? m.chevron : m;
         var s = (root._cfg.isVertical ? root._heightMap[id] : root._widthMap[id]) || 0;
-        return (s > 0) ? s : (root._isChevron(m) ? root._cfg.chevronWidth : 0);
+        return (s > 0) ? s : (isChev ? root._cfg.chevronWidth : 0);
     }
 
     // Enabled + chevron normalized zones
@@ -225,12 +260,9 @@ Item {
         return out;
     }
 
-    function _islandNaturalWidth(ids) {
-        var avail = root._availableIdsIn(ids);
-        var used = 0;
-        for (var i = 0; i < avail.length; i++)
-            used += (i > 0 ? root._cfg.gap : 0) + root._memberAxisSize(avail[i]);
-        return used;
+    function _islandNaturalWidth(ids, split) {
+        var sp = split || root._splitFor(ids);
+        return root._rowInnerWidth(sp, sp.atomSizes.length);
     }
 
     // Is this idlands pill background and padding suppressed?
@@ -241,23 +273,23 @@ Item {
 
     // Minimum width of a non-empty island when fully collapsed.
     // NOTE Manual chevruns do not fuld into the automatic ones.
-    function _islandMinWidth(ids) {
-        var avail = root._availableIdsIn(ids);
-        if (avail.length === 0)
+    function _islandMinWidth(ids, split) {
+        var sp = split || root._splitFor(ids);
+        if (sp.avail.length === 0)
             return 0;
         var pad = root._islandPad(ids);
-        var natural = root._islandNaturalWidth(ids) + pad;
-        return Math.min(natural, root._rowInnerWidth(avail, 0) + pad);
+        var natural = root._islandNaturalWidth(ids, sp) + pad;
+        return Math.min(natural, root._rowInnerWidth(sp, 0) + pad);
     }
 
-    function _islandRenderedWidth(ids, budget, freezeKey) {
-        var avail = root._availableIdsIn(ids);
-        if (avail.length === 0)
+    function _islandRenderedWidth(ids, budget, freezeKey, split) {
+        var sp = split || root._splitFor(ids);
+        if (sp.avail.length === 0)
             return 0;
         var pad = root._islandPad(ids);
         var frozen = (root._atomResizing > 0 && freezeKey !== undefined) ? root._islandVisFreeze[freezeKey] : undefined;
-        var vis = (frozen !== undefined) ? frozen : root._visibleAtomCountFor(avail, budget);
-        return Math.max(root._rowInnerWidth(avail, vis) + pad, root._islandMinWidth(ids));
+        var vis = (frozen !== undefined) ? frozen : root._visibleAtomCountFor(null, budget, sp);
+        return Math.max(root._rowInnerWidth(sp, vis) + pad, root._islandMinWidth(ids, sp));
     }
 
     // Per island width budget within a zone, given that zone's own width.
@@ -276,14 +308,15 @@ Item {
         var visibleCount = 0;
         for (var i = 0; i < n; i++) {
             var ids = groups[i];
-            if (root._availableIdsIn(ids).length === 0) {
+            var sp = root._splitFor(ids);
+            if (sp.avail.length === 0) {
                 mins[i] = 0;
                 naturals[i] = 0;
                 budgets[i] = 0;
                 continue;
             }
-            mins[i] = root._islandMinWidth(ids);
-            naturals[i] = Math.max(mins[i], root._islandNaturalWidth(ids) + root._islandPad(ids));
+            mins[i] = root._islandMinWidth(ids, sp);
+            naturals[i] = Math.max(mins[i], root._islandNaturalWidth(ids, sp) + root._islandPad(ids));
             totalMin += mins[i];
             budgets[i] = mins[i];
             visibleCount++;
@@ -314,14 +347,14 @@ Item {
         var anchorIdx = -1;
         var budgets = (budgetWidth !== undefined && budgetWidth >= 0) ? root._islandBudgetsForZone(rawIndex, budgetWidth) : null;
         for (var i = 0; i < n; i++) {
-            var avail = root._availableIdsIn(groups[i]);
-            if (avail.length === 0)
+            var sp = root._splitFor(groups[i]);
+            if (sp.avail.length === 0)
                 continue;
             visible[i] = true;
-            widths[i] = budgets ? root._islandRenderedWidth(groups[i], budgets[i], rawIndex + ":" + i) : Math.max(root._islandMinWidth(groups[i]), root._islandNaturalWidth(groups[i]) + root._islandPad(groups[i]));
+            widths[i] = budgets ? root._islandRenderedWidth(groups[i], budgets[i], rawIndex + ":" + i, sp) : Math.max(root._islandMinWidth(groups[i], sp), root._islandNaturalWidth(groups[i], sp) + root._islandPad(groups[i]));
             if (canPin && anchorIdx < 0)
-                for (var j = 0; j < avail.length; j++)
-                    if (!root._isChevron(avail[j]) && root._cfg.pinnedIds.indexOf(avail[j]) >= 0) {
+                for (var j = 0; j < sp.avail.length; j++)
+                    if (!root._isChevron(sp.avail[j]) && root._cfg.pinnedIds.indexOf(sp.avail[j]) >= 0) {
                         anchorIdx = i;
                         break;
                     }
@@ -400,10 +433,10 @@ Item {
         var groups = root._renderZones[rawIndex] || [];
         var sum = 0, count = 0;
         for (var i = 0; i < groups.length; i++) {
-            var avail = root._availableIdsIn(groups[i]);
-            if (avail.length === 0)
+            var sp = root._splitFor(groups[i]);
+            if (sp.avail.length === 0)
                 continue;
-            sum += (count > 0 ? root._cfg.pillGap : 0) + root._islandMinWidth(groups[i]);
+            sum += (count > 0 ? root._cfg.pillGap : 0) + root._islandMinWidth(groups[i], sp);
             count++;
         }
         return sum;

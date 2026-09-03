@@ -1,6 +1,7 @@
 pragma ComponentBehavior: Bound
 
 import QtQuick
+import Quickshell
 import "./"
 import "../../"
 import "../bar"
@@ -19,7 +20,8 @@ Item {
     property string colonMode: ClockSettings.colonMode
     // "fixed" | "fluid"
     property string widthMode: ClockSettings.widthMode
-    property bool _colonOn: true
+
+    property real _colonOpacity: 0.85
 
     property var _date: new Date()
     property bool _altLatch: false
@@ -43,24 +45,41 @@ Item {
     }
 
     // Clock-specific logic
-
-    // Second tick: colon blink + minute-change detection
-    Timer {
-        running: true
-        repeat: true
-        interval: 1000
-        onTriggered: {
-            root._colonOn = !root._colonOn;
-            var now = new Date();
-            if (now.getMinutes() === root._date.getMinutes() && now.getHours() === root._date.getHours()) {
-                root._date = now;
+    SystemClock {
+        id: sysClock
+        precision: SystemClock.Minutes
+        onDateChanged: {
+            var now = date;
+            if (now.getMinutes() === root._date.getMinutes() && now.getHours() === root._date.getHours())
                 return;
-            }
             root._date = now;
             var h = now.getHours();
             if (h < 2 || h >= 5)
                 root._altLatch = false;
             engine.animateTo(root._resolveTarget(now));
+        }
+    }
+
+    SequentialAnimation {
+        running: root.colonMode === "breathe"
+        loops: Animation.Infinite
+        PauseAnimation {
+            duration: 850
+        }
+        NumberAnimation {
+            target: root
+            property: "_colonOpacity"
+            to: 0.18
+            duration: Anim.fast
+        }
+        PauseAnimation {
+            duration: 850
+        }
+        NumberAnimation {
+            target: root
+            property: "_colonOpacity"
+            to: 0.85
+            duration: Anim.fast
         }
     }
 
@@ -266,9 +285,11 @@ Item {
                     return 0.85;
                 if (root.colonMode === "off")
                     return 0.18;
-                return root._colonOn ? 0.85 : 0.18;
+                return root._colonOpacity;
             }
+
             Behavior on opacity {
+                enabled: root.colonMode !== "breathe"
                 NumberAnimation {
                     duration: Anim.fast
                 }

@@ -98,17 +98,36 @@ Singleton {
     readonly property bool powered: activeAdapter?.enabled ?? false
     readonly property bool scanning: activeAdapter?.discovering ?? false
 
-    readonly property var pairedDevices: {
-        if (!activeAdapter)
-            return [];
-        return activeAdapter.devices.values.filter(d => d.bonded).sort((a, b) => (b.connected - a.connected) || (a.name || a.address).localeCompare(b.name || b.address));
+    property var pairedDevices: []
+    property var nearbyDevices: []
+
+    function _recomputeDeviceLists() {
+        if (!activeAdapter) {
+            root.pairedDevices = [];
+            root.nearbyDevices = [];
+            return;
+        }
+        var all = activeAdapter.devices.values;
+        root.pairedDevices = all.filter(d => d.bonded).sort((a, b) => (b.connected - a.connected) || (a.name || a.address).localeCompare(b.name || b.address));
+        root.nearbyDevices = all.filter(d => !d.bonded).sort((a, b) => (b.pairing - a.pairing) || (a.name || a.address).localeCompare(b.name || b.address));
     }
 
-    readonly property var nearbyDevices: {
-        if (!activeAdapter)
-            return [];
-        return activeAdapter.devices.values.filter(d => !d.bonded).sort((a, b) => (b.pairing - a.pairing) || (a.name || a.address).localeCompare(b.name || b.address));
+    Timer {
+        id: _deviceListDebounce
+        interval: 400
+        repeat: false
+        onTriggered: root._recomputeDeviceLists()
     }
+
+    Connections {
+        target: root.activeAdapter?.devices ?? null
+        function onValuesChanged() {
+            _deviceListDebounce.restart();
+        }
+    }
+
+    onActiveAdapterChanged: _recomputeDeviceLists()
+    Component.onCompleted: _recomputeDeviceLists()
 
     function startScan() {
         if (activeAdapter?.enabled)
@@ -198,6 +217,7 @@ Singleton {
             required property var modelData
             property bool deviceConnected: modelData?.connected ?? false
             property bool deviceBonded: modelData?.bonded ?? false
+            property bool devicePairing: modelData?.pairing ?? false
             property bool ready: false
 
             Component.onCompleted: {
@@ -212,16 +232,24 @@ Singleton {
                     root._notify("low", "", "Connected", devName);
                 else
                     root._notify("low", "", "Disconnected", devName);
+                root._recomputeDeviceLists();
             }
 
             onDeviceBondedChanged: {
-                if (!deviceWatcher.ready || !deviceWatcher.deviceBonded)
+                if (!deviceWatcher.ready)
                     return;
-                if (deviceWatcher.modelData.address === root._pairingAddress) {
+                if (deviceWatcher.deviceBonded && deviceWatcher.modelData.address === root._pairingAddress) {
                     root._pairingAddress = "";
                     _agentProc.running = false;
                     _pairTimeout.stop();
                 }
+                root._recomputeDeviceLists();
+            }
+
+            onDevicePairingChanged: {
+                if (!deviceWatcher.ready)
+                    return;
+                root._recomputeDeviceLists();
             }
         }
     }

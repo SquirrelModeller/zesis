@@ -57,14 +57,6 @@ Item {
                                         duration: Anim.fast
                                     }
                                 }
-
-                                RotationAnimator on rotation {
-                                    running: BluetoothService.scanning
-                                    from: 0
-                                    to: 360
-                                    duration: 1400
-                                    loops: Animation.Infinite
-                                }
                             }
                             Text {
                                 text: BluetoothService.scanning ? I18n.t("bluetooth.stop") : I18n.t("bluetooth.scan")
@@ -622,20 +614,6 @@ Item {
                             radius: width / 2
                             anchors.verticalCenter: parent.verticalCenter
                             color: Colors.accent
-
-                            SequentialAnimation on opacity {
-                                loops: Animation.Infinite
-                                NumberAnimation {
-                                    to: 0.25
-                                    duration: 700
-                                    easing.type: Easing.InOutSine
-                                }
-                                NumberAnimation {
-                                    to: 1.0
-                                    duration: 700
-                                    easing.type: Easing.InOutSine
-                                }
-                            }
                         }
                         Text {
                             text: I18n.t("bluetooth.scanning")

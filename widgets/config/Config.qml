@@ -39,7 +39,9 @@ Item {
                 Layout.fillWidth: true
                 model: [I18n.t("bar.top"), I18n.t("bar.bottom"), I18n.t("bar.left"), I18n.t("bar.right")]
                 currentIndex: ["top", "bottom", "left", "right"].indexOf(BarConfig.side)
-                onActivated: index => BarConfig.write(["top", "bottom", "left", "right"][index])
+                onActivated: index => BarConfig.patch({
+                        side: ["top", "bottom", "left", "right"][index]
+                    })
             }
 
             Divider {
@@ -55,7 +57,9 @@ Item {
                 step: 1
                 value: BarConfig.edgeGap
                 onMoved: function (v) {
-                    BarConfig.writeEdgeGap(Math.round(v));
+                    BarConfig.patch({
+                        edgeGap: Math.round(v)
+                    });
                 }
             }
 
@@ -72,7 +76,9 @@ Item {
                 step: 1
                 value: BarConfig.endGap
                 onMoved: function (v) {
-                    BarConfig.writeEndGap(Math.round(v));
+                    BarConfig.patch({
+                        endGap: Math.round(v)
+                    });
                 }
             }
 

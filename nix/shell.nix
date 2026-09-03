@@ -18,6 +18,7 @@
     clang-tools
     imagemagick
     glsl_analyzer
+    qt6.qtdeclarative
     qt6.qtshadertools
     athroisma
     congeries

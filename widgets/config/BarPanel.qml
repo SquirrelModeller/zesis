@@ -49,7 +49,9 @@ Item {
                     Layout.fillWidth: true
                     model: [I18n.t("bar.top"), I18n.t("bar.bottom"), I18n.t("bar.left"), I18n.t("bar.right")]
                     currentIndex: ["top", "bottom", "left", "right"].indexOf(BarConfig.side)
-                    onActivated: index => BarConfig.write(["top", "bottom", "left", "right"][index])
+                    onActivated: index => BarConfig.patch({
+                            side: ["top", "bottom", "left", "right"][index]
+                        })
                 }
 
                 Divider {
@@ -74,7 +76,9 @@ Item {
                     }
                     ToggleSwitch {
                         checked: BarConfig.showStrip
-                        onToggled: BarConfig.setShowStrip(!BarConfig.showStrip)
+                        onToggled: BarConfig.patch({
+                            showStrip: !BarConfig.showStrip
+                        })
                     }
                 }
                 RowLayout {
@@ -87,7 +91,9 @@ Item {
                     }
                     ToggleSwitch {
                         checked: BarConfig.showIslands
-                        onToggled: BarConfig.setShowIslands(!BarConfig.showIslands)
+                        onToggled: BarConfig.patch({
+                            showIslands: !BarConfig.showIslands
+                        })
                     }
                 }
 
@@ -106,7 +112,9 @@ Item {
                     step: 1
                     value: BarConfig.stripMargin
                     onMoved: function (v) {
-                        BarConfig.writeStripMargin(Math.round(v));
+                        BarConfig.patch({
+                            stripMargin: Math.round(v)
+                        });
                     }
                 }
 
@@ -125,7 +133,9 @@ Item {
                     step: 0.05
                     value: BarConfig.islandRoundness
                     onMoved: function (v) {
-                        BarConfig.writeIslandRoundness(v);
+                        BarConfig.patch({
+                            islandRoundness: v
+                        });
                     }
                 }
 
@@ -142,7 +152,9 @@ Item {
                     step: 1
                     value: BarConfig.edgeGap
                     onMoved: function (v) {
-                        BarConfig.writeEdgeGap(Math.round(v));
+                        BarConfig.patch({
+                            edgeGap: Math.round(v)
+                        });
                     }
                 }
 
@@ -159,7 +171,9 @@ Item {
                     step: 1
                     value: BarConfig.endGap
                     onMoved: function (v) {
-                        BarConfig.writeEndGap(Math.round(v));
+                        BarConfig.patch({
+                            endGap: Math.round(v)
+                        });
                     }
                 }
 
@@ -215,7 +229,9 @@ Item {
                                 }
                                 if (current.length === Quickshell.screens.length)
                                     current = [];
-                                BarConfig.writeMonitors(current);
+                                BarConfig.patch({
+                                    monitors: current
+                                });
                             }
                         }
                     }

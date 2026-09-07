@@ -31,4 +31,5 @@ with pkgs; [
   xdg-utils # xdg-open, file manager
   imagemagick # thumbnail/image conversion
   git # widgets/gitupdate, remote/branch inspection
+  python3 # widgets/audiodevices/* backends, calendar/starfield use cfg.python (needs extra pkgs)
 ]

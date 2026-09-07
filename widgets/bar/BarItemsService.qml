@@ -52,7 +52,7 @@ Singleton {
         {
             id: "airpods",
             label: I18n.t("bar.itemAirpods"),
-            src: "../airpods/AirPods.qml"
+            src: "../audiodevices/airpods/AirPods.qml"
         },
         {
             id: "wifi",

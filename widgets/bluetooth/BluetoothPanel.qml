@@ -6,7 +6,7 @@ import Quickshell.Bluetooth
 import "../../"
 import "../shared"
 import "../shared/inputs"
-import "../airpods"
+import "../audiodevices/airpods"
 
 Item {
     id: root

@@ -8,6 +8,8 @@ import "../appswitcher"
 import "../workspaceindicator"
 import "../display"
 import "../bluetooth"
+import "../audiodevices/airpods"
+import "../audiodevices/gamebuds"
 import "../wifi"
 import "../sound"
 import "../mic"
@@ -122,6 +124,23 @@ IndexedPanelShell {
                     component: bluetoothPanelComp,
                     files: ["bluetooth/BluetoothPanel.qml"]
                 },
+                ...(AirPodsSettings.everSeen || AirPodsService.connected ? [
+                        {
+                            id: "airpods",
+                            icon: "󱡏",
+                            label: I18n.t("settings_chrome.navAirpods"),
+                            component: airpodsPanelComp,
+                            files: ["audiodevices/airpods/AirPodsPanel.qml"]
+                        }
+                    ] : []), ...(GameBudsSettings.everSeen || GameBudsService.connected ? [
+                        {
+                            id: "gamebuds",
+                            icon: "󰊱",
+                            label: I18n.t("settings_chrome.navGamebuds"),
+                            component: gamebudsPanelComp,
+                            files: ["audiodevices/gamebuds/GameBudsPanel.qml"]
+                        }
+                    ] : []),
                 {
                     id: "wifi",
                     icon: "󰤨",
@@ -181,6 +200,14 @@ IndexedPanelShell {
     Component {
         id: bluetoothPanelComp
         BluetoothPanel {}
+    }
+    Component {
+        id: airpodsPanelComp
+        AirPodsPanel {}
+    }
+    Component {
+        id: gamebudsPanelComp
+        GameBudsPanel {}
     }
     Component {
         id: wifiPanelComp

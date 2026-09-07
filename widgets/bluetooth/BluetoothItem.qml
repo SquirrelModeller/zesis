@@ -8,7 +8,7 @@ import "../../"
 import "../bar"
 import "../shared"
 import "../shared/inputs"
-import "../airpods"
+import "../audiodevices/airpods"
 
 BarButton {
     id: root

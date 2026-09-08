@@ -47,9 +47,16 @@ Taken from GameBudsBTService.java:
 Usage:
   python gamebuds_backend.py <MAC> [rfcomm-channel]
   python gamebuds_backend.py <MAC>  # SDP-discovers the SPP channel via sdptool
+
+Debug log: every diagnostic line and every frame in/out is also appended,
+timestamped, to $XDG_CACHE_HOME/zesis/gamebuds_debug.log (~/.cache/zesis/
+if unset) - the fix on 2026-09-08 (acks + pacing) did not fully resolve the
+real-hardware connect/disconnect loop, so this exists to diagnose the next
+failure from a log file instead of live terminal scrollback.
 """
 
 import json
+import os
 import re
 import select
 import socket
@@ -75,6 +82,30 @@ RECONNECT_DELAY = 5
 # ms after every send before releasing the lock for the next queued
 # command
 COMMAND_DELAY = 0.03
+
+_LOG_DIR = (
+    os.environ.get("XDG_CACHE_HOME") or os.path.expanduser("~/.cache")
+) + "/zesis"
+_LOG_PATH = _LOG_DIR + "/gamebuds_debug.log"
+_log_file = None
+
+
+def log(msg: str) -> None:
+    print(msg, file=sys.stderr)
+    global _log_file
+    if _log_file is None:
+        try:
+            os.makedirs(_LOG_DIR, exist_ok=True)
+            _log_file = open(_LOG_PATH, "a", buffering=1)
+        except OSError:
+            return
+    ts = time.strftime("%H:%M:%S") + f".{int(time.time() * 1000) % 1000:03d}"
+    try:
+        _ = _log_file.write(f"[{ts}] {msg}\n")
+        _log_file.flush()
+    except OSError:
+        pass
+
 
 # opcode table, taken from Consts.java$GameBuds
 OPCODES: dict[str, int] = {
@@ -159,12 +190,12 @@ def find_channel(mac: str) -> int:
             timeout=10,
         ).stdout
     except (OSError, subprocess.TimeoutExpired) as e:
-        print(f"# sdptool unavailable ({e}) - defaulting to channel 1", file=sys.stderr)
+        log(f"# sdptool unavailable ({e}) - defaulting to channel 1")
         return 1
     m = re.search(r"Channel:\s*(\d+)", out)
     if m:
         return int(m.group(1))
-    print("# sdptool found no SP record - defaulting to channel 1", file=sys.stderr)
+    log("# sdptool found no SP record - defaulting to channel 1")
     return 1
 
 
@@ -202,7 +233,7 @@ def send_ack(sock: socket.socket, acked_event_id: int, seq_box: list[int]) -> No
     try:
         _ = sock.send(frame)
     except OSError as e:
-        print(f"# ack send failed: {e}", file=sys.stderr)
+        log(f"# ack send failed: {e}")
 
 
 class FrameReader:
@@ -259,7 +290,9 @@ def decode_payload(op: int, payload: bytes) -> dict[str, object] | None:
 
 
 def emit(obj: dict[str, object]):
-    print(json.dumps(obj), flush=True)
+    line = json.dumps(obj)
+    print(line, flush=True)
+    log(f"# emit {line}")
 
 
 def build_command(c: dict[str, object]) -> tuple[int, bytes] | None:
@@ -284,7 +317,7 @@ def build_command(c: dict[str, object]) -> tuple[int, bytes] | None:
 
     op = OPCODES.get(cmd)
     if op is None:
-        print(f"# unknown command: {cmd!r}", file=sys.stderr)
+        log(f"# unknown command: {cmd!r}")
         return None
 
     if cmd == "set_wear_sense_config":
@@ -342,7 +375,7 @@ def handle_command(
     except ValueError:
         parsed = None
     if not isinstance(parsed, dict):
-        print(f"# bad command: {line!r}", file=sys.stderr)
+        log(f"# bad command: {line!r}")
         return
     c = cast("dict[str, object]", parsed)
 
@@ -359,9 +392,9 @@ def handle_command(
 
     try:
         _ = sock.send(frame)
-        print(f"# sent {opcode_name(op)} raw={frame.hex()}", file=sys.stderr)
+        log(f"# sent {opcode_name(op)} raw={frame.hex()}")
     except OSError as e:
-        print(f"# command send failed: {e}", file=sys.stderr)
+        log(f"# command send failed: {e}")
     finally:
         last_send_box[0] = time.monotonic()
 
@@ -377,7 +410,7 @@ def connect(mac: str, local: str, channel: int) -> socket.socket:
 def run(mac: str, channel: int | None):
     local = find_adapter()
     ch = channel if channel is not None else find_channel(mac)
-    print(f"# adapter={local}  gamebuds={mac}  rfcomm_channel={ch}", file=sys.stderr)
+    log(f"# adapter={local}  gamebuds={mac}  rfcomm_channel={ch}")
 
     stdin_buf = ""
     reader = FrameReader()
@@ -386,14 +419,11 @@ def run(mac: str, channel: int | None):
         try:
             sock = connect(mac, local, ch)
         except OSError as e:
-            print(
-                f"# connect failed: {e} - retrying in {RECONNECT_DELAY}s",
-                file=sys.stderr,
-            )
+            log(f"# connect failed: {e} - retrying in {RECONNECT_DELAY}s")
             time.sleep(RECONNECT_DELAY)
             continue
 
-        print("# connected", file=sys.stderr)
+        log("# connected")
         emit({"connected": True})
         seq_box = [0]
         last_send_box = [0.0]
@@ -407,7 +437,7 @@ def run(mac: str, channel: int | None):
                 if sock in readable:
                     data = sock.recv(4096)
                     if not data:
-                        print("# device closed connection", file=sys.stderr)
+                        log("# device closed connection")
                         break
                     for event_id, _dup, payload in reader.feed(data):
                         if not payload:
@@ -447,7 +477,7 @@ def run(mac: str, channel: int | None):
                 if sys.stdin in readable:
                     chunk = sys.stdin.readline()
                     if not chunk:
-                        print("# stdin closed - exiting", file=sys.stderr)
+                        log("# stdin closed - exiting")
                         sock.close()
                         return
                     stdin_buf += chunk
@@ -456,21 +486,20 @@ def run(mac: str, channel: int | None):
                         handle_command(cmdline, sock, seq_box, last_send_box)
 
         except OSError as e:
-            print(f"# socket error: {e}", file=sys.stderr)
+            log(f"# socket error: {e}")
         finally:
             sock.close()
 
         emit({"connected": False})
-        print(f"# disconnected - retrying in {RECONNECT_DELAY}s", file=sys.stderr)
+        log(f"# disconnected - retrying in {RECONNECT_DELAY}s")
         time.sleep(RECONNECT_DELAY)
 
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
-        print(
+        log(
             "Usage: python gamebuds_backend.py <MAC> [rfcomm-channel]\n"
-            "UNVERIFIED against real hardware.",
-            file=sys.stderr,
+            "UNVERIFIED against real hardware."
         )
         sys.exit(1)
 
@@ -480,4 +509,4 @@ if __name__ == "__main__":
     try:
         run(mac_arg, channel_arg)
     except KeyboardInterrupt:
-        print("\n# interrupted", file=sys.stderr)
+        log("\n# interrupted")

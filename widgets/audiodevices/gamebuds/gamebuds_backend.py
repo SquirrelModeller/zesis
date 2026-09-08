@@ -10,7 +10,9 @@ encode/parse, no CRC):
   - framing: sync(1)=0xAA, seq(1), length(2 LE) = 2+len(payload),
     eventId(2 LE) = 0x3000 (command) or 0x3002 (sync/notify), payload(N)
   - transport: Bluetooth SPP/RFCOMM, standard UUID 0x1101
-    (Consts.BLUETOOTH_SPP_UUID)
+    (Consts.BLUETOOTH_SPP_UUID) channel 6
+  - acks are mandatory: TransportLayer.java requires every received
+    command-reply/sync frame be acked back.
 
 Output format (one JSON line per received frame):
   {"connected": true}
@@ -57,6 +59,12 @@ SPP_UUID = "00001101-0000-1000-8000-00805f9b34fb"
 SYNC_WORD = 0xAA
 EVENT_CMD = 0x3000
 EVENT_SYNC = 0x3002
+# TransportLayerPacket.isAckPkt(): a packet whose event-id field is 0.
+EVENT_ACK = 0x0000
+ACK_STATUS_COMPLETE = 0x00
+# TransportLayer.java is where every recieved packet requires an ack
+# unless its event id is the value below.
+ACK_EXEMPT_EVENT_ID = 769
 
 RECONNECT_DELAY = 5
 
@@ -173,6 +181,20 @@ def encode_packet(event_id: int, payload: bytes, seq: int) -> bytes:
         + event_id.to_bytes(2, "little")
         + payload
     )
+
+
+def send_ack(sock: socket.socket, acked_event_id: int, seq_box: list[int]) -> None:
+    """Without an TransportLayer.sendAck() after every recieved command-reply/
+    sync frame the device will time out and wait for it until it just drops
+    the connection.
+    """
+    payload = acked_event_id.to_bytes(2, "little") + bytes([ACK_STATUS_COMPLETE])
+    frame = encode_packet(EVENT_ACK, payload, seq_box[0])
+    seq_box[0] = (seq_box[0] + 1) & 0xFF
+    try:
+        _ = sock.send(frame)
+    except OSError as e:
+        print(f"# ack send failed: {e}", file=sys.stderr)
 
 
 class FrameReader:
@@ -372,6 +394,24 @@ def run(mac: str, channel: int | None):
                     for event_id, _dup, payload in reader.feed(data):
                         if not payload:
                             continue
+
+                        if event_id == EVENT_ACK:
+                            # AckPacket: [toAckId(2 LE), status]
+                            # Prevents infinite loop
+                            if len(payload) >= 3:
+                                acked = payload[0] | (payload[1] << 8)
+                                emit(
+                                    {
+                                        "event": "ack",
+                                        "acked_event": f"0x{acked:04x}",
+                                        "status": payload[2],
+                                    }
+                                )
+                            continue
+
+                        if event_id != ACK_EXEMPT_EVENT_ID:
+                            send_ack(sock, event_id, seq_box)
+
                         op = payload[0]
                         args = payload[1:]
                         kind = "sync" if event_id == EVENT_SYNC else "reply"

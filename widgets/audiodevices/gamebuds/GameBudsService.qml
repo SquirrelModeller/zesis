@@ -242,9 +242,17 @@ Singleton {
         }
     }
 
+    // Same logic from the decompiled java files
+    property double _lastConnectAttempt: 0
+    readonly property int _connectCooldownMs: 30000
+
     function _connectTo(mac, name) {
         if (_daemon.running)
             return;
+        const now = Date.now();
+        if (now - root._lastConnectAttempt < root._connectCooldownMs)
+            return;
+        root._lastConnectAttempt = now;
         root._activeMac = mac;
         _state.deviceName = name || mac;
         _daemon.running = true;

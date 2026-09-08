@@ -475,12 +475,15 @@ def run(mac: str, channel: int | None):
                         emit(obj)
 
                 if sys.stdin in readable:
-                    chunk = sys.stdin.readline()
+                    try:
+                        chunk = os.read(0, 65536)
+                    except OSError:
+                        chunk = b""
                     if not chunk:
                         log("# stdin closed - exiting")
                         sock.close()
                         return
-                    stdin_buf += chunk
+                    stdin_buf += chunk.decode("utf-8", "ignore")
                     while "\n" in stdin_buf:
                         cmdline, stdin_buf = stdin_buf.split("\n", 1)
                         handle_command(cmdline, sock, seq_box, last_send_box)

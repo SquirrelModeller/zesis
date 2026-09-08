@@ -1,32 +1,72 @@
 #!/usr/bin/env python3
 """
-GameBuds RFCOMM/SPP backend UNVERIFIED!!!
+GameBuds RFCOMM/SPP backend.
 
-This has been built from analyzing a decompiled Arctis Companion APK
-(com.steelseries.arctiscompanion 6.7.0).
+Protocol reverse-engineered from the Arctis Companion APK
+(com.steelseries.arctiscompanion 6.7.0) and verified against its
+decompiled sources.
 
-From the decompiled project TransportLayerPacket.java (symmetric
-encode/parse, no CRC):
-  - framing: sync(1)=0xAA, seq(1), length(2 LE) = 2+len(payload),
-    eventId(2 LE) = 0x3000 (command) or 0x3002 (sync/notify), payload(N)
-  - transport: Bluetooth SPP/RFCOMM, standard UUID 0x1101
-    (Consts.BLUETOOTH_SPP_UUID) channel 6
-  - acks are mandatory: TransportLayer.java requires every received
-    command-reply/sync frame be acked back.
-  - commands are paced 30ms apart (RTKBluetoothService's single-threaded
-    command queue + Thread.sleep(commandDelay)). acks are omitted, sent
-    immediately from the RX thread instead.
+Transport framing (TransportLayerPacket.encode), no CRC:
+  AA | tseq(1) | length(2 LE) | event_id(2 LE) | payload(length - 2)
+    - length counts event_id + payload
+    - tseq: TransportLayer.d - starts at 1, wraps 255->1, One counter,
+      shared by outgoing commands and acks.
+    - event_id 0x3000 (EVENT_ID)      = command / command-reply
+      event_id 0x3002 (SYNC_EVENT_ID) = unsolicited sync/notify
+      event_id 0x0000                 = ack (isAckPkt: event_id == 0)
+    - the device also emits frames on other event-ids (0x0c30, 0x0708,
+      ...). RealSil telemetry/DFU channels the GameBuds app itself
+      ignores (onDataReceived only handles 0x3000 / 0x3002). We ack them
+      (the app does too) and pass them through as {"event": "other"}.
 
-Output format (one JSON line per received frame):
+GameBuds command payload (GameBudsBTService.buildAndQueueCommand):
+  aseq(1) | opcode(1) | params(N)
+    - aseq: GameBudsState.commandSequenceId, 0..255 wrapping, bumped once
+      per command, commands only (acks carry no aseq). The device echoes
+      it back as parameters[0]. The app never validates it.
+
+Received-frame parameters (bytes after event_id):
+  parameters[0]  = aseq echo (ignored)
+  parameters[1]  = opcode  -> dispatch
+  parameters[2:] = data
+  parameters empty on a 0x3000 frame => device wants the app to flush its
+  command queue (desync recovery).
+
+Three replies carry L/R/case battery (nullable - 0..100 via toIntBatteryLevel,
+else unknown), all write the same GameBudsState fields:
+  - GET_HEADSET_STATUS (0x11) reply: eventParams[78/79/80], + the full
+    firmware-version block. Also [81]=transparency dev byte, [82]=ANC,
+    [83]=noise, [86/87]=wear cfg/status, [114]=audio mode
+  - GET_HEADSET_WIRELESS_SETTINGS (0xB0) reply: eventParams[6/7/8] - the
+    compact frame, same tail fields as 0x11 minus the firmware block. Send
+    {"cmd": "get_headset_wireless_settings"} for a light refresh.
+  - SYNC_BATTERY_STATUS (0xB7): a 0x3002 push, eventParams[2/3/4]
+    eventParams == our `parameters`; _status_tail() decodes the shared block
+    for 0x11 (base 76) and 0xB0 (base 4).
+
+Acks (TransportLayer.sendAck / AckPacket.encode): every received 0x3000 /
+0x3002 frame is acked with event_id=0x0000, payload = toAckId(2 LE) + status(1)
+toAckId is the transport event_id of the acked frame (0x3000 / 0x3002).
+status 0 = COMPLETE. ackRequired defaults true and nothing registers ignore-ack
+events.
+
+Commands are writeType(1) = NO_RESPONSE: the transport layer sends them
+once and neither waits for nor retransmits on the device's ack. Flow
+control is app-level only. A single-threaded executor sleeps commandDelay
+(GameBuds overrides RTKBluetoothService's 30ms with 50ms) after every
+send, and resendCommandIfNoResponse re-sends a command up to 3x at 1s
+spacing if no reply event arrives.
+
+Output (one JSON line per received frame):
   {"connected": true}
   {"event": "sync", "opcode": "0xc6", "name": "SYNC_WEAR_SENSE_STATUS",
-   "raw": "aa00040000c601", "decoded": {"wear_sense_status": true}}
-  {"event": "reply", "opcode": "0xc5", "name": "SET_WEAR_SENSE_CONFIG",
-   "raw": "..."}
+   "raw": "...", "decoded": {"wear_sense_status": true}}
+  {"event": "reply", "opcode": "0x11", "name": "GET_HEADSET_STATUS", "raw": "..."}
+  {"event": "ack", "acked_event": "0x3000", "status": 0}
+  {"event": "other", "event_id": "0x0c30", "raw": "..."}
 
-Command format (one JSON object per line on stdin)
-Taken from GameBudsBTService.java:
-  {"cmd": "get_headset_status"}
+Command format (one JSON object per line on stdin):
+  {"cmd": "get_headset_status"}                     # alias: {"cmd": "refresh"}
   {"cmd": "set_wear_sense_config", "enabled": true}
   {"cmd": "set_transparent_anc_enabled", "mode": "off|transparency|anc"}
   {"cmd": "set_anc_level", "value": 1..3}           # raw passthrough
@@ -39,19 +79,16 @@ Taken from GameBudsBTService.java:
   {"cmd": "set_auto_off_timer", "value": 0..255}    # minutes, raw passthrough
   {"cmd": "set_volume_limiter", "enabled": true}
   {"cmd": "set_audio_mode", "mode": "2.4g|bt"}
-  {"cmd": "raw", "opcode": "0xc5", "hex": "01"}     # escape hatch for anything
-                                                    # not in the table yet
-  {"cmd": "refresh"}                                # re-request headset status
+  {"cmd": "raw", "opcode": "0xc5", "hex": "01"}     # opcode + param hex
+                                                    # aseq is added for you
 
 Usage:
   python gamebuds_backend.py <MAC> [rfcomm-channel]
   python gamebuds_backend.py <MAC>  # SDP-discovers the SPP channel via sdptool
 
-Debug log: every diagnostic line and every frame in/out is also appended,
+Debug log: every diagnostic line and every frame in/out is appended,
 timestamped, to $XDG_CACHE_HOME/zesis/gamebuds_debug.log (~/.cache/zesis/
-if unset) - the fix on 2026-09-08 (acks + pacing) did not fully resolve the
-real-hardware connect/disconnect loop, so this exists to diagnose the next
-failure from a log file instead of live terminal scrollback.
+if unset).
 """
 
 import json
@@ -66,10 +103,15 @@ from typing import cast
 
 SPP_UUID = "00001101-0000-1000-8000-00805f9b34fb"
 SYNC_WORD = 0xAA
-EVENT_CMD = 0x3000
-EVENT_SYNC = 0x3002
+EVENT_CMD = 0x3000  # Consts.GameBuds.EVENT_ID          - command / command-reply
+EVENT_SYNC = 0x3002  # Consts.GameBuds.SYNC_EVENT_ID    - unsolicited sync/notify
+# TransportLayerPacket.isAckPkt(): a frame whose event-id field is 0.
 EVENT_ACK = 0x0000
 ACK_STATUS_COMPLETE = 0x00
+# TransportLayerPacket.isAckRequired(): event_id != 769. In practice the
+# device only ever sends 0x3000 / 0x3002 / 0x0000 (and the telemetry
+# event-ids, which it does want acked) so this never fires. It is kept to
+# mirror the app.
 ACK_EXEMPT_EVENT_ID = 769
 
 RECONNECT_DELAY = 5
@@ -205,6 +247,10 @@ def find_adapter() -> str:
 
 
 def next_tseq(seq_box: list[int]) -> int:
+    """TransportLayer.a(): transport seq is 1..255, wraps to 1, never 0.
+    One counter shared by commands and acks. Returns the value to use, then
+    advances the box.
+    """
     s = seq_box[0]
     seq_box[0] = 1 if s >= 255 else s + 1
     return s
@@ -221,9 +267,9 @@ def encode_packet(event_id: int, payload: bytes, seq: int) -> bytes:
 
 
 def send_ack(sock: socket.socket, acked_event_id: int, seq_box: list[int]) -> None:
-    """Without an TransportLayer.sendAck() after every recieved command-reply/
-    sync frame the device will time out and wait for it until it just drops
-    the connection.
+    """TransportLayer.sendAck() after every received 0x3000 / 0x3002 frame.
+    Without it the device times out waiting and drops the connection.
+    toAckId is the acked frame's transport event-id.
     """
     payload = acked_event_id.to_bytes(2, "little") + bytes([ACK_STATUS_COMPLETE])
     frame = encode_packet(EVENT_ACK, payload, next_tseq(seq_box))
@@ -253,6 +299,12 @@ class FrameReader:
             if len(self.buf) < 6:
                 break
             length = self.buf[2] | (self.buf[3] << 8)
+            # GameBuds frames top out around 130 bytes. A huge length means
+            # this header came out of a desynced stream. Drop the 0xAA and
+            # rescan.
+            if length > 2048:
+                del self.buf[0]
+                continue
             total = 4 + length
             if len(self.buf) < total:
                 break
@@ -269,10 +321,61 @@ def opcode_name(op: int) -> str:
     return OPCODE_NAMES.get(op, f"UNKNOWN_0x{op:02x}")
 
 
+def _batt(v: int) -> int | None:
+    """toIntBatteryLevel(): 0..100 valid, anything else (0xff etc.) = unknown."""
+    return v if 0 <= v <= 100 else None
+
+
+def _transparency_dev_to_ui(d: int) -> int:
+    """GameBudsBTService.convertDeviceTransparencyToUI(). The device byte is
+    read Java-signed there, so >=128 behaves like a negative -> UI 1.
+      device 0..3 -> 1, 4..6 -> 2, 7..10 -> 3, >=11 -> 1
+    """
+    if d >= 128:
+        d -= 256
+    if d < 7 or d >= 11:
+        return 1 if (d < 4 or d >= 7) else 2
+    return 3
+
+
+def _status_tail(data: bytes, base: int) -> dict[str, object] | None:
+    """The battery + noise/wear/audio block shared by two replies:
+    GET_HEADSET_STATUS (0x11, base=76) and GET_HEADSET_WIRELESS_SETTINGS
+    (0xB0, base=4). data is params[2:] (== the app's eventParams[2:]).
+    base is the left-earbud battery index within it. Offsets from base
+    match handleGetHeadsetStatus / handleGetHeadsetWirelessSettings:
+        +0/+1/+2 L/R/case battery +3 transparency device byte +4 ANC level
+        +5 noise mode +8 wear-sense config +9 wear-sense status +36 audio mode
+    """
+    if len(data) < base + 10:
+        return None
+    out: dict[str, object] = {
+        "left_level": _batt(data[base]),
+        "right_level": _batt(data[base + 1]),
+        "case_level": _batt(data[base + 2]),
+        "transparent_level": _transparency_dev_to_ui(data[base + 3]),
+        "anc_level": data[base + 4],
+        "wear_sense_config": bool(data[base + 8]),
+        "wear_sense_status": bool(data[base + 9]),
+    }
+    nm = NOISE_NAMES.get(data[base + 5])
+    if nm:
+        out["noise_mode"] = nm
+    if len(data) >= base + 37:
+        am = RADIO_NAMES.get(data[base + 36])
+        if am:
+            out["audio_mode"] = am
+    return out
+
+
 def decode_payload(op: int, payload: bytes) -> dict[str, object] | None:
     """Best-effort decode for the handful of opcodes we're confident about."""
     if not payload:
         return None
+    if op == OPCODES["get_headset_status"]:
+        return _status_tail(payload, 76)
+    if op == OPCODES["get_headset_wireless_settings"]:
+        return _status_tail(payload, 4)
     if op == OPCODES["sync_wear_sense_status"]:
         return {"wear_sense_status": bool(payload[0])}
     if op == OPCODES["get_wear_sense_config"] or op == OPCODES["set_wear_sense_config"]:
@@ -285,13 +388,14 @@ def decode_payload(op: int, payload: bytes) -> dict[str, object] | None:
     if op in (OPCODES["get_audio_mode"], OPCODES["set_audio_mode"]):
         name = RADIO_NAMES.get(payload[0])
         return {"audio_mode": name} if name else None
-    # This shit will confirm on startup if communcations are working, hopefully
+    # SYNC_BATTERY_STATUS push. handleGetBatteryStatus reads eventParams[2/3/4]
+    # raw (no clamp). We apply the same 0..100 filter as the other two paths.
     if op == OPCODES["sync_battery_status"]:
         if len(payload) >= 3:
             return {
-                "left_level": payload[0],
-                "right_level": payload[1],
-                "case_level": payload[2],
+                "left_level": _batt(payload[0]),
+                "right_level": _batt(payload[1]),
+                "case_level": _batt(payload[2]),
             }
         return None
     return None
@@ -395,6 +499,9 @@ def handle_command(
     if built is None:
         return
     op, params = built
+    # GameBuds command payload = aseq(1) | opcode(1) | params. aseq is a
+    # per-command counter (commands only, never acks). The device echoes it
+    # back as parameters[0] of the reply.
     a_seq = app_seq_box[0]
     app_seq_box[0] = (a_seq + 1) & 0xFF
     frame = encode_packet(EVENT_CMD, bytes([a_seq, op]) + params, next_tseq(seq_box))
@@ -438,9 +545,9 @@ def run(mac: str, channel: int | None):
 
         log("# connected")
         emit({"connected": True})
-        sock.settimeout(None)
-        seq_box = [1]
-        app_seq_box = [0]
+        sock.settimeout(None)  # drop the connect timeout; select() drives reads
+        seq_box = [1]  # transport seq: 1..255, wraps to 1, never 0
+        app_seq_box = [0]  # app command seq: 0..255 wrapping, commands only
         last_send_box = [0.0]
         # kick things off the same way the app would, ask for status
         handle_command(
@@ -458,8 +565,8 @@ def run(mac: str, channel: int | None):
                         break
                     for event_id, rx_seq, params in reader.feed(data):
                         if event_id == EVENT_ACK:
-                            # AckPacket: [toAckId(2 LE), status]
-                            # Prevents infinite loop
+                            # AckPacket: [toAckId(2 LE), status]. Never ack an
+                            # ack, that would loop forever.
                             if len(params) >= 3:
                                 acked = params[0] | (params[1] << 8)
                                 emit(
@@ -471,12 +578,32 @@ def run(mac: str, channel: int | None):
                                 )
                             continue
 
+                        # every received frame is acked, toAckId is the
+                        # transport event-id
                         if event_id != ACK_EXEMPT_EVENT_ID:
                             send_ack(sock, event_id, seq_box)
 
-                        kind = "sync" if event_id == EVENT_SYNC else "reply"
+                        if event_id == EVENT_SYNC:
+                            kind = "sync"
+                        elif event_id == EVENT_CMD:
+                            kind = "reply"
+                        else:
+                            # RealSil telemetry / DFU event-ids that the
+                            # GameBuds app itself ignores (onDataReceived only
+                            # handles 0x3000 / 0x3002).
+                            emit(
+                                {
+                                    "event": "other",
+                                    "seq": rx_seq,
+                                    "event_id": f"0x{event_id:04x}",
+                                    "raw": params.hex(),
+                                }
+                            )
+                            continue
 
                         if len(params) == 0:
+                            # 0x3000 with no params => device wants us to drop
+                            # any queued commands (desync recovery).
                             emit({"event": kind, "seq": rx_seq, "note": "flush"})
                             continue
                         if len(params) < 2:
@@ -490,6 +617,7 @@ def run(mac: str, channel: int | None):
                             )
                             continue
 
+                        # params[0] = app-seq echo, [1] = opcode, [2:] = data
                         op = params[1]
                         obj: dict[str, object] = {
                             "event": kind,
@@ -531,10 +659,7 @@ def run(mac: str, channel: int | None):
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
-        log(
-            "Usage: python gamebuds_backend.py <MAC> [rfcomm-channel]\n"
-            "UNVERIFIED against real hardware."
-        )
+        log("Usage: python gamebuds_backend.py <MAC> [rfcomm-channel]")
         sys.exit(1)
 
     mac_arg = sys.argv[1]

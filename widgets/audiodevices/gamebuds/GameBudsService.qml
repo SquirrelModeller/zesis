@@ -6,7 +6,6 @@ import Quickshell.Io
 import Quickshell.Services.Mpris
 import "../../bluetooth"
 
-// UNVERIFIED, use at own risk
 Singleton {
     id: root
 
@@ -296,11 +295,15 @@ Singleton {
                         if ("audio_mode" in decoded)
                             _state.audioMode = decoded.audio_mode;
                         if ("left_level" in decoded)
-                            _state.left = decoded.left_level;
+                            _state.left = decoded.left_level || 0;
                         if ("right_level" in decoded)
-                            _state.right = decoded.right_level;
+                            _state.right = decoded.right_level || 0;
                         if ("case_level" in decoded)
-                            _state.caseLevel = decoded.case_level;
+                            _state.caseLevel = decoded.case_level || 0;
+                        if ("anc_level" in decoded)
+                            _state.ancLevel = decoded.anc_level;
+                        if ("transparent_level" in decoded)
+                            _state.transparentLevel = decoded.transparent_level;
                     } else if (d.opcode) {
                         _state.lastRawEvent = {
                             opcode: d.opcode,

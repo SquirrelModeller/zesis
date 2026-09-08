@@ -9,6 +9,7 @@ import "../sysmon"
 import "../globe2d"
 import "../power"
 import "../cava"
+import "../audiodevices"
 import "../../"
 
 Singleton {
@@ -68,6 +69,12 @@ Singleton {
             label: I18n.t("desktop.cavaRightLabel"),
             description: I18n.t("desktop.cavaRightDescription"),
             component: _cavaRightComp
+        },
+        {
+            key: "devices",
+            label: I18n.t("desktop.devicesLabel"),
+            description: I18n.t("desktop.devicesDescription"),
+            component: _devicesComp
         }
     ]
 
@@ -118,5 +125,9 @@ Singleton {
         CavaVisualizer {
             channel: "right"
         }
+    }
+    Component {
+        id: _devicesComp
+        DevicesDisplay {}
     }
 }

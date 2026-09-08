@@ -123,8 +123,14 @@ class BatteryComponent(TypedDict):
 
 
 class EarState(TypedDict):
-    left_ear: bool
-    right_ear: bool
+    primary_ear: bool
+    secondary_ear: bool
+
+
+class BatteryParse(TypedDict):
+    components: dict[str, BatteryComponent]
+    # "left" | "right" | "headset" | None, first pod listed = primary pod
+    primary: str | None
 
 
 class Metadata(TypedDict, total=False):
@@ -133,13 +139,14 @@ class Metadata(TypedDict, total=False):
     firmware: str
 
 
-def parse_battery(data: bytes) -> dict[str, BatteryComponent] | None:
+def parse_battery(data: bytes) -> BatteryParse | None:
     if not data.startswith(H_BATTERY):
         return None
     count = data[6]
     if count > 3 or len(data) != 7 + 5 * count:
         return None
     result: dict[str, BatteryComponent] = {}
+    order: list[str] = []
     for i in range(count):
         o = 7 + 5 * i
         name = COMPONENT.get(data[o], f"comp_{data[o]:02x}")
@@ -150,7 +157,9 @@ def parse_battery(data: bytes) -> dict[str, BatteryComponent] | None:
             "charging": status == "charging",
             "connected": status != "disconnected",
         }
-    return result
+        order.append(name)
+    primary = next((n for n in order if n in ("left", "right", "headset")), None)
+    return {"components": result, "primary": primary}
 
 
 def parse_ear(data: bytes) -> EarState | None:
@@ -160,7 +169,7 @@ def parse_ear(data: bytes) -> EarState | None:
     def in_ear(b: int) -> bool:
         return b == 0x00
 
-    return {"left_ear": in_ear(data[6]), "right_ear": in_ear(data[7])}
+    return {"primary_ear": in_ear(data[6]), "secondary_ear": in_ear(data[7])}
 
 
 def parse_noise(data: bytes) -> str | None:
@@ -248,6 +257,9 @@ class State:
         self.case_charging: bool = False
         self.left_ear: bool = False
         self.right_ear: bool = False
+        self.ear_primary: bool = False
+        self.ear_secondary: bool = False
+        self.primary_pod: str = "left"
         self.connected: bool = False
         self.noise_mode: str = ""  # "" | off | anc | transparency | adaptive
         self.ca_enabled: bool | None = None  # None | True | False
@@ -255,9 +267,13 @@ class State:
         self.model: str = ""
         self.firmware: str = ""
 
-    def update_battery(self, parsed: dict[str, BatteryComponent]) -> bool:
+    def update_battery(self, parsed: BatteryParse) -> bool:
         changed = False
-        for comp, info in parsed.items():
+        new_primary = parsed["primary"]
+        if new_primary in ("left", "right") and self.primary_pod != new_primary:
+            self.primary_pod = new_primary
+            changed = self._apply_ear() or changed
+        for comp, info in parsed["components"].items():
             if comp == "left":
                 if self.left != info["level"] or self.left_charging != info["charging"]:
                     self.left, self.left_charging = info["level"], info["charging"]
@@ -282,13 +298,20 @@ class State:
                     changed = True
         return changed
 
-    def update_ear(self, parsed: EarState) -> bool:
-        changed = (
-            self.left_ear != parsed["left_ear"] or self.right_ear != parsed["right_ear"]
-        )
-        self.left_ear = parsed["left_ear"]
-        self.right_ear = parsed["right_ear"]
+    def _apply_ear(self) -> bool:
+        """Map primary/secondary in-ear flags onto left/right via primary_pod."""
+        if self.primary_pod == "right":
+            new_left, new_right = self.ear_secondary, self.ear_primary
+        else:  # "left" (and headset, which has no R)
+            new_left, new_right = self.ear_primary, self.ear_secondary
+        changed = self.left_ear != new_left or self.right_ear != new_right
+        self.left_ear, self.right_ear = new_left, new_right
         return changed
+
+    def update_ear(self, parsed: EarState) -> bool:
+        self.ear_primary = parsed["primary_ear"]
+        self.ear_secondary = parsed["secondary_ear"]
+        return self._apply_ear()
 
     def set_noise(self, mode: str) -> bool:
         if mode and self.noise_mode != mode:

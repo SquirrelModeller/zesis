@@ -13,6 +13,9 @@ encode/parse, no CRC):
     (Consts.BLUETOOTH_SPP_UUID) channel 6
   - acks are mandatory: TransportLayer.java requires every received
     command-reply/sync frame be acked back.
+  - commands are paced 30ms apart (RTKBluetoothService's single-threaded
+    command queue + Thread.sleep(commandDelay)). acks are omitted, sent
+    immediately from the RX thread instead.
 
 Output format (one JSON line per received frame):
   {"connected": true}
@@ -67,6 +70,11 @@ ACK_STATUS_COMPLETE = 0x00
 ACK_EXEMPT_EVENT_ID = 769
 
 RECONNECT_DELAY = 5
+# RTKBluetoothService.java. Commands go through a single-threaded executor
+# guarded by a binary Semaphore, and ExecuteCommandRunnable sleeps this many
+# ms after every send before releasing the lock for the next queued
+# command
+COMMAND_DELAY = 0.03
 
 # opcode table, taken from Consts.java$GameBuds
 OPCODES: dict[str, int] = {
@@ -322,7 +330,9 @@ def build_command(c: dict[str, object]) -> tuple[int, bytes] | None:
     return op, b""
 
 
-def handle_command(line: str, sock: socket.socket, seq_box: list[int]):
+def handle_command(
+    line: str, sock: socket.socket, seq_box: list[int], last_send_box: list[float]
+):
     line = line.strip()
     if not line:
         return
@@ -342,11 +352,18 @@ def handle_command(line: str, sock: socket.socket, seq_box: list[int]):
     op, payload = built
     frame = encode_packet(EVENT_CMD, bytes([op]) + payload, seq_box[0])
     seq_box[0] = (seq_box[0] + 1) & 0xFF
+
+    elapsed = time.monotonic() - last_send_box[0]
+    if elapsed < COMMAND_DELAY:
+        time.sleep(COMMAND_DELAY - elapsed)
+
     try:
         _ = sock.send(frame)
         print(f"# sent {opcode_name(op)} raw={frame.hex()}", file=sys.stderr)
     except OSError as e:
         print(f"# command send failed: {e}", file=sys.stderr)
+    finally:
+        last_send_box[0] = time.monotonic()
 
 
 def connect(mac: str, local: str, channel: int) -> socket.socket:
@@ -379,8 +396,9 @@ def run(mac: str, channel: int | None):
         print("# connected", file=sys.stderr)
         emit({"connected": True})
         seq_box = [0]
+        last_send_box = [0.0]
         # kick things off the same way the app would, ask for status
-        handle_command('{"cmd": "get_headset_status"}', sock, seq_box)
+        handle_command('{"cmd": "get_headset_status"}', sock, seq_box, last_send_box)
 
         try:
             while True:
@@ -435,7 +453,7 @@ def run(mac: str, channel: int | None):
                     stdin_buf += chunk
                     while "\n" in stdin_buf:
                         cmdline, stdin_buf = stdin_buf.split("\n", 1)
-                        handle_command(cmdline, sock, seq_box)
+                        handle_command(cmdline, sock, seq_box, last_send_box)
 
         except OSError as e:
             print(f"# socket error: {e}", file=sys.stderr)

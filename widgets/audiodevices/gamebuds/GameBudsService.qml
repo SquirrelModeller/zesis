@@ -14,6 +14,7 @@ Singleton {
     readonly property string deviceName: _state.deviceName
     readonly property int leftLevel: _state.left
     readonly property int rightLevel: _state.right
+    readonly property int caseLevel: _state.caseLevel
 
     // live "currently in ear" push (bool|null = unknown)
     readonly property var wearSenseStatus: _state.wearSenseStatus
@@ -122,6 +123,7 @@ Singleton {
         property string deviceName: ""
         property int left: 0
         property int right: 0
+        property int caseLevel: 0
         property var wearSenseStatus: null
         property var wearSenseConfig: null
         property string noiseMode: ""
@@ -293,6 +295,12 @@ Singleton {
                             _state.micMuted = decoded.mic_muted;
                         if ("audio_mode" in decoded)
                             _state.audioMode = decoded.audio_mode;
+                        if ("left_level" in decoded)
+                            _state.left = decoded.left_level;
+                        if ("right_level" in decoded)
+                            _state.right = decoded.right_level;
+                        if ("case_level" in decoded)
+                            _state.caseLevel = decoded.case_level;
                     } else if (d.opcode) {
                         _state.lastRawEvent = {
                             opcode: d.opcode,

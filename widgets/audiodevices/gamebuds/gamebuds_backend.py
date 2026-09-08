@@ -37,7 +37,6 @@ Taken from GameBudsBTService.java:
   {"cmd": "set_bluetooth_volume", "value": 0..15}   # raw passthrough
   {"cmd": "set_24g_volume", "value": 0..15}         # raw passthrough
   {"cmd": "set_auto_off_timer", "value": 0..255}    # minutes, raw passthrough
-                                                    # (QA menu only used 0..90?)
   {"cmd": "set_volume_limiter", "enabled": true}
   {"cmd": "set_audio_mode", "mode": "2.4g|bt"}
   {"cmd": "raw", "opcode": "0xc5", "hex": "01"}     # escape hatch for anything
@@ -69,19 +68,12 @@ SPP_UUID = "00001101-0000-1000-8000-00805f9b34fb"
 SYNC_WORD = 0xAA
 EVENT_CMD = 0x3000
 EVENT_SYNC = 0x3002
-# TransportLayerPacket.isAckPkt(): a packet whose event-id field is 0.
 EVENT_ACK = 0x0000
 ACK_STATUS_COMPLETE = 0x00
-# TransportLayer.java is where every recieved packet requires an ack
-# unless its event id is the value below.
 ACK_EXEMPT_EVENT_ID = 769
 
 RECONNECT_DELAY = 5
-# RTKBluetoothService.java. Commands go through a single-threaded executor
-# guarded by a binary Semaphore, and ExecuteCommandRunnable sleeps this many
-# ms after every send before releasing the lock for the next queued
-# command
-COMMAND_DELAY = 0.03
+COMMAND_DELAY = 0.05
 
 _LOG_DIR = (
     os.environ.get("XDG_CACHE_HOME") or os.path.expanduser("~/.cache")
@@ -212,6 +204,12 @@ def find_adapter() -> str:
     return best_addr
 
 
+def next_tseq(seq_box: list[int]) -> int:
+    s = seq_box[0]
+    seq_box[0] = 1 if s >= 255 else s + 1
+    return s
+
+
 def encode_packet(event_id: int, payload: bytes, seq: int) -> bytes:
     length = 2 + len(payload)
     return (
@@ -228,10 +226,10 @@ def send_ack(sock: socket.socket, acked_event_id: int, seq_box: list[int]) -> No
     the connection.
     """
     payload = acked_event_id.to_bytes(2, "little") + bytes([ACK_STATUS_COMPLETE])
-    frame = encode_packet(EVENT_ACK, payload, seq_box[0])
-    seq_box[0] = (seq_box[0] + 1) & 0xFF
+    frame = encode_packet(EVENT_ACK, payload, next_tseq(seq_box))
     try:
         _ = sock.send(frame)
+        log(f"# ack -> 0x{acked_event_id:04x} raw={frame.hex()}")
     except OSError as e:
         log(f"# ack send failed: {e}")
 
@@ -260,9 +258,10 @@ class FrameReader:
                 break
             frame = bytes(self.buf[:total])
             del self.buf[:total]
+            seq_num = frame[1]
             event_id = frame[4] | (frame[5] << 8)
-            payload = frame[6:total]
-            out.append((event_id, event_id, payload))
+            params = frame[6:total]
+            out.append((event_id, seq_num, params))
         return out
 
 
@@ -286,6 +285,15 @@ def decode_payload(op: int, payload: bytes) -> dict[str, object] | None:
     if op in (OPCODES["get_audio_mode"], OPCODES["set_audio_mode"]):
         name = RADIO_NAMES.get(payload[0])
         return {"audio_mode": name} if name else None
+    # This shit will confirm on startup if communcations are working, hopefully
+    if op == OPCODES["sync_battery_status"]:
+        if len(payload) >= 3:
+            return {
+                "left_level": payload[0],
+                "right_level": payload[1],
+                "case_level": payload[2],
+            }
+        return None
     return None
 
 
@@ -364,7 +372,11 @@ def build_command(c: dict[str, object]) -> tuple[int, bytes] | None:
 
 
 def handle_command(
-    line: str, sock: socket.socket, seq_box: list[int], last_send_box: list[float]
+    line: str,
+    sock: socket.socket,
+    seq_box: list[int],
+    app_seq_box: list[int],
+    last_send_box: list[float],
 ):
     line = line.strip()
     if not line:
@@ -382,9 +394,10 @@ def handle_command(
     built = build_command(c)
     if built is None:
         return
-    op, payload = built
-    frame = encode_packet(EVENT_CMD, bytes([op]) + payload, seq_box[0])
-    seq_box[0] = (seq_box[0] + 1) & 0xFF
+    op, params = built
+    a_seq = app_seq_box[0]
+    app_seq_box[0] = (a_seq + 1) & 0xFF
+    frame = encode_packet(EVENT_CMD, bytes([a_seq, op]) + params, next_tseq(seq_box))
 
     elapsed = time.monotonic() - last_send_box[0]
     if elapsed < COMMAND_DELAY:
@@ -425,10 +438,14 @@ def run(mac: str, channel: int | None):
 
         log("# connected")
         emit({"connected": True})
-        seq_box = [0]
+        sock.settimeout(None)
+        seq_box = [1]
+        app_seq_box = [0]
         last_send_box = [0.0]
         # kick things off the same way the app would, ask for status
-        handle_command('{"cmd": "get_headset_status"}', sock, seq_box, last_send_box)
+        handle_command(
+            '{"cmd": "get_headset_status"}', sock, seq_box, app_seq_box, last_send_box
+        )
 
         try:
             while True:
@@ -439,20 +456,17 @@ def run(mac: str, channel: int | None):
                     if not data:
                         log("# device closed connection")
                         break
-                    for event_id, _dup, payload in reader.feed(data):
-                        if not payload:
-                            continue
-
+                    for event_id, rx_seq, params in reader.feed(data):
                         if event_id == EVENT_ACK:
                             # AckPacket: [toAckId(2 LE), status]
                             # Prevents infinite loop
-                            if len(payload) >= 3:
-                                acked = payload[0] | (payload[1] << 8)
+                            if len(params) >= 3:
+                                acked = params[0] | (params[1] << 8)
                                 emit(
                                     {
                                         "event": "ack",
                                         "acked_event": f"0x{acked:04x}",
-                                        "status": payload[2],
+                                        "status": params[2],
                                     }
                                 )
                             continue
@@ -460,16 +474,31 @@ def run(mac: str, channel: int | None):
                         if event_id != ACK_EXEMPT_EVENT_ID:
                             send_ack(sock, event_id, seq_box)
 
-                        op = payload[0]
-                        args = payload[1:]
                         kind = "sync" if event_id == EVENT_SYNC else "reply"
+
+                        if len(params) == 0:
+                            emit({"event": kind, "seq": rx_seq, "note": "flush"})
+                            continue
+                        if len(params) < 2:
+                            emit(
+                                {
+                                    "event": kind,
+                                    "seq": rx_seq,
+                                    "raw": params.hex(),
+                                    "note": "short",
+                                }
+                            )
+                            continue
+
+                        op = params[1]
                         obj: dict[str, object] = {
                             "event": kind,
+                            "seq": rx_seq,
                             "opcode": f"0x{op:02x}",
                             "name": opcode_name(op),
-                            "raw": payload.hex(),
+                            "raw": params.hex(),
                         }
-                        decoded = decode_payload(op, args)
+                        decoded = decode_payload(op, params[2:])
                         if decoded is not None:
                             obj["decoded"] = decoded
                         emit(obj)
@@ -486,7 +515,9 @@ def run(mac: str, channel: int | None):
                     stdin_buf += chunk.decode("utf-8", "ignore")
                     while "\n" in stdin_buf:
                         cmdline, stdin_buf = stdin_buf.split("\n", 1)
-                        handle_command(cmdline, sock, seq_box, last_send_box)
+                        handle_command(
+                            cmdline, sock, seq_box, app_seq_box, last_send_box
+                        )
 
         except OSError as e:
             log(f"# socket error: {e}")
